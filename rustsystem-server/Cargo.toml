@@ -1,0 +1,11 @@
+[package]
+name = "rustsystem-server"
+version = "0.1.0"
+edition = "2024"
+authors = [ "Felix Hellborg" ]
+
+[dependencies]
+axum = "0.8.4"
+axum-server = { version = "0.7.2", features = ["tls-rustls"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6.4", features = ["fs"] }
