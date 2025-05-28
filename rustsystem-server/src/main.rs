@@ -14,7 +14,7 @@ async fn main() {
         .nest("/remote", rustsystem_remote::router())
         .nest_service(
             "/www",
-            ServeDir::new("../rustsystem-client/static").append_index_html_on_directories(false),
+            ServeDir::new("../rustsystem-client/wrapper").append_index_html_on_directories(false),
         )
         .nest_service("/pkg", ServeDir::new("../rustsystem-client/pkg"));
 
@@ -31,5 +31,5 @@ async fn main() {
 }
 
 async fn index() -> Html<&'static str> {
-    Html(include_str!("../../rustsystem-client/static/index.html"))
+    Html(include_str!("../../rustsystem-client/wrapper/index.html"))
 }
