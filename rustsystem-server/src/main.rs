@@ -11,6 +11,7 @@ use tower_http::services::{ServeDir, ServeFile};
 async fn main() {
     let app = Router::new()
         .route("/", get(index))
+        .nest("/remote", rustsystem_remote::router())
         .nest_service(
             "/www",
             ServeDir::new("../rustsystem-client/static").append_index_html_on_directories(false),

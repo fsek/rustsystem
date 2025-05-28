@@ -1,0 +1,6 @@
+[workspace]
+members = ["rustsystem-remote", "rustsystem-server"]
+resolver = "3"
+
+[workspace.dependencies]
+axum = "0.8.4"
