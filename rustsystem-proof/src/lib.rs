@@ -6,7 +6,7 @@ use std::{
 use bincode::{Decode, Encode};
 use blake3::{Hash, Hasher};
 use bls12_381_plus::elliptic_curve::hash2curve::ExpandMsg;
-use rand::{Rng, TryRngCore};
+use getrandom;
 use serde::{Deserialize, Serialize};
 use zkryptium::{
     bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey},
@@ -18,6 +18,24 @@ use zkryptium::{
 };
 
 const TOKEN_SIZE: usize = 256;
+
+#[derive(Serialize)]
+pub struct RegistrationInfo<S: Scheme>
+where
+    S::Ciphersuite: BbsCiphersuite,
+    <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
+{
+    context: ProofContext,
+    commitment: Commitment<BBSplus<S::Ciphersuite>>,
+}
+impl RegistrationInfo<BbsBls12381Sha256> {
+    pub fn new(context: ProofContext, commitment: Commitment<BbsBls12381Sha256>) -> Self {
+        Self {
+            context,
+            commitment,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Encode, Decode)]
 pub struct ProofContext {
@@ -73,14 +91,14 @@ impl ProofContext {
     }
 }
 
-pub fn generate_tokens_sha(
+pub fn generate_token_sha(
     voter_id: Vec<u8>,
     round_hash: Vec<u8>,
 ) -> Result<(ProofContext, Commitment<BbsBls12381Sha256>, BlindFactor), Box<dyn Error>> {
-    generate_tokens_generic::<BbsBls12381Sha256>(voter_id, round_hash)
+    generate_token_generic::<BbsBls12381Sha256>(voter_id, round_hash)
 }
 
-fn generate_tokens_generic<S: Scheme>(
+fn generate_token_generic<S: Scheme>(
     voter_id: Vec<u8>,
     round_hash: Vec<u8>,
 ) -> Result<
@@ -95,10 +113,8 @@ where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
-    let mut rng = rand::rng();
-
     let mut commited_token = vec![0u8; TOKEN_SIZE];
-    rng.try_fill_bytes(&mut commited_token)?;
+    getrandom::fill(&mut commited_token).unwrap();
 
     let (commitment, proof) =
         Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&[commited_token.clone()]))?;
@@ -117,9 +133,13 @@ where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
-    let mut rng = rand::rng();
-
-    let material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN).map(|_| rng.random()).collect();
+    let material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN)
+        .map(|_| {
+            let mut buf = [0u8];
+            getrandom::fill(&mut buf).unwrap();
+            buf[0]
+        })
+        .collect();
     KeyPair::<BBSplus<S::Ciphersuite>>::generate(&material, None, None).unwrap()
 }
 
@@ -197,4 +217,3 @@ where
         Err("Invalid checksum".into())
     }
 }
-

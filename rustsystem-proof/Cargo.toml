@@ -7,6 +7,6 @@ edition = "2024"
 bincode = "2.0.1"
 blake3 = "1.8.2"
 bls12_381_plus = "0.8.18"
-rand = "0.9.1"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 serde = { version = "1.0.219", features = ["derive"] }
 zkryptium = "0.5.0"
