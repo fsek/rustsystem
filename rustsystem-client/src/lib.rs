@@ -1,16 +1,12 @@
 mod utils;
 
 use rustsystem_proof::{
-    generate_token_sha, ProofContext, RegistrationInfo, RegistrationResponse, ValidationInfo,
+    Provider, RegistrationInfo, RegistrationResponse, Sha256Provider, ValidationInfo,
 };
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{console::info_1, Request, RequestInit, RequestMode, Response};
-use zkryptium::{
-    bbsplus::commitment::BlindFactor,
-    schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
-};
+use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 #[wasm_bindgen]
 extern "C" {
@@ -89,7 +85,7 @@ pub async fn register(voter_id: Vec<u8>, round_hash: Vec<u8>) -> RegistrationRes
 
 #[wasm_bindgen]
 pub async fn send_vote(reg_res: RegistrationResult) -> Result<JsValue, JsValue> {
-    let info = ValidationInfo::new(
+    let info = Sha256Provider::new_val_info(
         reg_res.proof(),
         reg_res.token(),
         serde_wasm_bindgen::from_value::<BlindSignature<BbsBls12381Sha256>>(reg_res.signature())
@@ -124,8 +120,9 @@ async fn try_register(
     voter_id: Vec<u8>,
     round_hash: Vec<u8>,
 ) -> Result<RegistrationResult, JsValue> {
-    let (context, token, commitment, proof) = generate_token_sha(voter_id, round_hash).unwrap();
-    let info = RegistrationInfo::new(context, commitment);
+    let (context, token, commitment, proof) =
+        Sha256Provider::generate_token(voter_id, round_hash).unwrap();
+    let info = Sha256Provider::new_reg_info(context, commitment);
     let body = serde_json::to_string(&info).unwrap();
 
     match get_signature(send_post(&body, "register").await?) {

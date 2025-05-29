@@ -5,26 +5,16 @@ use axum::{
     routing::{get, post},
 };
 use axum_server::tls_rustls::RustlsConfig;
-use rustsystem_proof::{
-    ProofContext, RegistrationInfo, RegistrationResponse, ValidationInfo, authenticate_token_sha,
-    generate_authentication_token_sha, validate_token_sha,
-};
-use serde::Deserialize;
-use std::{error::Error, fs, net::SocketAddr, str::from_utf8, sync::Arc};
-use tower_http::services::{ServeDir, ServeFile};
+use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
+use std::{net::SocketAddr, sync::Arc};
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use zkryptium::{
-    keys::pair::KeyPair,
-    schemes::{
-        algorithms::{BBSplus, BbsBls12381Sha256},
-        generics::{BlindSignature, Commitment},
-    },
-};
+use tracing_subscriber::{EnvFilter, fmt};
+use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 #[tokio::main]
 async fn main() {
-    let keypair = generate_authentication_token_sha();
+    let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
 
     fmt().with_env_filter(EnvFilter::from_default_env()).init();
@@ -71,9 +61,9 @@ async fn register(
     Extension(header): Extension<Arc<Header>>,
     Json(info_json): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let info = RegistrationInfo::<BbsBls12381Sha256>::deserialize(info_json).unwrap();
+    let info = Sha256Provider::reg_info_from_json(info_json).unwrap();
     let signature =
-        authenticate_token_sha(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
+        Sha256Provider::sign_token(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
 
     let res = RegistrationResponse::Accepted(signature);
     println!("{res:?}");
@@ -87,9 +77,9 @@ async fn validate_vote(
     Extension(header): Extension<Arc<Header>>,
     Json(info_json): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let info = ValidationInfo::deserialize(info_json).unwrap();
+    let info = Sha256Provider::val_info_from_json(info_json).unwrap();
 
-    if let Ok(_) = validate_token_sha(
+    if let Ok(_) = Sha256Provider::validate_token(
         info.get_proof(),
         header.0.clone(),
         info.token,
