@@ -37,10 +37,53 @@ impl RegistrationInfo<BbsBls12381Sha256> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+pub enum RegistrationRejectReason {
+    SignatureFailure,
+    AlreadyRegistered,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RegistrationResponse {
-    Rejected,
+    Rejected(RegistrationRejectReason),
     Accepted(BlindSignature<BbsBls12381Sha256>),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ValidationInfo {
+    // BlindFactor doesn't derive Serialize/Deserialize, so it is sent as a slice instead
+    proof: [u8; 32],
+    pub token: Vec<u8>,
+    pub signature: BlindSignature<BbsBls12381Sha256>,
+}
+impl ValidationInfo {
+    pub fn new(
+        proof: Vec<u8>,
+        token: Vec<u8>,
+        signature: BlindSignature<BbsBls12381Sha256>,
+    ) -> Self {
+        ValidationInfo {
+            proof: proof.try_into().unwrap(),
+            token,
+            signature,
+        }
+    }
+
+    pub fn get_proof(&self) -> BlindFactor {
+        BlindFactor::from_bytes(&self.proof).unwrap()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ValidationRejectReason {
+    SignatureInvalid,
+    SignatureExpired,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ValidationResponse {
+    Rejected(ValidationRejectReason),
+    Accepted,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug)]
@@ -98,7 +141,15 @@ impl ProofContext {
 pub fn generate_token_sha(
     voter_id: Vec<u8>,
     round_hash: Vec<u8>,
-) -> Result<(ProofContext, Commitment<BbsBls12381Sha256>, BlindFactor), Box<dyn Error>> {
+) -> Result<
+    (
+        ProofContext,
+        Vec<u8>,
+        Commitment<BbsBls12381Sha256>,
+        BlindFactor,
+    ),
+    Box<dyn Error>,
+> {
     generate_token_generic::<BbsBls12381Sha256>(voter_id, round_hash)
 }
 
@@ -108,6 +159,7 @@ fn generate_token_generic<S: Scheme>(
 ) -> Result<
     (
         ProofContext,
+        Vec<u8>,
         Commitment<BBSplus<S::Ciphersuite>>,
         BlindFactor,
     ),
@@ -125,7 +177,7 @@ where
 
     let context = ProofContext::new(voter_id, round_hash);
 
-    Ok((context, commitment, proof))
+    Ok((context, commited_token, commitment, proof))
 }
 
 pub fn generate_authentication_token_sha() -> KeyPair<BbsBls12381Sha256> {

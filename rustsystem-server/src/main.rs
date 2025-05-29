@@ -6,7 +6,8 @@ use axum::{
 };
 use axum_server::tls_rustls::RustlsConfig;
 use rustsystem_proof::{
-    ProofContext, RegistrationInfo, authenticate_token_sha, generate_authentication_token_sha,
+    ProofContext, RegistrationInfo, RegistrationResponse, ValidationInfo, authenticate_token_sha,
+    generate_authentication_token_sha, validate_token_sha,
 };
 use serde::Deserialize;
 use std::{error::Error, fs, net::SocketAddr, str::from_utf8, sync::Arc};
@@ -30,8 +31,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(index))
-        .route("/try-post", post(test_post))
         .route("/register", post(register))
+        .route("/vote", post(validate_vote))
         .nest("/remote", rustsystem_remote::router())
         .nest_service(
             "/wrapper",
@@ -64,15 +65,6 @@ pub struct AuthenticationKeys(KeyPair<BbsBls12381Sha256>);
 #[derive(Clone)]
 pub struct Header(Vec<u8>);
 
-async fn test_post(
-    Extension(state): Extension<Arc<AuthenticationKeys>>,
-    Json(info): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    println!("Test works");
-    println!("got {info}");
-    (StatusCode::OK, Json("Got get!"))
-}
-
 #[axum::debug_handler]
 async fn register(
     Extension(keys): Extension<Arc<AuthenticationKeys>>,
@@ -83,10 +75,10 @@ async fn register(
     let signature =
         authenticate_token_sha(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
 
-    let res = Json(serde_json::to_string(&signature).unwrap());
+    let res = RegistrationResponse::Accepted(signature);
     println!("{res:?}");
 
-    (StatusCode::OK, res)
+    (StatusCode::OK, Json(serde_json::to_string(&res).unwrap()))
 }
 
 #[axum::debug_handler]
@@ -95,4 +87,19 @@ async fn validate_vote(
     Extension(header): Extension<Arc<Header>>,
     Json(info_json): Json<serde_json::Value>,
 ) -> impl IntoResponse {
+    let info = ValidationInfo::deserialize(info_json).unwrap();
+
+    if let Ok(_) = validate_token_sha(
+        info.get_proof(),
+        header.0.clone(),
+        info.token,
+        keys.0.public_key().clone(),
+        info.signature,
+    ) {
+        println!("Validation Successful");
+        (StatusCode::OK, Json("Success"))
+    } else {
+        println!("Validation Failure");
+        (StatusCode::IM_A_TEAPOT, Json("Validation Failed"))
+    }
 }
