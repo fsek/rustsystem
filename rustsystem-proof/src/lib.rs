@@ -148,16 +148,14 @@ where
 }
 
 pub fn authenticate_token_sha(
-    context: ProofContext,
     commitment: Commitment<BbsBls12381Sha256>,
     header: Vec<u8>,
     keypair: KeyPair<BbsBls12381Sha256>,
 ) -> Result<BlindSignature<BbsBls12381Sha256>, Box<dyn Error>> {
-    authenticate_token_generic::<BbsBls12381Sha256>(context, commitment, header, keypair)
+    authenticate_token_generic::<BbsBls12381Sha256>(commitment, header, keypair)
 }
 
 fn authenticate_token_generic<S: Scheme>(
-    context: ProofContext,
     commitment: Commitment<BBSplus<S::Ciphersuite>>,
     header: Vec<u8>,
     keypair: KeyPair<BBSplus<S::Ciphersuite>>,
@@ -166,21 +164,16 @@ where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
-    if context.validate() {
-        Ok(BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
-            keypair.private_key(),
-            keypair.public_key(),
-            Some(&commitment.to_bytes()),
-            Some(&header),
-            Some(&context.as_messages()),
-        )?)
-    } else {
-        Err("Invalid checksum".into())
-    }
+    Ok(BlindSignature::<BBSplus<S::Ciphersuite>>::blind_sign(
+        keypair.private_key(),
+        keypair.public_key(),
+        Some(&commitment.to_bytes()),
+        Some(&header),
+        None,
+    )?)
 }
 
 pub fn validate_token_sha(
-    context: ProofContext,
     proof: BlindFactor,
     header: Vec<u8>,
     commited_token: Vec<u8>,
@@ -188,7 +181,6 @@ pub fn validate_token_sha(
     signature: BlindSignature<BbsBls12381Sha256>,
 ) -> Result<(), Box<dyn Error>> {
     validate_token_generic::<BbsBls12381Sha256>(
-        context,
         proof,
         header,
         commited_token,
@@ -198,7 +190,6 @@ pub fn validate_token_sha(
 }
 
 fn validate_token_generic<S: Scheme>(
-    context: ProofContext,
     proof: BlindFactor,
     header: Vec<u8>,
     commited_token: Vec<u8>,
@@ -209,15 +200,11 @@ where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
-    if context.validate() {
-        Ok(signature.verify_blind_sign(
-            &authetication_pk,
-            Some(&header),
-            Some(&context.as_messages()),
-            Some(&[commited_token]),
-            Some(&proof),
-        )?)
-    } else {
-        Err("Invalid checksum".into())
-    }
+    Ok(signature.verify_blind_sign(
+        &authetication_pk,
+        Some(&header),
+        None,
+        Some(&[commited_token]),
+        Some(&proof),
+    )?)
 }

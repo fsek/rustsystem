@@ -79,18 +79,20 @@ async fn register(
     Extension(header): Extension<Arc<Header>>,
     Json(info_json): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    println!("Got this far!");
     let info = RegistrationInfo::<BbsBls12381Sha256>::deserialize(info_json).unwrap();
-    let signature = authenticate_token_sha(
-        info.context,
-        info.commitment,
-        header.0.clone(),
-        keys.0.clone(),
-    )
-    .unwrap();
+    let signature =
+        authenticate_token_sha(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
 
     let res = Json(serde_json::to_string(&signature).unwrap());
     println!("{res:?}");
 
     (StatusCode::OK, res)
+}
+
+#[axum::debug_handler]
+async fn validate_vote(
+    Extension(keys): Extension<Arc<AuthenticationKeys>>,
+    Extension(header): Extension<Arc<Header>>,
+    Json(info_json): Json<serde_json::Value>,
+) -> impl IntoResponse {
 }
