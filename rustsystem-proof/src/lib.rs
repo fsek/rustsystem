@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use bincode::{Decode, Encode};
@@ -19,14 +19,14 @@ use zkryptium::{
 
 const TOKEN_SIZE: usize = 256;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RegistrationInfo<S: Scheme>
 where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
-    context: ProofContext,
-    commitment: Commitment<BBSplus<S::Ciphersuite>>,
+    pub context: ProofContext,
+    pub commitment: Commitment<BBSplus<S::Ciphersuite>>,
 }
 impl RegistrationInfo<BbsBls12381Sha256> {
     pub fn new(context: ProofContext, commitment: Commitment<BbsBls12381Sha256>) -> Self {
@@ -37,7 +37,13 @@ impl RegistrationInfo<BbsBls12381Sha256> {
     }
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode)]
+#[derive(Serialize, Deserialize)]
+pub enum RegistrationResponse {
+    Rejected,
+    Accepted(BlindSignature<BbsBls12381Sha256>),
+}
+
+#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct ProofContext {
     voter_id: Vec<u8>,               // Hash of voter's id
     round_hash: Vec<u8>,             // Hash of voting round
@@ -46,9 +52,7 @@ pub struct ProofContext {
 }
 impl ProofContext {
     pub fn new(voter_id: Vec<u8>, round_hash: Vec<u8>) -> Self {
-        let registration_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
+        let registration_timestamp = Duration::from_millis(js_sys::Date::now() as u64)
             .as_secs()
             .to_be_bytes()
             .to_vec();
