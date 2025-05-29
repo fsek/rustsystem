@@ -114,7 +114,7 @@ where
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
 {
     let mut commited_token = vec![0u8; TOKEN_SIZE];
-    getrandom::fill(&mut commited_token).unwrap();
+    getrandom::getrandom(&mut commited_token).unwrap();
 
     let (commitment, proof) =
         Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&[commited_token.clone()]))?;
@@ -136,7 +136,7 @@ where
     let material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN)
         .map(|_| {
             let mut buf = [0u8];
-            getrandom::fill(&mut buf).unwrap();
+            getrandom::getrandom(&mut buf).unwrap();
             buf[0]
         })
         .collect();
