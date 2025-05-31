@@ -1,11 +1,16 @@
+use arrayvec::ArrayString;
 use axum::{
     Extension, Json, Router,
+    extract::Query,
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Redirect},
     routing::{get, post},
 };
 use axum_server::tls_rustls::RustlsConfig;
+use blake3::Hash;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
+use rustsystem_server::session;
+use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
@@ -14,6 +19,8 @@ use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 #[tokio::main]
 async fn main() {
+    session::gen_qr_code().unwrap();
+
     let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
 
@@ -21,6 +28,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/login", get(voter_login))
+        .route("/authorized", get(serve_voter_page))
         .route("/register", post(register))
         .route("/vote", post(validate_vote))
         .nest("/remote", rustsystem_remote::router())
@@ -54,6 +63,22 @@ pub struct AuthenticationKeys(KeyPair<BbsBls12381Sha256>);
 
 #[derive(Clone)]
 pub struct Header(Vec<u8>);
+
+#[derive(Deserialize)]
+struct Credentials {
+    cred: String,
+}
+
+async fn voter_login(cred: Query<Credentials>) -> Redirect {
+    let id = cred.0.cred;
+
+    Redirect::to(&format!("/authorized?cred={id}"))
+}
+
+async fn serve_voter_page(cred: Query<Credentials>) -> Html<&'static str> {
+    println!("{}", cred.0.cred);
+    Html("")
+}
 
 #[axum::debug_handler]
 async fn register(
