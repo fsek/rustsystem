@@ -23,7 +23,7 @@ fn log(value: &str) {
 }
 
 fn get_signature(response: JsValue) -> Option<BlindSignature<BbsBls12381Sha256>> {
-    match serde_json::from_str::<RegistrationResponse>(&response.as_string()?).ok()? {
+    match serde_wasm_bindgen::from_value(response).ok()? {
         RegistrationResponse::Rejected(reason) => {
             log(&format!("{reason:?}"));
             None

@@ -93,7 +93,7 @@ async fn register(
     let res = RegistrationResponse::Accepted(signature);
     println!("{res:?}");
 
-    (StatusCode::OK, Json(serde_json::to_string(&res).unwrap()))
+    (StatusCode::OK, Json(res))
 }
 
 #[axum::debug_handler]

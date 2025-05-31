@@ -1,4 +1,4 @@
-Building wasm (requires `wasm-pack`):
+Building wasm (requires [`wasm-pack`](https://rustwasm.github.io/wasm-pack/)):
 ```bash
-RUSTFLAGS='--cfg getrandom_backend="wasm_js"' wasm-pack build --target web
+wasm-pack build --target web
 ```
