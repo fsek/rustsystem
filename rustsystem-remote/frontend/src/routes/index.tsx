@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
 	component: App,
@@ -11,6 +11,7 @@ function App() {
 				<p>
 					Edit <code>src/routes/index.tsx</code> and save to reload
 				</p>
+				<Link to="/invite">Invite!</Link>
 			</header>
 		</div>
 	);

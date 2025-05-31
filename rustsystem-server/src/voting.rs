@@ -38,13 +38,11 @@ impl Tally {
         let mut tally = vec![0; n_options];
         let mut blank_votes = 0;
 
-        for ballot in ballots.values() {
-            if let Some(b) = ballot {
-                if let Some(index) = b.option_index {
-                    tally[index] += 1;
-                } else {
-                    blank_votes += 1;
-                }
+        for ballot in ballots.values().flatten() {
+            if let Some(index) = ballot.option_index {
+                tally[index] += 1;
+            } else {
+                blank_votes += 1;
             }
         }
 

@@ -1,4 +1,3 @@
-use arrayvec::ArrayString;
 use axum::{
     Extension, Json, Router,
     extract::Query,
@@ -7,7 +6,6 @@ use axum::{
     routing::{get, post},
 };
 use axum_server::tls_rustls::RustlsConfig;
-use blake3::Hash;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
 use rustsystem_server::session;
 use serde::Deserialize;
@@ -32,7 +30,7 @@ async fn main() {
         .route("/authorized", get(serve_voter_page))
         .route("/register", post(register))
         .route("/vote", post(validate_vote))
-        .nest("/remote", rustsystem_remote::router())
+        .merge(rustsystem_remote::router())
         .nest_service(
             "/wrapper",
             ServeDir::new("../rustsystem-client/wrapper").append_index_html_on_directories(false),
