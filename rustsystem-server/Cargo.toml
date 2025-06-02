@@ -4,17 +4,23 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Server framework and helpers
 axum.workspace = true
 axum-server = { version = "0.7.2", features = ["tls-rustls"] }
-rustsystem-remote = { version = "0.1.0", path = "../rustsystem-remote" }
-rustsystem-proof = { path = "../rustsystem-proof" }
-serde = { version = "1.0.219", features = ["derive"] }
+axum-extra = { version = "0.10.1", features = ["cookie"]}
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6.4", features = ["fs", "trace"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+
+# Local (part of workspace)
+rustsystem-remote = { version = "0.1.0", path = "../rustsystem-remote" }
+rustsystem-proof = { path = "../rustsystem-proof" }
+
+# Misc
 uuid = { version = "1.17.0", features = ["serde", "v4"] }
 zkryptium = "0.5.0"
-serde_json = "1.0.140"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 qirust = "0.1.30"
 blake3 = "1.8.2"
-arrayvec = "0.7.6"
+time = "0.3.41"
