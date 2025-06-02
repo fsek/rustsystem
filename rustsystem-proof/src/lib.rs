@@ -1,9 +1,4 @@
-use std::{
-    error::Error,
-    fmt::Debug,
-    marker::PhantomData,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{error::Error, fmt::Debug, time::Duration};
 
 use bincode::{Decode, Encode};
 use blake3::{Hash, Hasher};
@@ -210,7 +205,7 @@ where
         let material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN)
             .map(|_| {
                 let mut buf = [0u8];
-                getrandom::getrandom(&mut buf).unwrap();
+                getrandom::fill(&mut buf).unwrap();
                 buf[0]
             })
             .collect();
@@ -230,7 +225,7 @@ where
         Box<dyn Error>,
     > {
         let mut commited_token = vec![0u8; TOKEN_SIZE];
-        getrandom::getrandom(&mut commited_token).unwrap();
+        getrandom::fill(&mut commited_token).unwrap();
 
         let (commitment, proof) =
             Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&[commited_token.clone()]))?;
