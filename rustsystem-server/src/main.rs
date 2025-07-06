@@ -7,7 +7,7 @@ use axum::{
 };
 use axum_extra::extract::{CookieJar, cookie::Cookie};
 use axum_server::tls_rustls::RustlsConfig;
-use blake3::OUT_LEN;
+use blake3::{Hash, Hasher, OUT_LEN, hash};
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
 use rustsystem_server::session;
 use serde::Deserialize;
@@ -34,34 +34,36 @@ async fn main() {
     //
     let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
-    //
-    // let state: AppState = AppState {
-    //     meetings: Arc::new(Mutex::new(HashMap::new())),
-    //     sessions: Arc::new(Mutex::new(HashMap::new())),
-    // };
-    //
-    // let user_id = String::from("TestUser"); // This should be a randomly generated hash later on!
-    // let user = User {
-    //     id: user_id.clone(),
-    //     logged_in: false,
-    // };
-    // let mut users = HashMap::new();
-    // users.insert(user_id, user);
+
+    let state: AppState = AppState {
+        meetings: Arc::new(Mutex::new(HashMap::new())),
+        sessions: Arc::new(Mutex::new(HashMap::new())),
+    };
+
+    let user_id = String::from("TestUser"); // This should be a randomly generated hash later on!
+    let user = User {
+        id: user_id.clone(),
+        logged_in: false,
+    };
+    let mut users = HashMap::new();
+    users.insert(user_id, user);
     // state
     //     .meetings
     //     .lock()
     //     .await
     //     .insert(String::from("TestMeeting"), users);
-    // // -----------------------------------------------
+    // -----------------------------------------------
 
     let serve_dir = ServeDir::new("../rustsystem-client/static")
         .not_found_service(ServeFile::new("../rustsystem-client/static/index.html"));
     let app = Router::new()
         .fallback_service(serve_dir)
-        .route("/send-vote", post(validate_vote))
+        .route("/create-meeting", post(create_meeting))
         .route("/register", post(register))
+        .route("/send-vote", post(validate_vote))
         .layer(Extension(Arc::new(AuthenticationKeys(keypair))))
-        .layer(Extension(Arc::new(header)));
+        .layer(Extension(Arc::new(header)))
+        .with_state(state);
     // let app = Router::new()
     //     .fallback_service(serve_dir)
     //     // .route("/", get(index))
@@ -75,7 +77,6 @@ async fn main() {
     //     // .nest_service("/pkg", ServeDir::new("../rustsystem-client/pkg"))
 
     //     // .layer(TraceLayer::new_for_http())
-    //     .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("listening on {}", addr);
@@ -114,6 +115,26 @@ struct AppState {
 
 // Cookies expire after 10 hours
 const COOKIE_LIFETIME: Duration = Duration::hours(10);
+
+#[derive(Deserialize)]
+struct CreateMeeting {
+    pub name: String,
+}
+
+#[axum::debug_handler]
+async fn create_meeting(
+    State(state): State<AppState>,
+    Json(body): Json<CreateMeeting>,
+) -> impl IntoResponse {
+    println!("Found name {}", body.name);
+    let mut meetings = state.meetings.lock().await;
+    meetings.insert(body.name.clone(), HashMap::new());
+
+    Json(format!(
+        "http://localhost:3000/meeting?meeting-id={}",
+        hash(body.name.as_bytes()).to_hex()
+    ))
+}
 
 async fn voter_login(
     jar: CookieJar,

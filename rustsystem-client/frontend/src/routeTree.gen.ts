@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as VoteImport } from './routes/vote'
+import { Route as MeetingImport } from './routes/meeting'
 import { Route as InviteImport } from './routes/invite'
 import { Route as IndexImport } from './routes/index'
 
@@ -20,6 +21,12 @@ import { Route as IndexImport } from './routes/index'
 const VoteRoute = VoteImport.update({
   id: '/vote',
   path: '/vote',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const MeetingRoute = MeetingImport.update({
+  id: '/meeting',
+  path: '/meeting',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -53,6 +60,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteImport
       parentRoute: typeof rootRoute
     }
+    '/meeting': {
+      id: '/meeting'
+      path: '/meeting'
+      fullPath: '/meeting'
+      preLoaderRoute: typeof MeetingImport
+      parentRoute: typeof rootRoute
+    }
     '/vote': {
       id: '/vote'
       path: '/vote'
@@ -68,12 +82,14 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/meeting': typeof MeetingRoute
   '/vote': typeof VoteRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/meeting': typeof MeetingRoute
   '/vote': typeof VoteRoute
 }
 
@@ -81,27 +97,30 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/meeting': typeof MeetingRoute
   '/vote': typeof VoteRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/invite' | '/vote'
+  fullPaths: '/' | '/invite' | '/meeting' | '/vote'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/invite' | '/vote'
-  id: '__root__' | '/' | '/invite' | '/vote'
+  to: '/' | '/invite' | '/meeting' | '/vote'
+  id: '__root__' | '/' | '/invite' | '/meeting' | '/vote'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InviteRoute: typeof InviteRoute
+  MeetingRoute: typeof MeetingRoute
   VoteRoute: typeof VoteRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InviteRoute: InviteRoute,
+  MeetingRoute: MeetingRoute,
   VoteRoute: VoteRoute,
 }
 
@@ -117,6 +136,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/invite",
+        "/meeting",
         "/vote"
       ]
     },
@@ -125,6 +145,9 @@ export const routeTree = rootRoute
     },
     "/invite": {
       "filePath": "invite.tsx"
+    },
+    "/meeting": {
+      "filePath": "meeting.tsx"
     },
     "/vote": {
       "filePath": "vote.tsx"
