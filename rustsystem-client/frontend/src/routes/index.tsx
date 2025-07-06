@@ -12,6 +12,7 @@ function App() {
 					Edit <code>src/routes/index.tsx</code> and save to reload
 				</p>
 				<Link to="/invite">Invite!</Link>
+				<Link to="/vote">Vote!</Link>
 			</header>
 		</div>
 	);

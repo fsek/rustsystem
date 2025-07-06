@@ -93,7 +93,7 @@ pub async fn send_vote(reg_res: RegistrationResult) -> Result<JsValue, JsValue> 
     );
     let body = serde_json::to_string(&info).unwrap();
 
-    let res = send_post(&body, "vote").await?;
+    let res = send_post(&body, "send-vote").await?;
 
     Ok(res)
 }
@@ -104,7 +104,7 @@ async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
     opts.set_body(&JsValue::from_str(&body));
     opts.set_mode(RequestMode::Cors);
 
-    let url = format!("https://127.0.0.1:8443/{endpoint}");
+    let url = format!("http://localhost:3000/{endpoint}");
     let request = Request::new_with_str_and_init(&url, &opts)?;
     request.headers().set("Content-Type", "application/json")?;
 
@@ -120,6 +120,7 @@ async fn try_register(
     voter_id: Vec<u8>,
     round_hash: Vec<u8>,
 ) -> Result<RegistrationResult, JsValue> {
+    log("Trying to register");
     let (context, token, commitment, proof) =
         Sha256Provider::generate_token(voter_id, round_hash).unwrap();
     let info = Sha256Provider::new_reg_info(context, commitment);

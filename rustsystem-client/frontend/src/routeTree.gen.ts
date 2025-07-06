@@ -11,10 +11,17 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as VoteImport } from './routes/vote'
 import { Route as InviteImport } from './routes/invite'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
+
+const VoteRoute = VoteImport.update({
+  id: '/vote',
+  path: '/vote',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const InviteRoute = InviteImport.update({
   id: '/invite',
@@ -46,6 +53,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteImport
       parentRoute: typeof rootRoute
     }
+    '/vote': {
+      id: '/vote'
+      path: '/vote'
+      fullPath: '/vote'
+      preLoaderRoute: typeof VoteImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -54,36 +68,41 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/vote': typeof VoteRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/vote': typeof VoteRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/invite': typeof InviteRoute
+  '/vote': typeof VoteRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/invite'
+  fullPaths: '/' | '/invite' | '/vote'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/invite'
-  id: '__root__' | '/' | '/invite'
+  to: '/' | '/invite' | '/vote'
+  id: '__root__' | '/' | '/invite' | '/vote'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InviteRoute: typeof InviteRoute
+  VoteRoute: typeof VoteRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InviteRoute: InviteRoute,
+  VoteRoute: VoteRoute,
 }
 
 export const routeTree = rootRoute
@@ -97,7 +116,8 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/invite"
+        "/invite",
+        "/vote"
       ]
     },
     "/": {
@@ -105,6 +125,9 @@ export const routeTree = rootRoute
     },
     "/invite": {
       "filePath": "invite.tsx"
+    },
+    "/vote": {
+      "filePath": "vote.tsx"
     }
   }
 }
