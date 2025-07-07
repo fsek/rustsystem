@@ -1,13 +1,17 @@
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
-    http::StatusCode,
+    http::{Response, StatusCode, header},
     response::{Html, IntoResponse, Redirect},
     routing::{get, post},
 };
-use axum_extra::extract::{CookieJar, cookie::Cookie};
+use axum_extra::extract::{
+    CookieJar,
+    cookie::{self, Cookie},
+};
 use axum_server::tls_rustls::RustlsConfig;
 use blake3::{Hash, Hasher, OUT_LEN, hash};
+use rand::Rng;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
 use rustsystem_server::session;
 use serde::Deserialize;
@@ -37,7 +41,8 @@ async fn main() {
 
     let state: AppState = AppState {
         meetings: Arc::new(Mutex::new(HashMap::new())),
-        sessions: Arc::new(Mutex::new(HashMap::new())),
+        meeting_tokens: Arc::new(Mutex::new(HashMap::new())),
+        user_tokens: Arc::new(Mutex::new(HashMap::new())),
     };
 
     let user_id = String::from("TestUser"); // This should be a randomly generated hash later on!
@@ -47,15 +52,10 @@ async fn main() {
     };
     let mut users = HashMap::new();
     users.insert(user_id, user);
-    // state
-    //     .meetings
-    //     .lock()
-    //     .await
-    //     .insert(String::from("TestMeeting"), users);
-    // -----------------------------------------------
 
     let serve_dir = ServeDir::new("../rustsystem-client/static")
         .not_found_service(ServeFile::new("../rustsystem-client/static/index.html"));
+
     let app = Router::new()
         .fallback_service(serve_dir)
         .route("/create-meeting", post(create_meeting))
@@ -105,12 +105,13 @@ struct User {
 
 type Users = HashMap<String, User>;
 type ActiveMeetings = Arc<Mutex<HashMap<String, Users>>>;
-type SessionStore = Arc<Mutex<HashMap<String, String>>>;
+type TokenStore = Arc<Mutex<HashMap<String, String>>>;
 
 #[derive(Clone)]
 struct AppState {
     meetings: ActiveMeetings,
-    sessions: SessionStore,
+    meeting_tokens: TokenStore,
+    user_tokens: TokenStore,
 }
 
 // Cookies expire after 10 hours
@@ -121,8 +122,15 @@ struct CreateMeeting {
     pub name: String,
 }
 
+fn gen_token() -> String {
+    let mut bytes = [0u8; 32]; // 256-bit token
+    rand::rng().fill(&mut bytes);
+    hex::encode(bytes)
+}
+
 #[axum::debug_handler]
 async fn create_meeting(
+    jar: CookieJar,
     State(state): State<AppState>,
     Json(body): Json<CreateMeeting>,
 ) -> impl IntoResponse {
@@ -130,10 +138,29 @@ async fn create_meeting(
     let mut meetings = state.meetings.lock().await;
     meetings.insert(body.name.clone(), HashMap::new());
 
-    Json(format!(
-        "http://localhost:3000/meeting?meeting-id={}",
-        hash(body.name.as_bytes()).to_hex()
-    ))
+    let meeting_id = hash(body.name.as_bytes()).to_hex();
+
+    let body = Json(format!(
+        "http://localhost:3000/meeting?meeting-id={meeting_id}",
+    ));
+
+    let mut meeting_tokens = state.meeting_tokens.lock().await;
+    let auth_token = gen_token();
+    meeting_tokens.insert(auth_token.clone(), meeting_id.as_str().into());
+
+    let new_cookie = Cookie::build(auth_token)
+        .path(format!("/meeting"))
+        .secure(true)
+        .http_only(true)
+        .same_site(cookie::SameSite::Strict);
+
+    let mut response = Response::from(body.into_response());
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        new_cookie.build().to_string().parse().unwrap(),
+    );
+
+    (StatusCode::CREATED, response)
 }
 
 async fn voter_login(
