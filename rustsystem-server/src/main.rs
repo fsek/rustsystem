@@ -185,7 +185,7 @@ async fn voter_login(
                 let session_id = Uuid::new_v4().to_string();
 
                 state
-                    .sessions
+                    .user_tokens
                     .lock()
                     .await
                     .insert(session_id.clone(), user_id);
@@ -229,7 +229,7 @@ async fn serve_voter_page(
 ) -> impl IntoResponse {
     if let Some(session_cookie) = jar.get("session_id") {
         let session_id = session_cookie.value();
-        if let Some(user_id) = state.sessions.lock().await.get(session_id) {
+        if let Some(user_id) = state.user_tokens.lock().await.get(session_id) {
             format!("Welcome back, {}!", user_id).into_response()
         } else {
             (StatusCode::UNAUTHORIZED).into_response()
