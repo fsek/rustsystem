@@ -13,7 +13,6 @@ use axum_server::tls_rustls::RustlsConfig;
 use blake3::{Hash, Hasher, OUT_LEN, hash};
 use rand::Rng;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
-use rustsystem_server::session;
 use serde::Deserialize;
 use std::{
     collections::{HashMap, HashSet},
@@ -29,17 +28,41 @@ use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 use time::Duration;
 
+pub mod session;
+pub mod tokens;
+pub mod voting;
+
+use tokens::{AuthUser, generate_jwt, get_secret};
+
+pub struct User {
+    id: String,
+    logged_in: bool,
+}
+
+pub type Users = HashMap<String, User>;
+pub type ActiveMeetings = Arc<Mutex<HashMap<String, Users>>>;
+pub type TokenStore = Arc<Mutex<HashMap<String, String>>>;
+
+#[derive(Clone)]
+pub struct AppState {
+    secret: [u8; 32],
+    meetings: ActiveMeetings,
+    meeting_tokens: TokenStore,
+    user_tokens: TokenStore,
+}
+
 #[tokio::main]
 async fn main() {
     // fmt().with_env_filter(EnvFilter::from_default_env()).init();
     //
-    // // TEMPORARY FOR TESTING AND DEMOSTRATION OF SETUP
+    // // TEMhttp://localhost:3000/create-meetingPORARY FOR TESTING AND DEMOSTRATION OF SETUP
     // //session::gen_qr_code().unwrap();
     //
     let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
 
     let state: AppState = AppState {
+        secret: get_secret().unwrap(),
         meetings: Arc::new(Mutex::new(HashMap::new())),
         meeting_tokens: Arc::new(Mutex::new(HashMap::new())),
         user_tokens: Arc::new(Mutex::new(HashMap::new())),
@@ -61,6 +84,7 @@ async fn main() {
         .route("/create-meeting", post(create_meeting))
         .route("/register", post(register))
         .route("/send-vote", post(validate_vote))
+        .route("/protected", get(protected))
         .layer(Extension(Arc::new(AuthenticationKeys(keypair))))
         .layer(Extension(Arc::new(header)))
         .with_state(state);
@@ -98,28 +122,13 @@ struct LoginCredentials {
     pub meeting: String,
 }
 
-struct User {
-    id: String,
-    logged_in: bool,
-}
-
-type Users = HashMap<String, User>;
-type ActiveMeetings = Arc<Mutex<HashMap<String, Users>>>;
-type TokenStore = Arc<Mutex<HashMap<String, String>>>;
-
-#[derive(Clone)]
-struct AppState {
-    meetings: ActiveMeetings,
-    meeting_tokens: TokenStore,
-    user_tokens: TokenStore,
-}
-
 // Cookies expire after 10 hours
 const COOKIE_LIFETIME: Duration = Duration::hours(10);
 
 #[derive(Deserialize)]
 struct CreateMeeting {
-    pub name: String,
+    pub user_name: String,
+    pub meeting_name: String,
 }
 
 fn gen_token() -> String {
@@ -134,33 +143,28 @@ async fn create_meeting(
     State(state): State<AppState>,
     Json(body): Json<CreateMeeting>,
 ) -> impl IntoResponse {
-    println!("Found name {}", body.name);
-    let mut meetings = state.meetings.lock().await;
-    meetings.insert(body.name.clone(), HashMap::new());
-
-    let meeting_id = hash(body.name.as_bytes()).to_hex();
-
-    let body = Json(format!(
-        "http://localhost:3000/meeting?meeting-id={meeting_id}",
-    ));
-
-    let mut meeting_tokens = state.meeting_tokens.lock().await;
-    let auth_token = gen_token();
-    meeting_tokens.insert(auth_token.clone(), meeting_id.as_str().into());
-
-    let new_cookie = Cookie::build(auth_token)
-        .path(format!("/meeting"))
-        .secure(true)
+    let jwt = generate_jwt(&hash(body.user_name.as_bytes()).to_hex(), &state.secret);
+    let new_cookie = Cookie::build(("access_token", jwt))
         .http_only(true)
-        .same_site(cookie::SameSite::Strict);
+        .secure(true)
+        .same_site(cookie::SameSite::Strict)
+        .path("/");
 
-    let mut response = Response::from(body.into_response());
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        new_cookie.build().to_string().parse().unwrap(),
-    );
+    (
+        StatusCode::CREATED,
+        jar.add(new_cookie),
+        Json(format!(
+            "user {} successfully authenticated",
+            body.user_name
+        )),
+    )
+}
 
-    (StatusCode::CREATED, response)
+async fn protected(
+    AuthUser { user_id }: AuthUser,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    Json(format!("Hello user with ID: {user_id}"))
 }
 
 async fn voter_login(
