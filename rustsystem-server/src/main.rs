@@ -18,6 +18,7 @@ use std::{
     collections::{HashMap, HashSet},
     net::SocketAddr,
     sync::Arc,
+    time::SystemTime,
 };
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
@@ -34,21 +35,25 @@ pub mod voting;
 
 use tokens::{AuthUser, generate_jwt, get_secret};
 
-pub struct User {
-    id: String,
+pub struct Voter {
+    id: u128,
     logged_in: bool,
 }
 
-pub type Users = HashMap<String, User>;
-pub type ActiveMeetings = Arc<Mutex<HashMap<String, Users>>>;
+struct Meeting {
+    creator: String,
+    title: String,
+    start_time: SystemTime,
+    users: HashMap<u128, Voter>,
+}
+
+pub type ActiveMeetings = Arc<Mutex<HashMap<String, Meeting>>>;
 pub type TokenStore = Arc<Mutex<HashMap<String, String>>>;
 
 #[derive(Clone)]
 pub struct AppState {
     secret: [u8; 32],
     meetings: ActiveMeetings,
-    meeting_tokens: TokenStore,
-    user_tokens: TokenStore,
 }
 
 #[tokio::main]
@@ -64,12 +69,10 @@ async fn main() {
     let state: AppState = AppState {
         secret: get_secret().unwrap(),
         meetings: Arc::new(Mutex::new(HashMap::new())),
-        meeting_tokens: Arc::new(Mutex::new(HashMap::new())),
-        user_tokens: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    let user_id = String::from("TestUser"); // This should be a randomly generated hash later on!
-    let user = User {
+    let user_id = u128::from_be_bytes(rand::random()); // This should be a randomly generated hash later on!
+    let user = Voter {
         id: user_id.clone(),
         logged_in: false,
     };
@@ -118,7 +121,7 @@ pub struct Header(Vec<u8>);
 
 #[derive(Deserialize)]
 struct LoginCredentials {
-    pub cred: String,
+    pub cred: u128,
     pub meeting: String,
 }
 
@@ -175,47 +178,35 @@ async fn voter_login(
     let user_id = cred.0.cred;
     let meeting_hash = cred.0.meeting;
 
-    if let Some(meeting_users) = state.meetings.lock().await.get_mut(&meeting_hash) {
-        if let Some(user) = meeting_users.get_mut(&user_id) {
-            if user.logged_in {
+    if let Some(meeting) = state.meetings.lock().await.get_mut(&meeting_hash) {
+        if let Some(voter) = meeting.users.get_mut(&user_id) {
+            if voter.logged_in {
                 return (
                     StatusCode::UNAUTHORIZED,
-                    format!("User with id {user_id} has already logged in."),
+                    Json(format!("Voter with id {user_id} has already logged in.")),
                 )
                     .into_response();
             } else {
-                user.logged_in = true;
+                voter.logged_in = true;
 
                 let session_id = Uuid::new_v4().to_string();
 
-                state
-                    .user_tokens
-                    .lock()
-                    .await
-                    .insert(session_id.clone(), user_id);
-                let cookie = Cookie::build(("session_id", session_id))
-                    .path("/in-meeting")
-                    .http_only(true)
-                    .secure(true)
-                    .max_age(COOKIE_LIFETIME);
-
-                (
-                    jar.add(cookie),
-                    Redirect::to(&format!("/in-meeting?hash={meeting_hash}")),
-                )
-                    .into_response()
+                // This should return an auth cookie and a redirect to the main meeting page
+                return (StatusCode::OK, Json("Logged In!!!")).into_response();
             }
         } else {
             (
                 StatusCode::UNAUTHORIZED,
-                format!("Supplied user id {user_id} not found in meeting {meeting_hash}"),
+                Json(format!(
+                    "Supplied user id {user_id} not found in meeting {meeting_hash}"
+                )),
             )
                 .into_response()
         }
     } else {
         (
             StatusCode::UNAUTHORIZED,
-            format!("Meeting {meeting_hash} does not exist"),
+            Json(format!("Meeting {meeting_hash} does not exist")),
         )
             .into_response()
     }
@@ -226,22 +217,22 @@ struct MeetingInfo {
     hash: String,
 }
 
-async fn serve_voter_page(
-    jar: CookieJar,
-    State(state): State<AppState>,
-    cred: Query<MeetingInfo>,
-) -> impl IntoResponse {
-    if let Some(session_cookie) = jar.get("session_id") {
-        let session_id = session_cookie.value();
-        if let Some(user_id) = state.user_tokens.lock().await.get(session_id) {
-            format!("Welcome back, {}!", user_id).into_response()
-        } else {
-            (StatusCode::UNAUTHORIZED).into_response()
-        }
-    } else {
-        (StatusCode::UNAUTHORIZED).into_response()
-    }
-}
+// async fn serve_voter_page(
+//     jar: CookieJar,
+//     State(state): State<AppState>,
+//     cred: Query<MeetingInfo>,
+// ) -> impl IntoResponse {
+//     if let Some(session_cookie) = jar.get("session_id") {
+//         let session_id = session_cookie.value();
+//         if let Some(user_id) = state.user_tokens.lock().await.get(session_id) {
+//             format!("Welcome back, {}!", user_id).into_response()
+//         } else {
+//             (StatusCode::UNAUTHORIZED).into_response()
+//         }
+//     } else {
+//         (StatusCode::UNAUTHORIZED).into_response()
+//     }
+// }
 
 #[axum::debug_handler]
 async fn register(
