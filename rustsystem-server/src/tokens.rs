@@ -9,28 +9,33 @@ use axum::{
     extract::{FromRequestParts, State},
     http::{StatusCode, request::Parts},
 };
+use axum_extra::extract::{CookieJar, cookie};
 use base64::prelude::*;
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
+use crate::{AppState, MUID, UUID, new_muid, new_uuid};
 
 #[derive(Debug, Deserialize, Serialize)]
-struct Claims {
-    sub: String,
+struct MeetingClaims {
+    uuid: UUID,
+    muid: MUID,
+    is_host: bool,
     exp: usize,
 }
 
-pub fn generate_jwt(user_id: &str, secret: &[u8; 32]) -> String {
+fn create_meeting_jwt(uuid: UUID, muid: MUID, is_host: bool, secret: &[u8; 32]) -> String {
     let expiration = Utc::now()
         .checked_add_signed(chrono::Duration::minutes(15))
         .expect("valid timestamp")
         .timestamp() as usize;
 
-    let claims = Claims {
-        sub: user_id.to_owned(),
+    let claims = MeetingClaims {
+        uuid,
+        muid,
+        is_host,
         exp: expiration,
     };
 
@@ -40,6 +45,13 @@ pub fn generate_jwt(user_id: &str, secret: &[u8; 32]) -> String {
         &EncodingKey::from_secret(secret.as_ref()),
     )
     .unwrap()
+}
+
+pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUID, MUID, String) {
+    let uuid = new_uuid();
+    let muid = new_muid();
+
+    (uuid, muid, create_meeting_jwt(uuid, muid, true, secret))
 }
 
 const KEEPER_PATH: &str = "/tmp/rustsystem-secret";
@@ -114,35 +126,45 @@ fn generate_secret(mut keeper_file: File) -> io::Result<[u8; 32]> {
 }
 
 pub struct AuthUser {
-    pub user_id: String,
+    pub uuid: UUID,
+    pub muid: MUID,
+    pub is_host: bool,
 }
 
 impl FromRequestParts<AppState> for AuthUser {
     type Rejection = StatusCode;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, StatusCode> {
-        let token = parts
+        let cookie_header = parts
             .headers
-            .get("cookie")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|cookie_header| {
-                cookie_header
-                    .split("; ")
-                    .find_map(|c| c.strip_prefix("access_token="))
-            })
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .get(axum::http::header::COOKIE)
+            .ok_or(StatusCode::UNAUTHORIZED)?
+            .to_str()
+            .or(Err(StatusCode::UNAUTHORIZED))?;
 
-        println!("Found token {token}");
+        let mut cookie_iter = cookie::Cookie::split_parse(cookie_header);
 
-        let token_data = decode::<Claims>(
-            token,
+        let mut access_token = None;
+        while let Some(c) = cookie_iter.next() {
+            if let Ok(cookie) = c {
+                if cookie.name() == "access_token" {
+                    access_token = Some(cookie.value().to_owned());
+                    break;
+                }
+            }
+        }
+
+        let token_data = decode::<MeetingClaims>(
+            &access_token.ok_or(StatusCode::UNAUTHORIZED)?,
             &DecodingKey::from_secret(state.secret.as_ref()),
             &Validation::default(),
         )
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
         Ok(AuthUser {
-            user_id: token_data.claims.sub,
+            uuid: token_data.claims.uuid,
+            muid: token_data.claims.muid,
+            is_host: token_data.claims.is_host,
         })
     }
 }

@@ -1,25 +1,22 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
 	component: App,
 });
 
 function App() {
+	const navigate = useNavigate();
+	
 	function createMeeting() {
-		fetch("create-meeting", {
+		fetch("api/create-meeting", {
     	method: "POST",
     	credentials: "include",
     	headers: { "Content-Type": "application/json" },
-    	body: JSON.stringify({ user_name: "Test User", meeting_name: "Test Meeting" })
+    	body: JSON.stringify({ title: "Test Meeting" })
   	}).then((res) => {
-  		console.log(res.json());
-  		fetch("/protected", {
-  				method: "GET",
-  				credentials: "include",
-  			}).then((res) => {
-  					console.log(res.json());
-  					console.log(res);
-  				});
+  			res.json().then((data) => {
+  				navigate({ to: "/meeting", search: { muid: data.muid }});
+  			});
   	});
 	}
 	

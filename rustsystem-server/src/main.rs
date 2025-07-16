@@ -1,3 +1,4 @@
+use api::api_routes;
 use axum::{
     Extension, Json, Router,
     extract::{Query, State},
@@ -29,26 +30,39 @@ use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 use time::Duration;
 
+pub mod api;
 pub mod session;
 pub mod tokens;
 pub mod voting;
 
-use tokens::{AuthUser, generate_jwt, get_secret};
+use tokens::{AuthUser, get_secret};
+
+pub fn rand_u128() -> u128 {
+    let mut res = [0u8; 16];
+    rand::rng().fill(&mut res);
+    u128::from_be_bytes(res)
+}
+type UUID = u128;
+pub fn new_uuid() -> UUID {
+    rand_u128()
+}
+type MUID = u128;
+pub fn new_muid() -> MUID {
+    rand_u128()
+}
 
 pub struct Voter {
-    id: u128,
     logged_in: bool,
 }
 
 struct Meeting {
-    creator: String,
+    host: UUID,
     title: String,
     start_time: SystemTime,
     users: HashMap<u128, Voter>,
 }
 
-pub type ActiveMeetings = Arc<Mutex<HashMap<String, Meeting>>>;
-pub type TokenStore = Arc<Mutex<HashMap<String, String>>>;
+pub type ActiveMeetings = Arc<Mutex<HashMap<MUID, Meeting>>>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -58,11 +72,6 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // fmt().with_env_filter(EnvFilter::from_default_env()).init();
-    //
-    // // TEMhttp://localhost:3000/create-meetingPORARY FOR TESTING AND DEMOSTRATION OF SETUP
-    // //session::gen_qr_code().unwrap();
-    //
     let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
 
@@ -72,10 +81,7 @@ async fn main() {
     };
 
     let user_id = u128::from_be_bytes(rand::random()); // This should be a randomly generated hash later on!
-    let user = Voter {
-        id: user_id.clone(),
-        logged_in: false,
-    };
+    let user = Voter { logged_in: false };
     let mut users = HashMap::new();
     users.insert(user_id, user);
 
@@ -84,26 +90,13 @@ async fn main() {
 
     let app = Router::new()
         .fallback_service(serve_dir)
-        .route("/create-meeting", post(create_meeting))
+        .nest("/api", api_routes())
         .route("/register", post(register))
         .route("/send-vote", post(validate_vote))
         .route("/protected", get(protected))
         .layer(Extension(Arc::new(AuthenticationKeys(keypair))))
         .layer(Extension(Arc::new(header)))
         .with_state(state);
-    // let app = Router::new()
-    //     .fallback_service(serve_dir)
-    //     // .route("/", get(index))
-    //     // .route("/login", get(voter_login))
-    //     // .route("/in-meeting", get(serve_voter_page))
-    //     // .merge(rustsystem_remote::router())
-    //     // .nest_service(
-    //     //     "/wrapper",
-    //     //     ServeDir::new("../rustsystem-client/wrapper").append_index_html_on_directories(false),
-    //     // )
-    //     // .nest_service("/pkg", ServeDir::new("../rustsystem-client/pkg"))
-
-    //     // .layer(TraceLayer::new_for_http())
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("listening on {}", addr);
@@ -128,89 +121,67 @@ struct LoginCredentials {
 // Cookies expire after 10 hours
 const COOKIE_LIFETIME: Duration = Duration::hours(10);
 
-#[derive(Deserialize)]
-struct CreateMeeting {
-    pub user_name: String,
-    pub meeting_name: String,
-}
-
 fn gen_token() -> String {
     let mut bytes = [0u8; 32]; // 256-bit token
     rand::rng().fill(&mut bytes);
     hex::encode(bytes)
 }
 
-#[axum::debug_handler]
-async fn create_meeting(
-    jar: CookieJar,
-    State(state): State<AppState>,
-    Json(body): Json<CreateMeeting>,
-) -> impl IntoResponse {
-    let jwt = generate_jwt(&hash(body.user_name.as_bytes()).to_hex(), &state.secret);
-    let new_cookie = Cookie::build(("access_token", jwt))
-        .http_only(true)
-        .secure(true)
-        .same_site(cookie::SameSite::Strict)
-        .path("/");
-
-    (
-        StatusCode::CREATED,
-        jar.add(new_cookie),
-        Json(format!(
-            "user {} successfully authenticated",
-            body.user_name
-        )),
-    )
-}
-
 async fn protected(
-    AuthUser { user_id }: AuthUser,
+    AuthUser {
+        uuid,
+        muid,
+        is_host,
+    }: AuthUser,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    Json(format!("Hello user with ID: {user_id}"))
+    Json(format!(
+        "Hello user with ID: {uuid}. You are logged into meeing with muid {muid}. You are{}the meeting host",
+        if is_host { "" } else { " not " }
+    ))
 }
 
-async fn voter_login(
-    jar: CookieJar,
-    cred: Query<LoginCredentials>,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    let user_id = cred.0.cred;
-    let meeting_hash = cred.0.meeting;
-
-    if let Some(meeting) = state.meetings.lock().await.get_mut(&meeting_hash) {
-        if let Some(voter) = meeting.users.get_mut(&user_id) {
-            if voter.logged_in {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(format!("Voter with id {user_id} has already logged in.")),
-                )
-                    .into_response();
-            } else {
-                voter.logged_in = true;
-
-                let session_id = Uuid::new_v4().to_string();
-
-                // This should return an auth cookie and a redirect to the main meeting page
-                return (StatusCode::OK, Json("Logged In!!!")).into_response();
-            }
-        } else {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(format!(
-                    "Supplied user id {user_id} not found in meeting {meeting_hash}"
-                )),
-            )
-                .into_response()
-        }
-    } else {
-        (
-            StatusCode::UNAUTHORIZED,
-            Json(format!("Meeting {meeting_hash} does not exist")),
-        )
-            .into_response()
-    }
-}
+// async fn voter_login(
+//     jar: CookieJar,
+//     cred: Query<LoginCredentials>,
+//     State(state): State<AppState>,
+// ) -> impl IntoResponse {
+//     let user_id = cred.0.cred;
+//     let meeting_hash = cred.0.meeting;
+//
+//     if let Some(meeting) = state.meetings.lock().await.get_mut(&meeting_hash) {
+//         if let Some(voter) = meeting.users.get_mut(&user_id) {
+//             if voter.logged_in {
+//                 return (
+//                     StatusCode::UNAUTHORIZED,
+//                     Json(format!("Voter with id {user_id} has already logged in.")),
+//                 )
+//                     .into_response();
+//             } else {
+//                 voter.logged_in = true;
+//
+//                 let session_id = Uuid::new_v4().to_string();
+//
+//                 // This should return an auth cookie and a redirect to the main meeting page
+//                 return (StatusCode::OK, Json("Logged In!!!")).into_response();
+//             }
+//         } else {
+//             (
+//                 StatusCode::UNAUTHORIZED,
+//                 Json(format!(
+//                     "Supplied user id {user_id} not found in meeting {meeting_hash}"
+//                 )),
+//             )
+//                 .into_response()
+//         }
+//     } else {
+//         (
+//             StatusCode::UNAUTHORIZED,
+//             Json(format!("Meeting {meeting_hash} does not exist")),
+//         )
+//             .into_response()
+//     }
+// }
 
 #[derive(Deserialize)]
 struct MeetingInfo {
