@@ -1,11 +1,16 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::{AuthUser, MUID};
+use crate::{AuthUser, MUID, UUID};
 
 #[derive(Deserialize)]
 pub struct AuthMeetingQuery {
     muid: String,
+}
+
+#[derive(Serialize)]
+pub struct AuthResponse {
+    success: bool,
 }
 
 pub async fn auth_meeting(
@@ -24,17 +29,12 @@ pub async fn auth_meeting(
     if muid == parsed_muid {
         (
             StatusCode::OK,
-            Json(format!(
-                "Hello user with ID: {uuid}. You are logged into meeing with muid {muid}. You are {}the meeting host",
-                if is_host { "" } else { "not " }
-            )),
+            Json(serde_json::to_string(&AuthResponse { success: true }).unwrap()),
         )
     } else {
         (
             StatusCode::FORBIDDEN,
-            Json(format!(
-                "Your token does not permit entry in meeting {parsed_muid}"
-            )),
+            Json(serde_json::to_string(&AuthResponse { success: false }).unwrap()),
         )
     }
 }
