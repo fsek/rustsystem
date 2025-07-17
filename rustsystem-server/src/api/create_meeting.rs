@@ -33,15 +33,15 @@ pub async fn create_meeting(
         .path("/");
 
     let mut meetings = state.meetings.lock().await;
-    let mut users = HashMap::new();
-    users.insert(uuid, Voter { logged_in: true });
+    let mut voters = HashMap::new();
+    voters.insert(uuid, Voter { logged_in: true });
     meetings.insert(
         muid,
         crate::Meeting {
             host: uuid,
             title: query.title,
             start_time: SystemTime::now(),
-            users,
+            voters,
         },
     );
 

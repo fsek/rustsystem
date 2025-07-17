@@ -9,3 +9,12 @@ export async function Auth(muid: any): Promise<boolean> {
   const obj = JSON.parse(data);
   return obj["success"];
 }
+
+// Enum style status check
+export const AuthStatus = {
+  Loading: 1,
+  Granted: 2,
+  Denied: 3,
+} as const;
+
+export type AuthStatus = (typeof AuthStatus)[keyof typeof AuthStatus];

@@ -59,7 +59,12 @@ struct Meeting {
     host: UUID,
     title: String,
     start_time: SystemTime,
-    users: HashMap<u128, Voter>,
+    voters: HashMap<u128, Voter>,
+}
+impl Meeting {
+    pub fn add_voter(&mut self, uuid: UUID) -> Option<Voter> {
+        self.voters.insert(uuid, Voter { logged_in: false })
+    }
 }
 
 pub type ActiveMeetings = Arc<Mutex<HashMap<MUID, Meeting>>>;

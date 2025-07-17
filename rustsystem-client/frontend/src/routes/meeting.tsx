@@ -1,5 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Auth } from '../auth.ts'
+import { useState } from 'react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Auth, AuthStatus } from '../auth.ts'
 
 export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {
@@ -12,15 +13,26 @@ export const Route = createFileRoute('/meeting')({
 })
 
 function RouteComponent() {
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
   const search = Route.useSearch();
-
-  Auth(search.muid).then((res) => {
+  const muid = search.muid
+  
+  const navigate = useNavigate();
+  function invitePage() {
+    navigate({ to: "/invite", search: { muid: muid }});
+  }
+  
+  Auth(muid).then((res) => {
     if (res) {
       console.log("Successfully logged in");
+      setAuthStatus(AuthStatus.Granted);
     } else {
       console.log("Could not log in");
+      setAuthStatus(AuthStatus.Denied);
     }
   });
   
-  return <div>Hello "/meeting"!</div>
+  if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
+  if (authStatus === AuthStatus.Granted) return <div>Access Granted! You can now invite people!<button onClick={invitePage}>Invite!</button></div>;
+  if (authStatus === AuthStatus.Denied) return <div>Access Denied</div>;
 }
