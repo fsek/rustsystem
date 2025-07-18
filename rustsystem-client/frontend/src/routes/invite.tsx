@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Auth, AuthStatus } from '../auth.ts';
+import { Unauthorized } from '../components/unauthorized.tsx';
 
 export const Route = createFileRoute('/invite')({
   validateSearch: (search) => {
@@ -19,16 +20,15 @@ function RouteComponent() {
 
   const muid = search.muid
   
-  Auth(muid).then((res) => {
-    if (res) {
-      console.log("Successfully logged in");
-      setAuthStatus(AuthStatus.Granted);
-    } else {
-      console.log("Could not log in");
-      setAuthStatus(AuthStatus.Denied);
-    }
-  });
-  
+  useEffect(() => {
+    Auth(muid).then((res) => {
+      if (res) {
+        setAuthStatus(AuthStatus.Granted);
+      } else {
+        setAuthStatus(AuthStatus.Denied);
+      }
+    });  
+  }, []);
 
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
 
@@ -46,5 +46,5 @@ function RouteComponent() {
 
   if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
   if (authStatus === AuthStatus.Granted) return <div>Access Granted!<img src={imageUrl} alt={'Could not load QR code'} /></div>;
-  if (authStatus === AuthStatus.Denied) return <div>Access Denied</div>;
+  if (authStatus === AuthStatus.Denied) return <div><Unauthorized /></div>;
 }
