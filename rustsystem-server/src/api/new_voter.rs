@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use tracing::{error, info};
 
 use qirust::helper::{FrameStyle, generate_frameqr};
 use qirust::qrcode::QrCodeEcc;
@@ -29,7 +30,6 @@ pub async fn new_voter(
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.
         meeting.add_voter(new_uuid);
-        println!("{:?}", meeting.voters);
     } else {
         return (StatusCode::FORBIDDEN).into_response();
     }
@@ -52,9 +52,9 @@ pub async fn new_voter(
 }
 
 fn gen_qr_code(muid: MUID, uuid: UUID) -> Result<(), StatusCode> {
-    println!("Generating new QR");
+    info!("Generating new QR for voter id {uuid} in meeting {muid}");
     let url = format!("{API_ENDPOINT}/login?muid=\"{muid}\"&uuid=\"{uuid}\"");
-    println!("{url}");
+    info!("{url}");
     match generate_frameqr(
         &url,
         "../fsek-logo.jpg",
@@ -69,7 +69,7 @@ fn gen_qr_code(muid: MUID, uuid: UUID) -> Result<(), StatusCode> {
     ) {
         Ok(_) => Ok(()),
         Err(e) => {
-            println!("Failed to create voter QR code: {e}");
+            error!("Failed to create voter QR code: {e}");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

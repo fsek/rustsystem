@@ -9,6 +9,7 @@ use axum_extra::extract::{
     cookie::{self, Cookie},
 };
 use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
 use crate::{AppState, tokens::get_meeting_jwt};
 
@@ -34,38 +35,36 @@ pub async fn login(
     Json(body): Json<LoginBody>,
 ) -> Response {
     let uuid = if let Ok(id) = body.uuid.parse() {
-        println!("found uuid: {id}");
         id
     } else {
-        println!("Invalid uuid");
+        error!("Invalid uuid");
         return (StatusCode::FORBIDDEN, LoginResponse { success: false }).into_response();
     };
 
     let muid = if let Ok(id) = body.muid.parse() {
         id
     } else {
-        println!("Invalid muid");
+        error!("Invalid muid");
         return StatusCode::FORBIDDEN.into_response();
     };
 
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         if let Some(voter) = meeting.voters.get_mut(&uuid) {
-            println!("Found voter: {voter:?}");
             if voter.logged_in {
                 // If voter has already logged in, it means that this specific
                 // uuid has already been claimed.
-                println!("Already logged in");
+                error!("Voter id {uuid} has already been claimed");
                 return (StatusCode::FORBIDDEN, LoginResponse { success: false }).into_response();
             } else {
                 // Claim this uuid
                 voter.logged_in = true;
             }
         } else {
-            println!("Voter doesn't exist!");
+            error!("Voter with id {uuid} doesn't exist!");
             return (StatusCode::FORBIDDEN, LoginResponse { success: false }).into_response();
         }
     } else {
-        println!("Meeting doesn't exist!");
+        error!("Meeting with id {muid} doesn't exist!");
         return (StatusCode::FORBIDDEN, LoginResponse { success: false }).into_response();
     }
 
@@ -76,6 +75,7 @@ pub async fn login(
         .same_site(cookie::SameSite::Strict)
         .path("/");
 
+    info!("Voter with id {uuid} has been accepted");
     (
         StatusCode::ACCEPTED,
         jar.add(new_cookie),

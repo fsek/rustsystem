@@ -5,6 +5,8 @@ use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, Validatio
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
+use tracing::{error, info, level_filters::LevelFilter};
+use tracing_subscriber::EnvFilter;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 pub mod api;
@@ -58,6 +60,10 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::DEBUG.into()))
+        .init();
+
     let keypair = Sha256Provider::generate_authentication_keys();
     let header = Header(b"Placeholder Header".to_vec());
 
@@ -88,7 +94,7 @@ async fn main() {
         .unwrap();
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    println!("listening on {}", addr);
+    info!("Running server on {addr}");
     axum_server::bind_rustls(addr, config)
         .serve(app.into_make_service())
         .await
@@ -107,13 +113,12 @@ async fn register(
     Extension(header): Extension<Arc<Header>>,
     Json(info_json): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    println!("Got register request");
+    info!("Got register request");
     let info = Sha256Provider::reg_info_from_json(info_json).unwrap();
     let signature =
         Sha256Provider::sign_token(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
 
     let res = RegistrationResponse::Accepted(signature);
-    println!("{res:?}");
 
     (StatusCode::OK, Json(res))
 }
@@ -133,10 +138,10 @@ async fn validate_vote(
         keys.0.public_key().clone(),
         info.signature,
     ) {
-        println!("Validation Successful");
+        info!("Validation Successful");
         (StatusCode::OK, Json("Success"))
     } else {
-        println!("Validation Failure");
+        error!("Validation Failure");
         (StatusCode::IM_A_TEAPOT, Json("Validation Failed"))
     }
 }
