@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Auth, AuthStatus } from '../auth.ts';
-import { Unauthorized } from '../components/unauthorized.tsx';
+import { Unauthorized } from '../components/error-pages/unauthorized.tsx';
 import { RunInvite } from '../components/invite/run_invite.tsx';
 
 export const Route = createFileRoute('/invite')({
