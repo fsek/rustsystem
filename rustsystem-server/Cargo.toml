@@ -18,12 +18,8 @@ rustsystem-remote = { version = "0.1.0", path = "../rustsystem-remote" }
 rustsystem-proof = { path = "../rustsystem-proof" }
 
 # Misc
-uuid = { version = "1.17.0", features = ["serde", "v4"] }
 zkryptium = "0.5.0"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 qirust = "0.1.30"
-blake3 = "1.8.2"
-time = "0.3.41"
 hex = "0.4.3"
 rand = "0.9.1"
 jsonwebtoken = "9.3.1"

@@ -1,7 +1,7 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::{AuthUser, MUID, UUID};
+use crate::AuthUser;
 
 #[derive(Deserialize)]
 pub struct AuthMeetingQuery {

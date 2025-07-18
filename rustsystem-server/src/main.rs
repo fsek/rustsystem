@@ -1,37 +1,14 @@
-use api::api_routes;
-use axum::{
-    Extension, Json, Router,
-    extract::{Query, State},
-    http::{Response, StatusCode, header},
-    response::{Html, IntoResponse, Redirect},
-    routing::{get, post},
-};
-use axum_extra::extract::{
-    CookieJar,
-    cookie::{self, Cookie},
-};
+use axum::{Extension, Json, Router, http::StatusCode, response::IntoResponse, routing::post};
 use axum_server::tls_rustls::RustlsConfig;
-use blake3::{Hash, Hasher, OUT_LEN, hash};
 use rand::Rng;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
-use serde::Deserialize;
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
-use tower_http::trace::TraceLayer;
-use tracing_subscriber::{EnvFilter, fmt};
-use uuid::Uuid;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
-use time::Duration;
-
 pub mod api;
-pub mod session;
+use api::api_routes;
 pub mod tokens;
 pub mod voting;
 
@@ -59,7 +36,7 @@ pub struct Voter {
     logged_in: bool,
 }
 
-struct Meeting {
+pub struct Meeting {
     host: UUID,
     title: String,
     start_time: SystemTime,
@@ -102,7 +79,6 @@ async fn main() {
         .nest("/api", api_routes())
         .route("/register", post(register))
         .route("/send-vote", post(validate_vote))
-        .route("/protected", get(protected))
         .layer(Extension(Arc::new(AuthenticationKeys(keypair))))
         .layer(Extension(Arc::new(header)))
         .with_state(state);
@@ -124,99 +100,6 @@ pub struct AuthenticationKeys(KeyPair<BbsBls12381Sha256>);
 
 #[derive(Clone)]
 pub struct Header(Vec<u8>);
-
-#[derive(Deserialize)]
-struct LoginCredentials {
-    pub cred: u128,
-    pub meeting: String,
-}
-
-// Cookies expire after 10 hours
-const COOKIE_LIFETIME: Duration = Duration::hours(10);
-
-fn gen_token() -> String {
-    let mut bytes = [0u8; 32]; // 256-bit token
-    rand::rng().fill(&mut bytes);
-    hex::encode(bytes)
-}
-
-async fn protected(
-    AuthUser {
-        uuid,
-        muid,
-        is_host,
-    }: AuthUser,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    Json(format!(
-        "Hello user with ID: {uuid}. You are logged into meeing with muid {muid}. You are{}the meeting host",
-        if is_host { "" } else { " not " }
-    ))
-}
-
-// async fn voter_login(
-//     jar: CookieJar,
-//     cred: Query<LoginCredentials>,
-//     State(state): State<AppState>,
-// ) -> impl IntoResponse {
-//     let user_id = cred.0.cred;
-//     let meeting_hash = cred.0.meeting;
-//
-//     if let Some(meeting) = state.meetings.lock().await.get_mut(&meeting_hash) {
-//         if let Some(voter) = meeting.users.get_mut(&user_id) {
-//             if voter.logged_in {
-//                 return (
-//                     StatusCode::UNAUTHORIZED,
-//                     Json(format!("Voter with id {user_id} has already logged in.")),
-//                 )
-//                     .into_response();
-//             } else {
-//                 voter.logged_in = true;
-//
-//                 let session_id = Uuid::new_v4().to_string();
-//
-//                 // This should return an auth cookie and a redirect to the main meeting page
-//                 return (StatusCode::OK, Json("Logged In!!!")).into_response();
-//             }
-//         } else {
-//             (
-//                 StatusCode::UNAUTHORIZED,
-//                 Json(format!(
-//                     "Supplied user id {user_id} not found in meeting {meeting_hash}"
-//                 )),
-//             )
-//                 .into_response()
-//         }
-//     } else {
-//         (
-//             StatusCode::UNAUTHORIZED,
-//             Json(format!("Meeting {meeting_hash} does not exist")),
-//         )
-//             .into_response()
-//     }
-// }
-
-#[derive(Deserialize)]
-struct MeetingInfo {
-    hash: String,
-}
-
-// async fn serve_voter_page(
-//     jar: CookieJar,
-//     State(state): State<AppState>,
-//     cred: Query<MeetingInfo>,
-// ) -> impl IntoResponse {
-//     if let Some(session_cookie) = jar.get("session_id") {
-//         let session_id = session_cookie.value();
-//         if let Some(user_id) = state.user_tokens.lock().await.get(session_id) {
-//             format!("Welcome back, {}!", user_id).into_response()
-//         } else {
-//             (StatusCode::UNAUTHORIZED).into_response()
-//         }
-//     } else {
-//         (StatusCode::UNAUTHORIZED).into_response()
-//     }
-// }
 
 #[axum::debug_handler]
 async fn register(

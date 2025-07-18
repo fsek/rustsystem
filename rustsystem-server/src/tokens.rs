@@ -6,10 +6,10 @@ use std::{
 };
 
 use axum::{
-    extract::{FromRequestParts, State},
+    extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
-use axum_extra::extract::{CookieJar, cookie};
+use axum_extra::extract::cookie;
 use base64::prelude::*;
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
