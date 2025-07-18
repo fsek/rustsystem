@@ -10,7 +10,7 @@ export const Route = createFileRoute('/invite')({
       muid: search.muid ?? "",
     };
   },
-  
+
   component: RouteComponent,
 })
 
@@ -20,20 +20,24 @@ function RouteComponent() {
   const search = Route.useSearch();
 
   const muid = search.muid
-  
+
   useEffect(() => {
     Auth(muid).then((res) => {
-      if (res) {
-        setAuthStatus(AuthStatus.Granted);
+      if (res.success) {
+        if (res.is_host) {
+          setAuthStatus(AuthStatus.VerifiedHost);
+        } else {
+          setAuthStatus(AuthStatus.VerifiedNonHost);
+        }
       } else {
         setAuthStatus(AuthStatus.Denied);
       }
-    });  
+    });
   }, []);
 
-  
+
 
   if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
-  if (authStatus === AuthStatus.Granted) return <RunInvite />;
+  if (authStatus === AuthStatus.VerifiedHost) return <RunInvite />;
   if (authStatus === AuthStatus.Denied) return <div><Unauthorized /></div>;
 }

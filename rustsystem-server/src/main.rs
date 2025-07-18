@@ -61,7 +61,7 @@ pub struct AppState {
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::DEBUG.into()))
+        .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
 
     let keypair = Sha256Provider::generate_authentication_keys();

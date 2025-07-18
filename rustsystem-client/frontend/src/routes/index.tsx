@@ -15,7 +15,7 @@ function App() {
     	body: JSON.stringify({ title: "Test Meeting" })
   	}).then((res) => {
   			res.json().then((data) => {
-  				navigate({ to: "/meeting", search: { muid: data.muid }});
+  				navigate({ to: "/meeting", search: { muid: data.muid } });
   			});
   	});
 	}

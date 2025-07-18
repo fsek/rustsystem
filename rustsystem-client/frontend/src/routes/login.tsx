@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search) => {
@@ -8,7 +9,7 @@ export const Route = createFileRoute('/login')({
       uuid: search.uuid ?? "",
     };
   },
-  
+
   component: RouteComponent,
 })
 
@@ -23,24 +24,31 @@ type LoginStatus = (typeof LoginStatus)[keyof typeof LoginStatus];
 function RouteComponent() {
   const [loginStatus, setLoginStatus] = useState<LoginStatus>(LoginStatus.Loading);
   const search = Route.useSearch();
-  
+  const navigate = useNavigate();
+
+  const muid = search.muid;
+  const uuid = search.uuid;
+
   useEffect(() => {
-    login(search.muid, search.uuid).then((success) => {
+    login(muid, uuid).then((success) => {
       if (success) {
         setLoginStatus(LoginStatus.Success);
       } else {
         setLoginStatus(LoginStatus.Failure);
       }
-    });  
+    });
   }, []);
-  
+
 
   if (loginStatus === LoginStatus.Loading) return <div>Checking...</div>;
-  if (loginStatus === LoginStatus.Success) return <div>Logged in!</div>;
+  if (loginStatus === LoginStatus.Success) {
+    navigate({ to: "/meeting", search: { muid: muid } });
+    return <div>Logged in! Redirecting!</div>
+  }
   if (loginStatus === LoginStatus.Failure) return <div>Login Failed!</div>;
 }
 
-async function login(muid: any, uuid: any) : Promise<boolean> {
+async function login(muid: any, uuid: any): Promise<boolean> {
   const res = await fetch("api/login", {
     method: "POST",
     credentials: "include",
@@ -50,5 +58,5 @@ async function login(muid: any, uuid: any) : Promise<boolean> {
 
   const data = await res.json();
   const obj = JSON.parse(data);
-  return obj["success"]
+  return obj["success"];
 }

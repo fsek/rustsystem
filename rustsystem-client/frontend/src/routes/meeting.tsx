@@ -17,25 +17,28 @@ function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
   const search = Route.useSearch();
   const muid = search.muid
-  
+
   const navigate = useNavigate();
   function invitePage() {
-    navigate({ to: "/invite", search: { muid: muid }});
+    navigate({ to: "/invite", search: { muid: muid } });
   }
-  
+
   useEffect(() => {
     Auth(muid).then((res) => {
-      if (res) {
-        console.log("Successfully logged in");
-        setAuthStatus(AuthStatus.Granted);
+      if (res.success) {
+        if (res.is_host) {
+          setAuthStatus(AuthStatus.VerifiedHost);
+        } else {
+          setAuthStatus(AuthStatus.VerifiedNonHost)
+        }
       } else {
-        console.log("Could not log in");
         setAuthStatus(AuthStatus.Denied);
       }
-    });  
+    });
   }, []);
-  
+
   if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
-  if (authStatus === AuthStatus.Granted) return <div>Access Granted! You can now invite people!<button onClick={invitePage}>Invite!</button></div>;
+  if (authStatus === AuthStatus.VerifiedHost) return <div>Access Granted! You can now invite people!<button onClick={invitePage}>Invite!</button></div>;
+  if (authStatus === AuthStatus.VerifiedNonHost) return <div>Access Granted! You are a voter in this meeting</div>;
   if (authStatus === AuthStatus.Denied) return <div><Unauthorized /></div>;
 }
