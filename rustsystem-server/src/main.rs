@@ -37,6 +37,9 @@ pub mod voting;
 
 use tokens::{AuthUser, get_secret};
 
+/// NOTE: The API_ENDPOINT environmental variable must be set at compile time!
+const API_ENDPOINT: &str = env!("API_ENDPOINT");
+
 pub fn rand_u128() -> u128 {
     let mut res = [0u8; 16];
     rand::rng().fill(&mut res);
@@ -51,6 +54,7 @@ pub fn new_muid() -> MUID {
     rand_u128()
 }
 
+#[derive(Debug)]
 pub struct Voter {
     logged_in: bool,
 }
@@ -103,9 +107,13 @@ async fn main() {
         .layer(Extension(Arc::new(header)))
         .with_state(state);
 
+    let config = RustlsConfig::from_pem_file("localhost+1.pem", "localhost+1-key.pem")
+        .await
+        .unwrap();
+
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("listening on {}", addr);
-    axum_server::bind(addr)
+    axum_server::bind_rustls(addr, config)
         .serve(app.into_make_service())
         .await
         .unwrap();

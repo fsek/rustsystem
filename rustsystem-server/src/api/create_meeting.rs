@@ -44,6 +44,7 @@ pub async fn create_meeting(
             voters,
         },
     );
+    println!("host is now {uuid}");
 
     (
         StatusCode::CREATED,

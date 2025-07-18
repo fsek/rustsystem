@@ -54,6 +54,10 @@ pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUID, MUID, String) {
     (uuid, muid, create_meeting_jwt(uuid, muid, true, secret))
 }
 
+pub fn get_meeting_jwt(uuid: UUID, muid: MUID, is_host: bool, secret: &[u8; 32]) -> String {
+    create_meeting_jwt(uuid, muid, is_host, secret)
+}
+
 const KEEPER_PATH: &str = "/tmp/rustsystem-secret";
 const SECRET_EXPITY_TIMEOUT: Duration = Duration::from_secs(30 * 24 * 3600);
 

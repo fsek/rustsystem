@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router'
-import { Auth, AuthStatus } from '../auth.ts'
+import { createFileRoute } from '@tanstack/react-router';
+import { Auth, AuthStatus } from '../auth.ts';
 
 export const Route = createFileRoute('/invite')({
   validateSearch: (search) => {

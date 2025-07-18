@@ -9,7 +9,7 @@ use axum::{
 use qirust::helper::{FrameStyle, generate_frameqr};
 use qirust::qrcode::QrCodeEcc;
 
-use crate::{AppState, new_uuid, tokens::AuthUser};
+use crate::{API_ENDPOINT, AppState, new_uuid, tokens::AuthUser};
 use crate::{MUID, UUID};
 
 pub async fn new_voter(
@@ -29,11 +29,12 @@ pub async fn new_voter(
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.
         meeting.add_voter(new_uuid);
+        println!("{:?}", meeting.voters);
     } else {
         return (StatusCode::FORBIDDEN).into_response();
     }
 
-    match gen_qr_code(muid, uuid) {
+    match gen_qr_code(muid, new_uuid) {
         Ok(_) => {}
         Err(e) => return e.into_response(),
     }
@@ -52,8 +53,10 @@ pub async fn new_voter(
 
 fn gen_qr_code(muid: MUID, uuid: UUID) -> Result<(), StatusCode> {
     println!("Generating new QR");
+    let url = format!("{API_ENDPOINT}/login?muid=\"{muid}\"&uuid=\"{uuid}\"");
+    println!("{url}");
     match generate_frameqr(
-        &format!("http://localhost:3000/login?muid={muid}?uuid={uuid}"),
+        &url,
         "../fsek-logo.jpg",
         Some(QrCodeEcc::High),
         Some(24),
