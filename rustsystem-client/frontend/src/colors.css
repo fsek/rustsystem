@@ -1,0 +1,9 @@
+:root {
+  --color-main: #ffa31a;
+  --color-contours: #ffffff;
+  --color-background: #1a1a1a;
+  --color-accent1: #333333;
+  --color-accent2: #ffa31a;
+  --gradient-hero-start: #1a1a1a;
+  --gradient-hero-end: #333333;
+}
