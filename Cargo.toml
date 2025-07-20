@@ -1,5 +1,5 @@
 [workspace]
-members = [ "rustsystem-remote", "rustsystem-server", "rustsystem-proof" ]
+members = [ "rustsystem-server", "rustsystem-proof" ]
 resolver = "3"
 
 [workspace.dependencies]
