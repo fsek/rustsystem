@@ -76,13 +76,13 @@ impl RegistrationResult {
 }
 
 #[wasm_bindgen]
-pub async fn test_register() -> RegistrationResult {
-    register(vec![0, 1], vec![1, 0]).await
-}
-
-#[wasm_bindgen]
-pub async fn register(voter_id: Vec<u8>, round_hash: Vec<u8>) -> RegistrationResult {
-    try_register(voter_id, round_hash).await.unwrap()
+pub async fn register(voter_id: String, meeting_id: String) -> RegistrationResult {
+    try_register(
+        voter_id.parse::<u128>().unwrap().to_be_bytes().to_vec(),
+        meeting_id.parse::<u128>().unwrap().to_be_bytes().to_vec(),
+    )
+    .await
+    .unwrap()
 }
 
 async fn try_register(

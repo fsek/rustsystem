@@ -10,11 +10,11 @@ use axum::{
 use rustsystem_proof::{
     ProofContext, Provider, RegistrationInfo, RegistrationRejectReason, RegistrationResponse,
     Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo, ValidationInfo,
+    ValidationRejectReason, ValidationResponse,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use zkryptium::{
-    bbsplus::commitment::BlindFactor,
     keys::pair::KeyPair,
     schemes::{
         algorithms::BbsBls12381Sha256,
@@ -36,22 +36,25 @@ pub struct AuthenticationKeys(KeyPair<BbsBls12381Sha256>);
 #[derive(Clone)]
 pub struct Header(Vec<u8>);
 
-pub struct VoteAuth {
+pub struct VoteAuthority {
     keys: AuthenticationKeys,
     header: Header,
     registered_voters: HashSet<UUID>,
+    expired_signatures: HashSet<[u8; 80]>,
 }
-impl VoteAuth {
+impl VoteAuthority {
     /// For new meeting
     pub fn new(header: String) -> Self {
         let keys = AuthenticationKeys(Sha256Provider::generate_authentication_keys());
         let header = Header(header.as_bytes().to_vec());
         let registered_voters = HashSet::new();
+        let expired_signatures = HashSet::new();
 
         Self {
             keys,
             header,
             registered_voters,
+            expired_signatures,
         }
     }
 
@@ -61,10 +64,24 @@ impl VoteAuth {
     pub fn reset(&mut self) {
         self.keys.0 = Sha256Provider::generate_authentication_keys();
         self.registered_voters.clear();
+        self.expired_signatures.clear();
     }
 
+    /// Checks if a user has already registered for voting
     pub fn is_registered(&self, uuid: UUID) -> bool {
         self.registered_voters.contains(&uuid)
+    }
+
+    pub fn register_user(&mut self, uuid: UUID) {
+        self.registered_voters.insert(uuid);
+    }
+
+    pub fn is_used(&self, signature: &BlindSignature<BbsBls12381Sha256>) -> bool {
+        self.expired_signatures.contains(&signature.to_bytes())
+    }
+
+    pub fn set_signature_expired(&mut self, signature: &BlindSignature<BbsBls12381Sha256>) {
+        self.expired_signatures.insert(signature.to_bytes());
     }
 }
 
@@ -103,6 +120,7 @@ async fn register(
         vote_auth.header.0.clone(),
         vote_auth.keys.0.clone(),
     ) {
+        vote_auth.register_user(uuid);
         (
             StatusCode::CREATED,
             Json(RegistrationResponse::Accepted(signature)),
@@ -142,6 +160,16 @@ async fn validate_vote(
 
     let vote_auth = meeting.get_auth();
 
+    if vote_auth.is_used(&body.signature) {
+        return (
+            StatusCode::CONFLICT,
+            Json(ValidationResponse::Rejected(
+                ValidationRejectReason::SignatureExpired,
+            )),
+        )
+            .into_response();
+    }
+
     let info = Sha256ValidationInfo::new(body.proof, body.token, body.signature);
 
     if let Ok(_) = Sha256Provider::validate_token(
@@ -149,12 +177,19 @@ async fn validate_vote(
         vote_auth.header.0.clone(),
         info.token,
         vote_auth.keys.0.public_key().clone(),
-        info.signature,
+        info.signature.clone(),
     ) {
         info!("Validation Successful");
-        (StatusCode::OK, Json("Success")).into_response()
+        vote_auth.set_signature_expired(&info.signature);
+        (StatusCode::OK, Json(ValidationResponse::Accepted)).into_response()
     } else {
         error!("Validation Failure");
-        (StatusCode::UNPROCESSABLE_ENTITY, Json("Validation Failed")).into_response()
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(ValidationResponse::Rejected(
+                ValidationRejectReason::SignatureInvalid,
+            )),
+        )
+            .into_response()
     }
 }

@@ -15,7 +15,7 @@ use tracing_subscriber::EnvFilter;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 pub mod api;
-use api::{api_routes, vote::VoteAuth};
+use api::{api_routes, vote::VoteAuthority};
 pub mod tokens;
 pub mod voting;
 
@@ -48,14 +48,14 @@ pub struct Meeting {
     title: String,
     start_time: SystemTime,
     voters: HashMap<u128, Voter>,
-    vote_auth: VoteAuth,
+    vote_auth: VoteAuthority,
 }
 impl Meeting {
     pub fn add_voter(&mut self, uuid: UUID) -> Option<Voter> {
         self.voters.insert(uuid, Voter { logged_in: false })
     }
 
-    pub fn get_auth(&mut self) -> &mut VoteAuth {
+    pub fn get_auth(&mut self) -> &mut VoteAuthority {
         &mut self.vote_auth
     }
 }

@@ -43,24 +43,24 @@ pub enum ValidationResponse {
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug)]
 pub struct ProofContext {
-    voter_id: Vec<u8>,               // Hash of voter's id
-    round_hash: Vec<u8>,             // Hash of voting round
+    voter_id: Vec<u8>,               // Voter's UUID
+    meeting_id: Vec<u8>,             // Meeting's MUID
     registration_timestamp: Vec<u8>, // Timestamp (from UNIX EPOCH as seconds)
     checksum: Vec<u8>,
 }
 impl ProofContext {
-    pub fn new(voter_id: Vec<u8>, round_hash: Vec<u8>) -> Self {
+    pub fn new(voter_id: Vec<u8>, meeting_id: Vec<u8>) -> Self {
         let registration_timestamp = Duration::from_millis(js_sys::Date::now() as u64)
             .as_secs()
             .to_be_bytes()
             .to_vec();
-        let checksum = Self::calculate_checksum(&voter_id, &round_hash, &registration_timestamp)
+        let checksum = Self::calculate_checksum(&voter_id, &meeting_id, &registration_timestamp)
             .as_bytes()
             .to_vec();
 
         Self {
             voter_id,
-            round_hash,
+            meeting_id,
             registration_timestamp,
             checksum,
         }
@@ -69,7 +69,7 @@ impl ProofContext {
     pub fn as_messages(&self) -> [Vec<u8>; 3] {
         [
             self.voter_id.clone(),
-            self.round_hash.clone(),
+            self.meeting_id.clone(),
             self.registration_timestamp.clone(),
         ]
     }
@@ -79,15 +79,15 @@ impl ProofContext {
 
         hash == Self::calculate_checksum(
             &self.voter_id,
-            &self.round_hash,
+            &self.meeting_id,
             &self.registration_timestamp,
         )
     }
 
-    fn calculate_checksum(voter_id: &Vec<u8>, voting_round: &Vec<u8>, timestamp: &Vec<u8>) -> Hash {
+    fn calculate_checksum(voter_id: &Vec<u8>, meeting_id: &Vec<u8>, timestamp: &Vec<u8>) -> Hash {
         let mut hasher = Hasher::new();
         hasher.update(&voter_id);
-        hasher.update(&voting_round);
+        hasher.update(&meeting_id);
         hasher.update(&timestamp);
         hasher.finalize()
     }
@@ -214,7 +214,7 @@ where
 
     fn generate_token(
         voter_id: Vec<u8>,
-        round_hash: Vec<u8>,
+        meeting_id: Vec<u8>,
     ) -> Result<
         (
             ProofContext,
@@ -230,7 +230,7 @@ where
         let (commitment, proof) =
             Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&[commited_token.clone()]))?;
 
-        let context = ProofContext::new(voter_id, round_hash);
+        let context = ProofContext::new(voter_id, meeting_id);
 
         Ok((context, commited_token, commitment, proof))
     }

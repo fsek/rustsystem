@@ -16,7 +16,7 @@ export const Route = createFileRoute('/meeting')({
 function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
   const search = Route.useSearch();
-  const muid = search.muid
+  const muid = search.muid;
 
   const navigate = useNavigate();
   function invitePage() {
