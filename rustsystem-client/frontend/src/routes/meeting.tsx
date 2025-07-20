@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Auth, AuthStatus } from '../auth.ts';
-import { Unauthorized } from '../components/error-pages/unauthorized.tsx';
+import { Auth, AuthStatus } from '@/auth.ts';
+import Unauthorized from '@/components/error-pages/unauthorized.tsx';
 
 export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {

@@ -1,7 +1,7 @@
 import React from 'react';
-import '../../colors.css';
+import '@/colors.css';
 
-export const Header: React.FC = () => {
+const Header: React.FC = () => {
   return (
     <header className="border-b-2 border-[var(--color-contours)] bg-[var(--color-background)] sticky top-0 z-10 shadow-md">
       <div className="container mx-auto px-4 flex justify-between items-center py-4">
@@ -17,3 +17,5 @@ export const Header: React.FC = () => {
     </header>
   );
 }
+
+export default Header;

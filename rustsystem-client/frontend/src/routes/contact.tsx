@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Header } from '../components/defaults/header';
-import { Footer } from '../components/defaults/footer';
+import Header from '@/components/defaults/header';
+import Footer from '@/components/defaults/footer';
 import MainSection from '@/components/templates/main';
-import '../colors.css';
+import '@/colors.css';
 
 
 export const Route = createFileRoute('/contact')({

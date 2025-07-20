@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect } from "react";
-import init, { test_register, send_vote } from "../pkg/rustsystem_client.js";
+import init, { test_register, send_vote } from "@/pkg/rustsystem_client.js";
 
 export const Route = createFileRoute("/vote")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
-  
+
   useEffect(() => {
     init().then(() => {
       test_register().then((result) => {
@@ -20,6 +20,6 @@ function RouteComponent() {
       });
     });
   }, []);
-  
+
   return <div>Hello from /vote! <Link to="/">Back home</Link></div>
 }
