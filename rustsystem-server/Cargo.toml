@@ -26,3 +26,4 @@ base64 = "0.22.1"
 tracing-subscriber = { version = "0.3.19", features = ["std", "env-filter"] }
 tracing = "0.1.41"
 qrcode = "0.14.1"
+bls12_381_plus = "0.8.18"

@@ -5,7 +5,7 @@ use rustsystem_proof::{
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{console::info_1, Request, RequestInit, RequestMode, Response};
+use web_sys::{console::info_1, Request, RequestCredentials, RequestInit, RequestMode, Response};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 const API_ENDPOINT: &str = env!("API_ENDPOINT");
@@ -85,6 +85,26 @@ pub async fn register(voter_id: Vec<u8>, round_hash: Vec<u8>) -> RegistrationRes
     try_register(voter_id, round_hash).await.unwrap()
 }
 
+async fn try_register(
+    voter_id: Vec<u8>,
+    round_hash: Vec<u8>,
+) -> Result<RegistrationResult, JsValue> {
+    log("Trying to register");
+    let (context, token, commitment, proof) =
+        Sha256Provider::generate_token(voter_id, round_hash).unwrap();
+    let info = Sha256Provider::new_reg_info(context, commitment);
+    let body = serde_json::to_string(&info).unwrap();
+
+    match get_signature(send_post(&body, "api/vote/register").await?) {
+        Some(sign) => Ok(RegistrationResult::with_signature(
+            proof.to_bytes().to_vec(),
+            token,
+            serde_wasm_bindgen::to_value(&sign)?,
+        )),
+        None => Err(JsValue::from_str("Failed to retrieve signature")),
+    }
+}
+
 #[wasm_bindgen]
 pub async fn send_vote(reg_res: RegistrationResult) -> Result<JsValue, JsValue> {
     let info = Sha256Provider::new_val_info(
@@ -95,7 +115,7 @@ pub async fn send_vote(reg_res: RegistrationResult) -> Result<JsValue, JsValue> 
     );
     let body = serde_json::to_string(&info).unwrap();
 
-    let res = send_post(&body, "send-vote").await?;
+    let res = send_post(&body, "api/vote/submit").await?;
 
     Ok(res)
 }
@@ -105,6 +125,7 @@ async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
     opts.set_method("POST");
     opts.set_body(&JsValue::from_str(&body));
     opts.set_mode(RequestMode::Cors);
+    opts.set_credentials(RequestCredentials::Include);
 
     let url = format!("{API_ENDPOINT}/{endpoint}");
     let request = Request::new_with_str_and_init(&url, &opts)?;
@@ -116,26 +137,6 @@ async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
     let json_val = JsFuture::from(json_promise).await?;
 
     Ok(json_val)
-}
-
-async fn try_register(
-    voter_id: Vec<u8>,
-    round_hash: Vec<u8>,
-) -> Result<RegistrationResult, JsValue> {
-    log("Trying to register");
-    let (context, token, commitment, proof) =
-        Sha256Provider::generate_token(voter_id, round_hash).unwrap();
-    let info = Sha256Provider::new_reg_info(context, commitment);
-    let body = serde_json::to_string(&info).unwrap();
-
-    match get_signature(send_post(&body, "register").await?) {
-        Some(sign) => Ok(RegistrationResult::with_signature(
-            proof.to_bytes().to_vec(),
-            token,
-            serde_wasm_bindgen::to_value(&sign)?,
-        )),
-        None => Err(JsValue::from_str("Failed to retrieve signature")),
-    }
 }
 
 #[wasm_bindgen]

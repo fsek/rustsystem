@@ -15,10 +15,14 @@ use login::login;
 mod auth;
 use auth::auth_meeting;
 
+pub mod vote;
+use vote::vote_api;
+
 pub fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/create-meeting", post(create_meeting))
         .route("/auth-meeting", post(auth_meeting))
         .route("/new-voter", post(new_voter))
         .route("/login", post(login))
+        .nest("/vote", vote_api())
 }

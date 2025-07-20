@@ -2,7 +2,12 @@ use axum::{Extension, Json, Router, http::StatusCode, response::IntoResponse, ro
 use axum_server::tls_rustls::RustlsConfig;
 use rand::Rng;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
+use std::{
+    collections::{HashMap, HashSet},
+    net::SocketAddr,
+    sync::Arc,
+    time::SystemTime,
+};
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{error, info, level_filters::LevelFilter};
@@ -10,7 +15,7 @@ use tracing_subscriber::EnvFilter;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 pub mod api;
-use api::api_routes;
+use api::{api_routes, vote::VoteAuth};
 pub mod tokens;
 pub mod voting;
 
@@ -43,10 +48,15 @@ pub struct Meeting {
     title: String,
     start_time: SystemTime,
     voters: HashMap<u128, Voter>,
+    vote_auth: VoteAuth,
 }
 impl Meeting {
     pub fn add_voter(&mut self, uuid: UUID) -> Option<Voter> {
         self.voters.insert(uuid, Voter { logged_in: false })
+    }
+
+    pub fn get_auth(&mut self) -> &mut VoteAuth {
+        &mut self.vote_auth
     }
 }
 
@@ -64,9 +74,6 @@ async fn main() {
         .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
 
-    let keypair = Sha256Provider::generate_authentication_keys();
-    let header = Header(b"Placeholder Header".to_vec());
-
     let state: AppState = AppState {
         secret: get_secret().unwrap(),
         meetings: Arc::new(Mutex::new(HashMap::new())),
@@ -83,10 +90,6 @@ async fn main() {
     let app = Router::new()
         .fallback_service(serve_dir)
         .nest("/api", api_routes())
-        .route("/register", post(register))
-        .route("/send-vote", post(validate_vote))
-        .layer(Extension(Arc::new(AuthenticationKeys(keypair))))
-        .layer(Extension(Arc::new(header)))
         .with_state(state);
 
     let config = RustlsConfig::from_pem_file("localhost+1.pem", "localhost+1-key.pem")
@@ -99,49 +102,4 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
-}
-
-#[derive(Clone)]
-pub struct AuthenticationKeys(KeyPair<BbsBls12381Sha256>);
-
-#[derive(Clone)]
-pub struct Header(Vec<u8>);
-
-#[axum::debug_handler]
-async fn register(
-    Extension(keys): Extension<Arc<AuthenticationKeys>>,
-    Extension(header): Extension<Arc<Header>>,
-    Json(info_json): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    info!("Got register request");
-    let info = Sha256Provider::reg_info_from_json(info_json).unwrap();
-    let signature =
-        Sha256Provider::sign_token(info.commitment, header.0.clone(), keys.0.clone()).unwrap();
-
-    let res = RegistrationResponse::Accepted(signature);
-
-    (StatusCode::OK, Json(res))
-}
-
-#[axum::debug_handler]
-async fn validate_vote(
-    Extension(keys): Extension<Arc<AuthenticationKeys>>,
-    Extension(header): Extension<Arc<Header>>,
-    Json(info_json): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let info = Sha256Provider::val_info_from_json(info_json).unwrap();
-
-    if let Ok(_) = Sha256Provider::validate_token(
-        info.get_proof(),
-        header.0.clone(),
-        info.token,
-        keys.0.public_key().clone(),
-        info.signature,
-    ) {
-        info!("Validation Successful");
-        (StatusCode::OK, Json("Success"))
-    } else {
-        error!("Validation Failure");
-        (StatusCode::IM_A_TEAPOT, Json("Validation Failed"))
-    }
 }
