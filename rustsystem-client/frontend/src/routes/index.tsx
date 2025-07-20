@@ -12,17 +12,8 @@ export const Route = createFileRoute("/")({
 function App() {
 	const navigate = useNavigate();
 
-	function createMeeting() {
-		fetch("api/create-meeting", {
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title: "Test Meeting" })
-		}).then((res) => {
-			res.json().then((data) => {
-				navigate({ to: "/meeting", search: { muid: data.muid } });
-			});
-		});
+	function redirectNewMeeting() {
+		navigate({ to: "/new-meeting" });
 	}
 
 	return (
@@ -31,7 +22,7 @@ function App() {
 
 			<MainSection title="Rustsystem" description=<div>
 				<p className="text-lg mb-6 opacity-80">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-				<button className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-[var(--color-background)] py-3 px-6 rounded-full shadow-lg transform hover:-translate-y-1 transition-all duration-300" onClick={createMeeting}>
+				<button className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-[var(--color-background)] py-3 px-6 rounded-full shadow-lg transform hover:-translate-y-1 transition-all duration-300" onClick={redirectNewMeeting}>
 					Create Meeting
 				</button>
 			</div> />
