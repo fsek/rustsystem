@@ -8,6 +8,8 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{console::info_1, Request, RequestInit, RequestMode, Response};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
+const API_ENDPOINT: &str = env!("API_ENDPOINT");
+
 #[wasm_bindgen]
 extern "C" {
     fn alert(s: &str);
@@ -104,7 +106,7 @@ async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
     opts.set_body(&JsValue::from_str(&body));
     opts.set_mode(RequestMode::Cors);
 
-    let url = format!("http://localhost:3000/{endpoint}");
+    let url = format!("{API_ENDPOINT}/{endpoint}");
     let request = Request::new_with_str_and_init(&url, &opts)?;
     request.headers().set("Content-Type", "application/json")?;
 
