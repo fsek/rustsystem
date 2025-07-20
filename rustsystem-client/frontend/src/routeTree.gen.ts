@@ -15,6 +15,8 @@ import { Route as VoteImport } from './routes/vote'
 import { Route as MeetingImport } from './routes/meeting'
 import { Route as LoginImport } from './routes/login'
 import { Route as InviteImport } from './routes/invite'
+import { Route as ContactImport } from './routes/contact'
+import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
@@ -43,6 +45,18 @@ const InviteRoute = InviteImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const ContactRoute = ContactImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const AboutRoute = AboutImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
@@ -58,6 +72,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutImport
+      parentRoute: typeof rootRoute
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactImport
       parentRoute: typeof rootRoute
     }
     '/invite': {
@@ -95,6 +123,8 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
@@ -103,6 +133,8 @@ export interface FileRoutesByFullPath {
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
@@ -112,6 +144,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
@@ -120,15 +154,32 @@ export interface FileRoutesById {
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/invite' | '/login' | '/meeting' | '/vote'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/contact'
+    | '/invite'
+    | '/login'
+    | '/meeting'
+    | '/vote'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/invite' | '/login' | '/meeting' | '/vote'
-  id: '__root__' | '/' | '/invite' | '/login' | '/meeting' | '/vote'
+  to: '/' | '/about' | '/contact' | '/invite' | '/login' | '/meeting' | '/vote'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/contact'
+    | '/invite'
+    | '/login'
+    | '/meeting'
+    | '/vote'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  ContactRoute: typeof ContactRoute
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
   MeetingRoute: typeof MeetingRoute
@@ -137,6 +188,8 @@ export interface RootRouteChildren {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  ContactRoute: ContactRoute,
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
   MeetingRoute: MeetingRoute,
@@ -154,6 +207,8 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/about",
+        "/contact",
         "/invite",
         "/login",
         "/meeting",
@@ -162,6 +217,12 @@ export const routeTree = rootRoute
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/about": {
+      "filePath": "about.tsx"
+    },
+    "/contact": {
+      "filePath": "contact.tsx"
     },
     "/invite": {
       "filePath": "invite.tsx"
