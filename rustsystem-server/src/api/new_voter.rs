@@ -5,10 +5,9 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use qrcode::render::svg;
+use qrcode::{EcLevel, QrCode};
 use tracing::{error, info};
-
-use qirust::helper::{FrameStyle, generate_frameqr};
-use qirust::qrcode::QrCodeEcc;
 
 use crate::{API_ENDPOINT, AppState, new_uuid, tokens::AuthUser};
 use crate::{MUID, UUID};
@@ -34,43 +33,21 @@ pub async fn new_voter(
         return (StatusCode::FORBIDDEN).into_response();
     }
 
-    match gen_qr_code(muid, new_uuid) {
-        Ok(_) => {}
-        Err(e) => return e.into_response(),
-    }
-
-    let image_bytes = tokio::fs::read("./output/styled_qr.png")
-        .await
-        .unwrap_or_else(|_| vec![]);
+    let qr_svg = gen_qr_code(muid, new_uuid);
 
     (
         StatusCode::CREATED,
-        [(header::CONTENT_TYPE, "image/png")],
-        image_bytes,
+        [(header::CONTENT_TYPE, "image/svg+xml")],
+        qr_svg,
     )
         .into_response()
 }
 
-fn gen_qr_code(muid: MUID, uuid: UUID) -> Result<(), StatusCode> {
+fn gen_qr_code(muid: MUID, uuid: UUID) -> String {
     info!("Generating new QR for voter id {uuid} in meeting {muid}");
     let url = format!("{API_ENDPOINT}/login?muid=\"{muid}\"&uuid=\"{uuid}\"");
     info!("{url}");
-    match generate_frameqr(
-        &url,
-        "../fsek-logo.jpg",
-        Some(QrCodeEcc::High),
-        Some(24),
-        Some("output"),
-        Some("styled_qr"),
-        Some([255, 165, 0]), // Orange
-        Some(4),             // Outer frame size
-        Some(10),            // Inner frame size
-        Some(FrameStyle::Rounded),
-    ) {
-        Ok(_) => Ok(()),
-        Err(e) => {
-            error!("Failed to create voter QR code: {e}");
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
+
+    let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H).unwrap();
+    code.render::<svg::Color>().min_dimensions(200, 200).build()
 }
