@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Auth, AuthStatus } from '@/auth.ts';
 import Unauthorized from '@/components/error-pages/unauthorized.tsx';
+import HostPage from '@/components/meeting/host';
+import VoterPage from '@/components/meeting/voter';
 
 export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {
@@ -18,11 +20,6 @@ function RouteComponent() {
   const search = Route.useSearch();
   const muid = search.muid;
 
-  const navigate = useNavigate();
-  function invitePage() {
-    navigate({ to: "/invite", search: { muid: muid } });
-  }
-
   useEffect(() => {
     Auth(muid).then((res) => {
       if (res.success) {
@@ -37,8 +34,16 @@ function RouteComponent() {
     });
   }, []);
 
-  if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
-  if (authStatus === AuthStatus.VerifiedHost) return <div>Access Granted! You can now invite people!<button onClick={invitePage}>Invite!</button></div>;
-  if (authStatus === AuthStatus.VerifiedNonHost) return <div>Access Granted! You are a voter in this meeting</div>;
-  if (authStatus === AuthStatus.Denied) return <div><Unauthorized /></div>;
+  var page = undefined;
+
+  if (authStatus === AuthStatus.Loading) page = <div>Authenticating...</div>;
+  if (authStatus === AuthStatus.VerifiedHost) page = <HostPage muid={muid} />;
+  if (authStatus === AuthStatus.VerifiedNonHost) page = <VoterPage />;
+  if (authStatus === AuthStatus.Denied) page = <div><Unauthorized /></div>;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
+      {page}
+    </div>
+  );
 }
