@@ -42,7 +42,7 @@ function RouteComponent() {
 
   if (loginStatus === LoginStatus.Loading) return <div>Checking...</div>;
   if (loginStatus === LoginStatus.Success) {
-    navigate({ to: "/meeting", search: { muid: muid } });
+    navigate({ to: "/meeting", search: { muid: muid, uuid: uuid } });
     return <div>Logged in! Redirecting!</div>
   }
   if (loginStatus === LoginStatus.Failure) return <div>Login Failed!</div>;

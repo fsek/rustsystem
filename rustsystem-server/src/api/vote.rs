@@ -13,6 +13,7 @@ use rustsystem_proof::{
     ValidationRejectReason, ValidationResponse,
 };
 use serde::{Deserialize, Serialize};
+use tokio::sync::watch::{self, Receiver, Sender};
 use tracing::{error, info};
 use zkryptium::{
     keys::pair::KeyPair,
@@ -41,6 +42,7 @@ pub struct VoteAuthority {
     header: Header,
     registered_voters: HashSet<UUID>,
     expired_signatures: HashSet<[u8; 80]>,
+    state_tx: Sender<bool>,
 }
 impl VoteAuthority {
     /// For new meeting
@@ -55,7 +57,18 @@ impl VoteAuthority {
             header,
             registered_voters,
             expired_signatures,
+            state_tx: Sender::new(false),
         }
+    }
+
+    pub fn is_active(&self) -> bool {
+        *self.state_tx.borrow()
+    }
+    pub fn set_active_state(&mut self, new_state: bool) {
+        self.state_tx.send(new_state);
+    }
+    pub fn new_watcher(&self) -> Receiver<bool> {
+        self.state_tx.subscribe()
     }
 
     /// Resets VoteAuth for new voting round. Old ballots are no longer valid since the

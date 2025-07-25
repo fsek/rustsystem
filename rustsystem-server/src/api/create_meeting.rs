@@ -17,6 +17,7 @@ pub struct CreateMeetingQuery {
 #[derive(Serialize)]
 pub struct CreateMeetingResponse {
     pub muid: String,
+    pub uuid: String,
 }
 
 #[axum::debug_handler]
@@ -55,6 +56,7 @@ pub async fn create_meeting(
         jar.add(new_cookie),
         Json(CreateMeetingResponse {
             muid: muid.to_string(),
+            uuid: uuid.to_string(),
         }),
     )
 }

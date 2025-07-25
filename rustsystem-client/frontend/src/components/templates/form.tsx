@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import '@/colors.css';
 import Button from "@/components/templates/button";
 
@@ -19,9 +19,12 @@ interface FormSectionProps {
 }
 
 const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
-  const [formData, setFormData] = useState<Record<string, string>>(
-    Object.fromEntries(fields.map((f) => [f.id, ""]))
-  );
+  console.log("FormSection rendered with fields:", fields);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setFormData(Object.fromEntries(fields.map((f) => [f.id, ""])));
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;

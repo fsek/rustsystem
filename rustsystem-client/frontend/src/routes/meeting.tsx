@@ -9,6 +9,7 @@ export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {
     return {
       muid: search.muid ?? "",
+      uuid: search.uuid ?? "",
     };
   },
 
@@ -19,6 +20,7 @@ function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
   const search = Route.useSearch();
   const muid = search.muid;
+  const uuid = search.uuid;
 
   useEffect(() => {
     Auth(muid).then((res) => {
@@ -38,7 +40,7 @@ function RouteComponent() {
 
   if (authStatus === AuthStatus.Loading) page = <div>Authenticating...</div>;
   if (authStatus === AuthStatus.VerifiedHost) page = <HostPage muid={muid} />;
-  if (authStatus === AuthStatus.VerifiedNonHost) page = <VoterPage />;
+  if (authStatus === AuthStatus.VerifiedNonHost) page = <VoterPage muid={muid} uuid={uuid} />;
   if (authStatus === AuthStatus.Denied) page = <div><Unauthorized /></div>;
 
   return (

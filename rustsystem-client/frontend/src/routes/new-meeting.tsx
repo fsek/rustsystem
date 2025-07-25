@@ -20,7 +20,7 @@ function RouteComponent() {
       body: JSON.stringify(data)
     }).then((res) => {
       res.json().then((res_data) => {
-        navigate({ to: "/meeting", search: { muid: res_data.muid } });
+        navigate({ to: "/meeting", search: { muid: res_data.muid, uuid: res_data.uuid } });
       });
     });
   }
@@ -28,16 +28,13 @@ function RouteComponent() {
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
       <Header />
-
       <MainSection title="Create New Meeting" description=<p>Create a new meeting that suits your needs</p> />
-
       <FormSection
         fields={[
           { label: "Title", id: "title", type: "text" }
         ]}
         submit={{ label: "Create Meeting", data: submit }}
       />
-
       <Footer />
     </div>
   );
