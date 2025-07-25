@@ -19,7 +19,6 @@ interface FormSectionProps {
 }
 
 const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
-  console.log("FormSection rendered with fields:", fields);
   const [formData, setFormData] = useState<Record<string, string>>({});
 
   useEffect(() => {
