@@ -15,7 +15,9 @@ use tracing_subscriber::EnvFilter;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 pub mod api;
-use api::{api_routes, vote::VoteAuthority};
+use api::api_routes;
+mod vote_auth;
+use vote_auth::VoteAuthority;
 pub mod tokens;
 pub mod voting;
 

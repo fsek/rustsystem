@@ -95,7 +95,7 @@ async fn try_register(
     let info = Sha256Provider::new_reg_info(context, commitment);
     let body = serde_json::to_string(&info).unwrap();
 
-    match get_signature(send_post(&body, "api/vote/register").await?) {
+    match get_signature(send_post(&body, "api/voter/register").await?) {
         Some(sign) => Ok(RegistrationResult::with_signature(
             proof.to_bytes().to_vec(),
             token,
@@ -115,7 +115,7 @@ pub async fn send_vote(reg_res: RegistrationResult) -> Result<JsValue, JsValue> 
     );
     let body = serde_json::to_string(&info).unwrap();
 
-    let res = send_post(&body, "api/vote/submit").await?;
+    let res = send_post(&body, "api/voter/submit").await?;
 
     Ok(res)
 }

@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from '@tanstack/react-router';
 import React from "react";
 import Button from '@/components/templates/button';
 import FormSection from '@/components/templates/form';
+import { StartVote, type StartVoteRequest } from '@/api/host/state';
 
 interface HostPageProps {
   muid: any,
@@ -13,12 +14,9 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   function invitePage() {
     navigate({ to: "/invite", search: { muid: muid } });
   }
+
   function startVote(data: Record<string, string>) {
-    fetch("api/start-vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    });
+    StartVote(data as StartVoteRequest);
   }
 
   return (

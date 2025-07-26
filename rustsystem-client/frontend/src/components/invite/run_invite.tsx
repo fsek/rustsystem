@@ -1,15 +1,13 @@
+import { newVoter, type newVoterRequest } from '@/api/newVoter';
 import React, { useEffect, useState } from 'react';
 
 export const RunInvite: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    fetch("api/new-voter", {
-      method: "POST",
-      credentials: "include",
-    }).then(res => res.blob())
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
+    newVoter({} as newVoterRequest)
+      .then(res => {
+        const url = URL.createObjectURL(res.blob);
         setImageUrl(url);
       })
       .catch(console.error);

@@ -4,6 +4,7 @@ import Header from "@/components/defaults/header"
 import MainSection from "@/components/templates/main"
 import FormSection from "@/components/templates/form"
 import Footer from "@/components/defaults/footer"
+import { CreateMeeting, type CreateMeetingRequest } from "@/api/createMeeting"
 
 export const Route = createFileRoute('/new-meeting')({
   component: RouteComponent,
@@ -13,15 +14,8 @@ function RouteComponent() {
   const navigate = useNavigate();
 
   function submit(data: Record<string, string>) {
-    fetch("api/create-meeting", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    }).then((res) => {
-      res.json().then((res_data) => {
-        navigate({ to: "/meeting", search: { muid: res_data.muid, uuid: res_data.uuid } });
-      });
+    CreateMeeting(data as CreateMeetingRequest).then((res_data) => {
+      navigate({ to: "/meeting", search: { muid: res_data.muid, uuid: res_data.uuid } });
     });
   }
 

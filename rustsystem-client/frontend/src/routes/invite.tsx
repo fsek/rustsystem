@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { Auth, AuthStatus } from '@/auth.ts';
+import { Auth, AuthStatus, type AuthRequest } from '@/api/auth';
 import Unauthorized from '@/components/error-pages/unauthorized.tsx';
 import RunInvite from '@/components/invite/run_invite.tsx';
 
@@ -22,7 +22,7 @@ function RouteComponent() {
   const muid = search.muid
 
   useEffect(() => {
-    Auth(muid).then((res) => {
+    Auth({ muid } as AuthRequest).then((res) => {
       if (res.success) {
         if (res.is_host) {
           setAuthStatus(AuthStatus.VerifiedHost);

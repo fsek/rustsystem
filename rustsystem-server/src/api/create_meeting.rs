@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::SystemTime};
 use tracing::info;
 
-use crate::{AppState, Voter, api::vote::VoteAuthority, tokens::new_meeting_jwt};
+use crate::{AppState, Voter, tokens::new_meeting_jwt, vote_auth::VoteAuthority};
 
 #[derive(Deserialize)]
 pub struct CreateMeetingQuery {

@@ -1,3 +1,7 @@
+export type AuthRequest = {
+  muid: any;
+};
+
 type AuthResponse = {
   muid?: string;
   uuid?: string;
@@ -5,12 +9,12 @@ type AuthResponse = {
   success: boolean;
 };
 
-export async function Auth(muid: any): Promise<AuthResponse> {
+export async function Auth(req: AuthRequest): Promise<AuthResponse> {
   const res = await fetch("api/auth-meeting", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ muid: muid }),
+    body: JSON.stringify(req),
   });
   const data = await res.json();
   const obj = JSON.parse(data);

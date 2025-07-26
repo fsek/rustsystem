@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { useNavigate } from '@tanstack/react-router';
+import { Login, type LoginRequest } from '@/api/login';
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search) => {
@@ -30,8 +31,8 @@ function RouteComponent() {
   const uuid = search.uuid;
 
   useEffect(() => {
-    login(muid, uuid).then((success) => {
-      if (success) {
+    Login({ muid, uuid } as LoginRequest).then((res) => {
+      if (res.success) {
         setLoginStatus(LoginStatus.Success);
       } else {
         setLoginStatus(LoginStatus.Failure);
@@ -46,17 +47,4 @@ function RouteComponent() {
     return <div>Logged in! Redirecting!</div>
   }
   if (loginStatus === LoginStatus.Failure) return <div>Login Failed!</div>;
-}
-
-async function login(muid: any, uuid: any): Promise<boolean> {
-  const res = await fetch("api/login", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ muid: muid, uuid: uuid })
-  });
-
-  const data = await res.json();
-  const obj = JSON.parse(data);
-  return obj["success"];
 }

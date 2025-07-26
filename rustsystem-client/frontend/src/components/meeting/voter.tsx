@@ -1,5 +1,7 @@
 import React, { useEffect, useState, type ReactElement } from 'react';
 import VotePage from '@/components/meeting/vote_page';
+import { VoteActive, type VoteActiveRequest } from '@/api/common/state';
+import { startVoteWait } from '@/api/voter/state';
 
 type VoterPageProps = {
   muid: any,
@@ -7,23 +9,17 @@ type VoterPageProps = {
 }
 
 const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
-  const voteEvent = new EventSource("/api/events/vote-watch");
+  const voteEvent = startVoteWait();
   const [voteActive, setVoteActive] = useState<boolean>(false);
 
   useEffect(() => {
-    fetch("api/vote-active", {
-      method: "GET",
-      credentials: "include",
-    }).then((res) => {
-      res.json().then((data) => {
-        const obj = JSON.parse(data);
-        // Explicitly check for voteActive being true.
-        if (obj.voteActive === true) {
-          setVoteActive(true);
-        } else {
-          setVoteActive(false);
-        }
-      });
+    // Explicitly check for voteActive being true.
+    VoteActive({} as VoteActiveRequest).then((res) => {
+      if (res.isActive === true) {
+        setVoteActive(true);
+      } else {
+        setVoteActive(false);
+      }
     });
   }, []);
 
