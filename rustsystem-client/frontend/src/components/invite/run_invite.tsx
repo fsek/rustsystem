@@ -1,4 +1,4 @@
-import { newVoter, type newVoterRequest } from '@/api/newVoter';
+import { newVoter, type newVoterRequest } from '@/api/host/newVoter';
 import React, { useEffect, useState } from 'react';
 
 export const RunInvite: React.FC = () => {

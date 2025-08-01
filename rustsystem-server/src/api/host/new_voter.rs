@@ -1,30 +1,22 @@
 use axum::http::header;
 use axum::{
-    Json,
     extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
-use tracing::{error, info};
+use tracing::info;
 
-use crate::{API_ENDPOINT, AppState, new_uuid, tokens::AuthUser};
+use crate::{API_ENDPOINT, AppState, new_uuid};
 use crate::{MUID, UUID};
 
+use super::auth::AuthHost;
+
 pub async fn new_voter(
-    AuthUser {
-        uuid,
-        muid,
-        is_host,
-    }: AuthUser,
+    AuthHost { uuid, muid }: AuthHost,
     State(state): State<AppState>,
 ) -> Response {
-    if !is_host {
-        // Only host is allowed to create new users
-        return StatusCode::UNAUTHORIZED.into_response();
-    }
-
     let new_uuid = new_uuid();
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.

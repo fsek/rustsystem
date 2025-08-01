@@ -7,14 +7,12 @@ use axum::{
 };
 use tokio_stream::{StreamExt, wrappers::WatchStream};
 
-use crate::{AppState, tokens::AuthUser};
+use crate::AppState;
+
+use super::auth::AuthVoter;
 
 pub async fn sse_watch_state(
-    AuthUser {
-        uuid,
-        muid,
-        is_host,
-    }: AuthUser,
+    AuthVoter { uuid, muid }: AuthVoter,
     State(state): State<AppState>,
 ) -> Response {
     if let Some(meeting) = state.meetings.lock().await.get(&muid) {

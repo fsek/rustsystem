@@ -6,9 +6,6 @@ use axum::{
 mod create_meeting;
 use create_meeting::create_meeting;
 
-mod new_voter;
-use new_voter::new_voter;
-
 mod login;
 use login::login;
 
@@ -29,7 +26,6 @@ pub fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/create-meeting", post(create_meeting))
         .route("/auth-meeting", post(auth_meeting))
-        .route("/new-voter", post(new_voter))
         .route("/login", post(login))
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())

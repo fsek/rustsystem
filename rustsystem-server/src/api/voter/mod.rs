@@ -6,6 +6,8 @@ use vote::{register, validate_vote};
 
 use crate::AppState;
 
+mod auth;
+
 mod state;
 use state::sse_watch_state;
 

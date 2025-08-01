@@ -13,14 +13,12 @@ use serde::Deserialize;
 use tracing::{error, info};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
-use crate::{AppState, tokens::AuthUser};
+use crate::AppState;
+
+use super::auth::AuthVoter;
 
 pub async fn register(
-    AuthUser {
-        uuid,
-        muid,
-        is_host,
-    }: AuthUser,
+    AuthVoter { uuid, muid }: AuthVoter,
     State(state): State<AppState>,
     Json(body): Json<Sha256RegistrationInfo>,
 ) -> Response {
@@ -72,11 +70,7 @@ pub struct ValidateRequest {
     signature: BlindSignature<BbsBls12381Sha256>,
 }
 pub async fn validate_vote(
-    AuthUser {
-        uuid,
-        muid,
-        is_host,
-    }: AuthUser,
+    AuthVoter { uuid, muid }: AuthVoter,
     State(state): State<AppState>,
     Json(body): Json<ValidateRequest>,
 ) -> Response {

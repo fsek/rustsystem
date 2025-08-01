@@ -6,7 +6,7 @@ type newVoterResponse = {
 export async function newVoter(
   _req: newVoterRequest,
 ): Promise<newVoterResponse> {
-  const res = await fetch("api/new-voter", {
+  const res = await fetch("api/host/new-voter", {
     method: "POST",
     credentials: "include",
   });
