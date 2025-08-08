@@ -1,4 +1,9 @@
-use axum::{Extension, Json, Router, http::StatusCode, response::IntoResponse, routing::post};
+use axum::{
+    Extension, Json, Router,
+    http::{HeaderValue, StatusCode, header::CONTENT_SECURITY_POLICY},
+    response::IntoResponse,
+    routing::post,
+};
 use axum_server::tls_rustls::RustlsConfig;
 use rand::Rng;
 use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
@@ -9,7 +14,10 @@ use std::{
     time::SystemTime,
 };
 use tokio::sync::Mutex;
-use tower_http::services::{ServeDir, ServeFile};
+use tower_http::{
+    services::{ServeDir, ServeFile},
+    set_header::{SetResponseHeader, SetResponseHeaderLayer},
+};
 use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
@@ -92,6 +100,7 @@ async fn main() {
     let app = Router::new()
         .fallback_service(serve_dir)
         .nest("/api", api_routes())
+        .layer(SetResponseHeaderLayer::overriding(CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'; img-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")))
         .with_state(state);
 
     let config = RustlsConfig::from_pem_file("localhost+1.pem", "localhost+1-key.pem")
