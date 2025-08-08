@@ -1,6 +1,4 @@
-import React, { useState } from "react";
-
-import init, { register, RegistrationResult } from "@/pkg/rustsystem_client.js";
+import init, { register, send_vote, RegistrationResult } from "@/pkg/rustsystem_client.js";
 import Button from "@/components/templates/button";
 
 type VotePageProps = {
@@ -10,19 +8,30 @@ type VotePageProps = {
 
 const VotePage: React.FC<VotePageProps> = ({ muid, uuid }) => {
   init();
-  const [ballot, setBallot] = useState<RegistrationResult | undefined>(undefined);
 
   async function sendRegistration() {
     const res = await register(muid, uuid);
-    setBallot(res);
+    sessionStorage.setItem("proof", JSON.stringify(res.proof()));
+    sessionStorage.setItem("token", JSON.stringify(res.token()));
+    sessionStorage.setItem("signature", JSON.stringify(res.signature()));
+  }
+
+  async function validate() {
+    const proof = new Uint8Array(Object.values(JSON.parse(sessionStorage.getItem("proof")!)));
+    const token = new Uint8Array(Object.values(JSON.parse(sessionStorage.getItem("token")!)));
+    const signature = JSON.parse(sessionStorage.getItem("signature")!);
+    console.log(proof);
+    console.log(token);
+    console.log(signature);
+    const res = await send_vote(RegistrationResult.with_signature(proof, token, signature));
+    console.log(res);
   }
 
   return (
     <div>
       <p>You can now Register</p>
       <Button label="Register" fn={sendRegistration} />
-      {JSON.stringify(ballot?.signature())}
-      {JSON.stringify(ballot?.proof())}
+      <Button label="Validate" fn={validate} />
     </div>
   )
 }
