@@ -13,12 +13,25 @@ use crate::{MUID, UUID};
 
 use super::auth::AuthHost;
 
+pub async fn start_invite(
+    AuthHost { uuid, muid }: AuthHost,
+    State(state): State<AppState>,
+) -> Response {
+    if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        meeting.invite_auth.set_state(true);
+        StatusCode::OK.into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
 pub async fn new_voter(
     AuthHost { uuid, muid }: AuthHost,
     State(state): State<AppState>,
 ) -> Response {
     let new_uuid = new_uuid();
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        meeting.invite_auth.set_state(false);
         // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.
         meeting.add_voter(new_uuid);
     } else {

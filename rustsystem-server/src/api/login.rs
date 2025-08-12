@@ -58,6 +58,8 @@ pub async fn login(
             } else {
                 // Claim this uuid
                 voter.logged_in = true;
+                // Login resource needs to refresh
+                meeting.invite_auth.set_state(true);
             }
         } else {
             error!("Voter with id {uuid} doesn't exist!");

@@ -7,7 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::SystemTime};
 use tracing::info;
 
-use crate::{AppState, Voter, tokens::new_meeting_jwt, vote_auth::VoteAuthority};
+use crate::{
+    AppState, Voter,
+    invite_auth::{self, InviteAuthority},
+    tokens::new_meeting_jwt,
+    vote_auth::VoteAuthority,
+};
 
 #[derive(Deserialize)]
 pub struct CreateMeetingQuery {
@@ -39,6 +44,7 @@ pub async fn create_meeting(
     voters.insert(uuid, Voter { logged_in: true });
 
     let vote_auth = VoteAuthority::new(query.title.clone());
+    let invite_auth = InviteAuthority::new();
 
     meetings.insert(
         muid,
@@ -48,6 +54,7 @@ pub async fn create_meeting(
             start_time: SystemTime::now(),
             voters,
             vote_auth,
+            invite_auth,
         },
     );
 
