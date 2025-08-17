@@ -5,15 +5,19 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use rustsystem_proof::{
-    Provider, RegistrationRejectReason, RegistrationResponse, Sha256Provider,
-    Sha256RegistrationInfo, Sha256ValidationInfo, ValidationInfo, ValidationRejectReason,
-    ValidationResponse,
+    Ballot, BallotMetaData, BallotValidation, Provider, RegistrationRejectReason,
+    RegistrationResponse, Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo,
+    ValidationInfo, ValidationRejectReason, ValidationResponse,
 };
 use serde::Deserialize;
 use tracing::{error, info};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
-use crate::AppState;
+use crate::{
+    AppState, Meeting,
+    api::common::common_responses::ensure_round,
+    vote_auth::{Header, VoteAuthority, VoteRound},
+};
 
 use super::auth::AuthVoter;
 
@@ -33,7 +37,12 @@ pub async fn register(
 
     let vote_auth = meeting.get_auth();
 
-    if vote_auth.is_registered(uuid) {
+    let round = match ensure_round(vote_auth) {
+        Ok(_r) => _r,
+        Err(e) => return e.into_response(),
+    };
+
+    if round.is_registered(uuid) {
         return (
             StatusCode::CONFLICT,
             Json(RegistrationResponse::Rejected(
@@ -45,10 +54,10 @@ pub async fn register(
 
     if let Ok(signature) = Sha256Provider::sign_token(
         body.commitment,
-        vote_auth.header().clone(),
-        vote_auth.keys().clone(),
+        round.header().clone(),
+        round.keys().clone(),
     ) {
-        vote_auth.register_user(uuid);
+        round.register_user(uuid);
         (
             StatusCode::CREATED,
             Json(RegistrationResponse::Accepted(signature)),
@@ -65,15 +74,17 @@ pub async fn register(
 
 #[derive(Deserialize)]
 pub struct ValidateRequest {
-    proof: Vec<u8>,
-    token: Vec<u8>,
-    signature: BlindSignature<BbsBls12381Sha256>,
+    ballot: Ballot,
 }
 pub async fn validate_vote(
     AuthVoter { uuid, muid }: AuthVoter,
     State(state): State<AppState>,
     Json(body): Json<ValidateRequest>,
 ) -> Response {
+    let metadata = body.ballot.get_metadata();
+    let choice = body.ballot.get_choice();
+    let validation = body.ballot.get_validation();
+
     let mut meetings = state.meetings.lock().await;
     let meeting = if let Some(meeting_ok) = meetings.get_mut(&muid) {
         meeting_ok
@@ -83,7 +94,12 @@ pub async fn validate_vote(
 
     let vote_auth = meeting.get_auth();
 
-    if vote_auth.is_used(&body.signature) {
+    let round = match ensure_round(vote_auth) {
+        Ok(_r) => _r,
+        Err(e) => return e.into_response(),
+    };
+
+    if round.is_used(validation.get_signature()) {
         return (
             StatusCode::CONFLICT,
             Json(ValidationResponse::Rejected(
@@ -93,26 +109,56 @@ pub async fn validate_vote(
             .into_response();
     }
 
-    let info = Sha256ValidationInfo::new(body.proof, body.token, body.signature);
+    if let Err(e) = validate_metadata(*metadata, &round) {
+        return e.into_response();
+    }
+
+    if let Err(e) = validate_signature(validation, round) {
+        return e.into_response();
+    }
+
+    unimplemented!()
+}
+
+fn validate_metadata(
+    received: BallotMetaData,
+    round: &VoteRound,
+) -> Result<(), (StatusCode, Json<ValidationResponse>)> {
+    if received == round.metadata() {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::CONFLICT,
+            Json(ValidationResponse::Rejected(
+                ValidationRejectReason::InvalidMetaData,
+            )),
+        ))
+    }
+}
+
+fn validate_signature(
+    validation: &BallotValidation,
+    round: &mut VoteRound,
+) -> Result<(), (StatusCode, Json<ValidationResponse>)> {
+    let info = Sha256ValidationInfo::from(validation.clone());
 
     if let Ok(_) = Sha256Provider::validate_token(
         info.get_proof(),
-        vote_auth.header().clone(),
+        round.header().clone(),
         info.token,
-        vote_auth.keys().public_key().clone(),
+        round.keys().public_key().clone(),
         info.signature.clone(),
     ) {
         info!("Validation Successful");
-        vote_auth.set_signature_expired(&info.signature);
-        (StatusCode::OK, Json(ValidationResponse::Accepted)).into_response()
+        round.set_signature_expired(&info.signature);
+        Ok(())
     } else {
         error!("Validation Failure");
-        (
+        Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(ValidationResponse::Rejected(
                 ValidationRejectReason::SignatureInvalid,
             )),
-        )
-            .into_response()
+        ))
     }
 }

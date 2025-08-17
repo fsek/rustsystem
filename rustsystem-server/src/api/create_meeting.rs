@@ -43,7 +43,7 @@ pub async fn create_meeting(
     let mut voters = HashMap::new();
     voters.insert(uuid, Voter { logged_in: true });
 
-    let vote_auth = VoteAuthority::new(query.title.clone());
+    let vote_auth = VoteAuthority::new();
     let invite_auth = InviteAuthority::new();
 
     meetings.insert(

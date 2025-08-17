@@ -15,6 +15,9 @@ use zkryptium::{
     },
 };
 
+mod ballot;
+pub use ballot::*;
+
 const TOKEN_SIZE: usize = 256;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -31,6 +34,9 @@ pub enum RegistrationResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ValidationRejectReason {
+    InvalidMetaData,
+    VotingInactive,
+
     SignatureInvalid,
     SignatureExpired,
 }
@@ -93,7 +99,8 @@ impl ProofContext {
     }
 }
 
-pub trait ValidationInfo<S: Scheme>: Serialize + DeserializeOwned + Debug
+pub trait ValidationInfo<S: Scheme>:
+    Serialize + DeserializeOwned + Debug + From<BallotValidation>
 where
     S::Ciphersuite: BbsCiphersuite,
     <S::Ciphersuite as BbsCiphersuite>::Expander: for<'a> ExpandMsg<'a>,
