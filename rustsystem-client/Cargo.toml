@@ -3,11 +3,6 @@ name = "rustsystem-client"
 version = "0.1.0"
 edition = "2018"
 
-[workspace]
-# Since we're building for wasm (and not the same target as the server),
-# this crate cannot be a member of the root workspace. So we define
-# our own workspace here.
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 

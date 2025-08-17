@@ -1,8 +1,9 @@
 [workspace]
-members = [ "rustsystem-server", "rustsystem-proof" ]
+members = [ "rustsystem-server", "rustsystem-proof", "rustsystem-client" ]
 resolver = "3"
 
 [workspace.dependencies]
+wasm-bindgen = "0.2.84"
 axum = { version = "0.8.4", features = ["macros"] }
 
 [workspace.package]

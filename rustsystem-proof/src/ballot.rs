@@ -6,13 +6,16 @@ use std::{
 use serde::{Deserialize, Serialize};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
+use wasm_bindgen::prelude::*;
+
 use crate::{Sha256ValidationInfo, ValidationInfo};
 
 pub type VoteRoundID = u128;
 pub type CandidateID = u8;
 pub type ProtocolVersion = u8;
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[wasm_bindgen]
 pub enum VoteMethod {
     Dichotomous,
     Plurality,
@@ -43,23 +46,101 @@ pub enum Choice {
     STAR(HashMap<CandidateID, u8>),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
+#[wasm_bindgen]
+pub struct WASMChoice {
+    dichotomous: Option<bool>,
+    plurality: Option<CandidateID>,
+    ranked_choice: Option<Vec<CandidateID>>,
+    approval: Option<Vec<CandidateID>>,
+    score: Option<HashMap<CandidateID, u8>>,
+    star: Option<HashMap<CandidateID, u8>>,
+}
+#[wasm_bindgen]
+impl WASMChoice {
+    #[wasm_bindgen(constructor)]
+    pub fn new_empty() -> Self {
+        Self {
+            dichotomous: None,
+            plurality: None,
+            ranked_choice: None,
+            approval: None,
+            score: None,
+            star: None,
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn debug(&self) -> String {
+        format!("{self:?}")
+    }
+}
+impl WASMChoice {
+    /// Note: the None result is considered a blank vote
+    pub fn into_choice(self) -> Option<Choice> {
+        if let Some(dichotomous) = self.dichotomous {
+            return Some(Choice::Dichotomous(dichotomous));
+        } else if let Some(plurality) = self.plurality {
+            return Some(Choice::Plurality(plurality));
+        } else if let Some(ranked_choice) = self.ranked_choice {
+            return Some(Choice::RankedChoice(ranked_choice));
+        } else if let Some(approval) = self.approval {
+            return Some(Choice::Approval(approval));
+        } else if let Some(score) = self.score {
+            return Some(Choice::Score(score));
+        } else if let Some(star) = self.star {
+            return Some(Choice::STAR(star));
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 // All fields are private since they should not change once set
+#[wasm_bindgen]
 pub struct BallotValidation {
     proof: Vec<u8>,
     token: Vec<u8>,
     signature: BlindSignature<BbsBls12381Sha256>,
 }
-// Getter functions for private fields
+#[wasm_bindgen]
 impl BallotValidation {
+    #[wasm_bindgen]
+    pub fn debug(&self) -> String {
+        format!("{self:?}")
+    }
+
+    #[wasm_bindgen(js_name = toValue)]
+    pub fn to_value(&self) -> Result<JsValue, JsError> {
+        serde_wasm_bindgen::to_value(self).map_err(JsError::from)
+    }
+
+    #[wasm_bindgen(js_name = fromValue)]
+    pub fn from_value(v: JsValue) -> Result<Self, JsError> {
+        serde_wasm_bindgen::from_value(v).map_err(JsError::from)
+    }
+}
+impl BallotValidation {
+    pub fn new(
+        proof: Vec<u8>,
+        token: Vec<u8>,
+        signature: BlindSignature<BbsBls12381Sha256>,
+    ) -> Self {
+        Self {
+            proof,
+            token,
+            signature,
+        }
+    }
+
+    // Getter functions for private fields
     pub fn get_proof(&self) -> &Vec<u8> {
         &self.proof
     }
-
     pub fn get_token(&self) -> &Vec<u8> {
         &self.token
     }
-
     pub fn get_signature(&self) -> &BlindSignature<BbsBls12381Sha256> {
         &self.signature
     }
@@ -70,20 +151,39 @@ impl From<BallotValidation> for Sha256ValidationInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 // All fields are private since they should not change once set
+#[wasm_bindgen]
 pub struct BallotMetaData {
     method: VoteMethod,
     protocol_version: ProtocolVersion,
 }
-
+#[wasm_bindgen]
 impl BallotMetaData {
+    #[wasm_bindgen(constructor)]
     pub fn new(method: VoteMethod, protocol_version: ProtocolVersion) -> Self {
         Self {
             method,
             protocol_version,
         }
     }
+
+    #[wasm_bindgen]
+    pub fn debug(&self) -> String {
+        format!("{self:?}")
+    }
+
+    #[wasm_bindgen(js_name = toValue)]
+    pub fn to_value(&self) -> Result<JsValue, JsError> {
+        serde_wasm_bindgen::to_value(self).map_err(JsError::from)
+    }
+
+    #[wasm_bindgen(js_name = fromValue)]
+    pub fn from_value(v: JsValue) -> Result<Self, JsError> {
+        serde_wasm_bindgen::from_value(v).map_err(JsError::from)
+    }
+}
+impl BallotMetaData {
     // Getter functions for private fields
     pub fn get_method(&self) -> VoteMethod {
         self.method
@@ -106,12 +206,25 @@ pub struct Ballot {
     _padding: Vec<u8>,
 }
 impl Ballot {
+    pub fn new(
+        metadata: BallotMetaData,
+        choice: Option<Choice>,
+        validation: BallotValidation,
+    ) -> Self {
+        Self {
+            metadata,
+            choice,
+            validation,
+            _padding: Vec::new(),
+        }
+    }
     pub fn resize(&mut self) -> io::Result<()> {
         let bytes = serde_json::to_vec(&self)?;
 
         // Set padding such that Ballot will match predefined size
-        let padding_size = BALLOT_SIZE - bytes.len();
-        if padding_size < 0 {
+        let padding_size = if BALLOT_SIZE >= bytes.len() {
+            BALLOT_SIZE - bytes.len()
+        } else {
             return Err(Error::new(
                 ErrorKind::Other,
                 format!(
@@ -119,11 +232,16 @@ impl Ballot {
                     bytes.len()
                 ),
             ));
-        } else {
-            self._padding.resize(padding_size, 0);
-            // Randomize to avoid determenistic compression
-            // Compression may still occur, but it will not be possible to tell the original size
-            getrandom::fill(&mut self._padding);
+        };
+
+        self._padding.resize(padding_size, 0);
+        // Randomize to avoid determenistic compression
+        // Compression may still occur, but it will not be possible to tell the original size
+        if let Err(e) = getrandom::fill(&mut self._padding) {
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Failed to randomize ballot padding: {e}"),
+            ));
         }
         Ok(())
     }

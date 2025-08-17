@@ -15,8 +15,7 @@ use super::auth::AuthHost;
 #[derive(Deserialize)]
 pub struct StartVoteRequest {
     name: String,
-    method: VoteMethod,
-    protocol_version: ProtocolVersion,
+    metadata: BallotMetaData,
 }
 
 pub async fn start_vote(
@@ -26,10 +25,7 @@ pub async fn start_vote(
 ) -> Response {
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         info!("Starting vote: {}", body.name);
-        meeting.get_auth().start_round(
-            BallotMetaData::new(body.method, body.protocol_version),
-            body.name,
-        );
+        meeting.get_auth().start_round(body.metadata, body.name);
 
         return StatusCode::OK.into_response();
     } else {

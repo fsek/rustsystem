@@ -6,6 +6,7 @@ use bls12_381_plus::elliptic_curve::hash2curve::ExpandMsg;
 use getrandom;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
+use wasm_bindgen::prelude::wasm_bindgen;
 use zkryptium::{
     bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey},
     keys::pair::KeyPair,
@@ -29,10 +30,65 @@ pub enum RegistrationRejectReason {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RegistrationResponse {
     Rejected(RegistrationRejectReason),
-    Accepted(BlindSignature<BbsBls12381Sha256>),
+    Accepted(BlindSignature<BbsBls12381Sha256>, BallotMetaData),
+}
+
+#[wasm_bindgen]
+pub struct WASMRegistrationResponse {
+    rejected: Option<RegistrationRejectReason>,
+    accepted: Option<(BlindSignature<BbsBls12381Sha256>, BallotMetaData)>,
+}
+impl WASMRegistrationResponse {
+    pub fn new() -> Self {
+        Self {
+            rejected: None,
+            accepted: None,
+        }
+    }
+    pub fn into_response(self) -> Option<RegistrationResponse> {
+        if let Some(rejected) = self.rejected {
+            Some(RegistrationResponse::Rejected(rejected))
+        } else if let Some((sign, md)) = self.accepted {
+            Some(RegistrationResponse::Accepted(sign, md))
+        } else {
+            None
+        }
+    }
+
+    pub fn signature(&self) -> Option<BlindSignature<BbsBls12381Sha256>> {
+        Some(self.accepted.as_ref()?.0.clone())
+    }
+
+    pub fn metadata(&self) -> Option<BallotMetaData> {
+        Some(self.accepted.as_ref()?.1.clone())
+    }
+
+    pub fn is_valid(&self) -> bool {
+        if let Some(_) = self.rejected {
+            true
+        } else if let Some(_) = self.accepted {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_successful(&self) -> bool {
+        self.accepted != None
+    }
+}
+impl From<RegistrationResponse> for WASMRegistrationResponse {
+    fn from(value: RegistrationResponse) -> Self {
+        let mut res = Self::new();
+        match value {
+            RegistrationResponse::Rejected(rejected) => res.rejected = Some(rejected),
+            RegistrationResponse::Accepted(sign, md) => res.accepted = Some((sign, md)),
+        }
+        res
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[wasm_bindgen]
 pub enum ValidationRejectReason {
     InvalidMetaData,
     VotingInactive,

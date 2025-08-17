@@ -60,7 +60,7 @@ pub async fn register(
         round.register_user(uuid);
         (
             StatusCode::CREATED,
-            Json(RegistrationResponse::Accepted(signature)),
+            Json(RegistrationResponse::Accepted(signature, round.metadata())),
         )
             .into_response()
     } else {
@@ -72,18 +72,14 @@ pub async fn register(
     }
 }
 
-#[derive(Deserialize)]
-pub struct ValidateRequest {
-    ballot: Ballot,
-}
 pub async fn validate_vote(
     AuthVoter { uuid, muid }: AuthVoter,
     State(state): State<AppState>,
-    Json(body): Json<ValidateRequest>,
+    Json(body): Json<Ballot>,
 ) -> Response {
-    let metadata = body.ballot.get_metadata();
-    let choice = body.ballot.get_choice();
-    let validation = body.ballot.get_validation();
+    let metadata = body.get_metadata();
+    let choice = body.get_choice();
+    let validation = body.get_validation();
 
     let mut meetings = state.meetings.lock().await;
     let meeting = if let Some(meeting_ok) = meetings.get_mut(&muid) {
@@ -117,7 +113,7 @@ pub async fn validate_vote(
         return e.into_response();
     }
 
-    unimplemented!()
+    (StatusCode::OK, Json(ValidationResponse::Accepted)).into_response()
 }
 
 fn validate_metadata(

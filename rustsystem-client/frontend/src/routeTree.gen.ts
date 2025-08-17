@@ -11,7 +11,6 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as VoteImport } from './routes/vote'
 import { Route as NewMeetingImport } from './routes/new-meeting'
 import { Route as MeetingImport } from './routes/meeting'
 import { Route as LoginImport } from './routes/login'
@@ -21,12 +20,6 @@ import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
-
-const VoteRoute = VoteImport.update({
-  id: '/vote',
-  path: '/vote',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const NewMeetingRoute = NewMeetingImport.update({
   id: '/new-meeting',
@@ -123,13 +116,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewMeetingImport
       parentRoute: typeof rootRoute
     }
-    '/vote': {
-      id: '/vote'
-      path: '/vote'
-      fullPath: '/vote'
-      preLoaderRoute: typeof VoteImport
-      parentRoute: typeof rootRoute
-    }
   }
 }
 
@@ -143,7 +129,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/new-meeting': typeof NewMeetingRoute
-  '/vote': typeof VoteRoute
 }
 
 export interface FileRoutesByTo {
@@ -154,7 +139,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/new-meeting': typeof NewMeetingRoute
-  '/vote': typeof VoteRoute
 }
 
 export interface FileRoutesById {
@@ -166,7 +150,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/new-meeting': typeof NewMeetingRoute
-  '/vote': typeof VoteRoute
 }
 
 export interface FileRouteTypes {
@@ -179,7 +162,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/meeting'
     | '/new-meeting'
-    | '/vote'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -189,7 +171,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/meeting'
     | '/new-meeting'
-    | '/vote'
   id:
     | '__root__'
     | '/'
@@ -199,7 +180,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/meeting'
     | '/new-meeting'
-    | '/vote'
   fileRoutesById: FileRoutesById
 }
 
@@ -211,7 +191,6 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MeetingRoute: typeof MeetingRoute
   NewMeetingRoute: typeof NewMeetingRoute
-  VoteRoute: typeof VoteRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -222,7 +201,6 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MeetingRoute: MeetingRoute,
   NewMeetingRoute: NewMeetingRoute,
-  VoteRoute: VoteRoute,
 }
 
 export const routeTree = rootRoute
@@ -241,8 +219,7 @@ export const routeTree = rootRoute
         "/invite",
         "/login",
         "/meeting",
-        "/new-meeting",
-        "/vote"
+        "/new-meeting"
       ]
     },
     "/": {
@@ -265,9 +242,6 @@ export const routeTree = rootRoute
     },
     "/new-meeting": {
       "filePath": "new-meeting.tsx"
-    },
-    "/vote": {
-      "filePath": "vote.tsx"
     }
   }
 }

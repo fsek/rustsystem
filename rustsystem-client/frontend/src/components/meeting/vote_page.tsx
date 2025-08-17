@@ -1,4 +1,4 @@
-import init, { register, send_vote, RegistrationResult } from "@/pkg/rustsystem_client.js";
+import init, { try_register, send_vote, WASMChoice, new_ballot_validation } from "@/pkg/rustsystem_client.js";
 import Button from "@/components/templates/button";
 
 type VotePageProps = {
@@ -10,10 +10,15 @@ const VotePage: React.FC<VotePageProps> = ({ muid, uuid }) => {
   init();
 
   async function sendRegistration() {
-    const res = await register(muid, uuid);
-    sessionStorage.setItem("proof", JSON.stringify(res.proof()));
-    sessionStorage.setItem("token", JSON.stringify(res.token()));
-    sessionStorage.setItem("signature", JSON.stringify(res.signature()));
+    const res = await try_register(muid, uuid);
+    if (res.is_valid() && res.is_successful()) {
+      const validation = new_ballot_validation(res.proof(), res.token(), res.signature());
+      sessionStorage.setItem("validation", JSON.stringify(validation.toValue()));
+      sessionStorage.setItem("metadata", JSON.stringify(res.metadata()!.toValue()))
+    } else {
+      // TODO: This should be handled such that the user knows that the registration failed
+      console.error("Registration was unsuccessful");
+    }
   }
 
   async function validate() {
@@ -23,7 +28,16 @@ const VotePage: React.FC<VotePageProps> = ({ muid, uuid }) => {
     console.log(proof);
     console.log(token);
     console.log(signature);
-    const res = await send_vote(RegistrationResult.with_signature(proof, token, signature));
+
+    const validation = JSON.parse(sessionStorage.getItem("validation")!);
+    const metadata = JSON.parse(sessionStorage.getItem("metadata")!);
+    const choice = new WASMChoice();
+
+    console.log(metadata);
+    console.log(choice);
+    console.log(validation);
+
+    const res = await send_vote(metadata, choice, validation);
     console.log(res);
   }
 
