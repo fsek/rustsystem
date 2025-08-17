@@ -1,8 +1,6 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{
-    console::info_1, js_sys, Request, RequestCredentials, RequestInit, RequestMode, Response,
-};
+use web_sys::{console::info_1, Request, RequestCredentials, RequestInit, RequestMode, Response};
 
 use crate::API_ENDPOINT;
 

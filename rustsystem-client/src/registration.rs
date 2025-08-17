@@ -2,7 +2,6 @@ use rustsystem_proof::{
     BallotMetaData, Provider, RegistrationResponse, Sha256Provider, WASMRegistrationResponse,
 };
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys;
 use zkryptium::bbsplus::commitment::BlindFactor;
 
 use crate::utils::{log, send_post};
@@ -11,17 +10,17 @@ use crate::utils::{log, send_post};
 pub async fn try_register(
     voter_id: String,
     meeting_id: String,
-) -> Result<RegistrationResult, js_sys::Error> {
+) -> Result<RegistrationResult, JsError> {
     log("Trying to register");
 
     let uuid = voter_id
         .parse::<u128>()
-        .map_err(|e| js_sys::Error::new(&e.to_string()))?
+        .map_err(JsError::from)?
         .to_be_bytes()
         .to_vec();
     let muid = meeting_id
         .parse::<u128>()
-        .map_err(|e| js_sys::Error::new(&e.to_string()))?
+        .map_err(JsError::from)?
         .to_be_bytes()
         .to_vec();
 
@@ -30,18 +29,14 @@ pub async fn try_register(
     let body = serde_json::to_string(&info).unwrap();
 
     match serde_wasm_bindgen::from_value::<RegistrationResponse>(
-        send_post(&body, "api/voter/register")
-            .await
-            .map_err(|e| e.unchecked_into::<js_sys::Error>())?,
-    )
-    .ok()
-    {
-        Some(res) => Ok(RegistrationResult::new(
+        send_post(&body, "api/voter/register").await.unwrap(),
+    ) {
+        Ok(res) => Ok(RegistrationResult::new(
             WASMRegistrationResponse::from(res),
             token,
             proof,
         )),
-        None => Err(js_sys::Error::new("Failed to retrieve signature")),
+        Err(e) => Err(JsError::from(e)),
     }
 }
 
@@ -71,14 +66,14 @@ impl RegistrationResult {
         self.token.clone()
     }
     #[wasm_bindgen]
-    pub fn signature(&self) -> Result<JsValue, js_sys::Error> {
+    pub fn signature(&self) -> Result<JsValue, JsError> {
         serde_wasm_bindgen::to_value(
             &self
                 .response
                 .signature()
-                .ok_or(js_sys::Error::new("Signature is empty"))?,
+                .ok_or(JsError::new("Signature is empty"))?,
         )
-        .map_err(|e| js_sys::Error::new(&format!("Could not convert signature to JsValue: {e}")))
+        .map_err(JsError::from)
     }
 
     #[wasm_bindgen]
