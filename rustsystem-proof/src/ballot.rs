@@ -74,6 +74,12 @@ impl WASMChoice {
     pub fn debug(&self) -> String {
         format!("{self:?}")
     }
+
+    // Dichotomous
+    #[wasm_bindgen]
+    pub fn set_dichotomous(&mut self, choice: Option<bool>) {
+        self.dichotomous = choice;
+    }
 }
 impl WASMChoice {
     /// Note: the None result is considered a blank vote
