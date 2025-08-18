@@ -1,3 +1,9 @@
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, IntoResponseParts},
+};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     io::{self, Error, ErrorKind},
@@ -19,6 +25,7 @@ pub type Header = Vec<u8>;
 type Votes = Vec<Option<Choice>>;
 
 // The structure of the Tally depends on the voting method
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TallyScore {
     // Votes for "Yes" - Votes for "No"
     Dichotomous(usize, usize),
@@ -38,12 +45,34 @@ pub enum TallyScore {
     // Total score for each candidate
     STAR(HashMap<CandidateID, usize>),
 }
+
+pub type TallyError = (StatusCode, Json<TallyFailReason>);
+pub type TallyResult<T> = Result<T, TallyError>;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum TallyFailReason {
+    InvalidVoteMethod,
+    VoteInactive,
+}
+impl TallyFailReason {
+    // If an invalid vote has gotten to the point of tallying, there is something wrong inside of
+    // the server. This should NEVER happen. Invalid methods should be checked upon receival.
+    pub const INVALID_VOTE_METHOD_INTERNAL: TallyError = (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(TallyFailReason::InvalidVoteMethod),
+    );
+
+    pub const VOTE_INACTIVE_GONE: TallyError =
+        (StatusCode::GONE, Json(TallyFailReason::VoteInactive));
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Tally {
-    score: TallyScore,
-    blank: usize,
+    pub score: TallyScore,
+    pub blank: usize,
 }
 impl Tally {
-    fn tally_dichotomous(votes: Votes) -> io::Result<Self> {
+    fn tally_dichotomous(votes: Votes) -> TallyResult<Self> {
         let mut yes_votes = 0;
         let mut no_votes = 0;
         let mut blank_votes = 0;
@@ -58,11 +87,8 @@ impl Tally {
                             no_votes += 1;
                         }
                     }
-                    m => {
-                        return Err(Error::new(
-                            ErrorKind::InvalidData,
-                            format!("Found invalid vote while tallying: {m:?}"),
-                        ));
+                    _ => {
+                        return Err(TallyFailReason::INVALID_VOTE_METHOD_INTERNAL);
                     }
                 },
                 None => {
@@ -121,7 +147,7 @@ impl VoteRound {
         self.votes.push(choice);
     }
 
-    pub fn tally(self) -> io::Result<Tally> {
+    pub fn tally(self) -> TallyResult<Tally> {
         let votes = self.votes.clone();
         match self.metadata.get_method() {
             VoteMethod::Dichotomous => Tally::tally_dichotomous(votes),
@@ -168,9 +194,12 @@ impl VoteAuthority {
     }
 
     // This is the function that should later handle the tallying of votes
-    pub fn finalize_round(&mut self) {
+    pub fn finalize_round(&mut self) -> TallyResult<Tally> {
         self.state_tx.send(false);
-        self.round = None;
+        self.round
+            .take()
+            .ok_or_else(|| TallyFailReason::VOTE_INACTIVE_GONE)?
+            .tally()
     }
 
     pub fn new_watcher(&self) -> Receiver<bool> {

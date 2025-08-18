@@ -1,3 +1,5 @@
+use std::io;
+
 use axum::{
     Json,
     extract::State,
@@ -5,10 +7,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use rustsystem_proof::{BallotMetaData, ProtocolVersion, VoteMethod};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use crate::{AppState, api::common::common_responses::ensure_round};
+use crate::{AppState, api::common::common_responses::ensure_round, vote_auth::Tally};
 
 use super::auth::AuthHost;
 
@@ -33,15 +35,14 @@ pub async fn start_vote(
     }
 }
 
-pub async fn stop_vote(
-    AuthHost { uuid, muid }: AuthHost,
-    State(state): State<AppState>,
-) -> Response {
+pub async fn tally(AuthHost { uuid, muid }: AuthHost, State(state): State<AppState>) -> Response {
     if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
         let vote_auth = meeting.get_auth();
 
-        vote_auth.finalize_round();
-        return StatusCode::OK.into_response();
+        match vote_auth.finalize_round() {
+            Ok(res) => (StatusCode::OK, Json(res)).into_response(),
+            Err(e) => e.into_response(),
+        }
     } else {
         return StatusCode::NOT_FOUND.into_response();
     }
