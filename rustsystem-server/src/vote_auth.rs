@@ -1,11 +1,14 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    io::{self, Error, ErrorKind},
+};
 use tokio::sync::watch::{Receiver, Sender};
 use zkryptium::{
     keys::pair::KeyPair,
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
-use rustsystem_proof::{BallotMetaData, Provider, Sha256Provider};
+use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
 
 use crate::UUID;
 
@@ -13,12 +16,76 @@ pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
 pub type Header = Vec<u8>;
 
+type Votes = Vec<Option<Choice>>;
+
+// The structure of the Tally depends on the voting method
+pub enum TallyScore {
+    // Votes for "Yes" - Votes for "No"
+    Dichotomous(usize, usize),
+
+    // Votes for each candidate
+    Plurality(HashMap<CandidateID, usize>),
+
+    // Score for each candidate
+    RankedChoice(HashMap<CandidateID, usize>),
+
+    // Number of approvals for each candidate
+    Approval(HashMap<CandidateID, usize>),
+
+    // Total score for each candidate
+    Score(HashMap<CandidateID, usize>),
+
+    // Total score for each candidate
+    STAR(HashMap<CandidateID, usize>),
+}
+pub struct Tally {
+    score: TallyScore,
+    blank: usize,
+}
+impl Tally {
+    fn tally_dichotomous(votes: Votes) -> io::Result<Self> {
+        let mut yes_votes = 0;
+        let mut no_votes = 0;
+        let mut blank_votes = 0;
+
+        for vote in votes {
+            match vote {
+                Some(choice) => match choice {
+                    Choice::Dichotomous(v) => {
+                        if v {
+                            yes_votes += 1;
+                        } else {
+                            no_votes += 1;
+                        }
+                    }
+                    m => {
+                        return Err(Error::new(
+                            ErrorKind::InvalidData,
+                            format!("Found invalid vote while tallying: {m:?}"),
+                        ));
+                    }
+                },
+                None => {
+                    blank_votes += 1;
+                }
+            }
+        }
+
+        Ok(Self {
+            score: TallyScore::Dichotomous(yes_votes, no_votes),
+            blank: blank_votes,
+        })
+    }
+}
+
 pub struct VoteRound {
     metadata: BallotMetaData,
     keys: AuthenticationKeys,
     header: Header,
     registered_voters: HashSet<UUID>,
     expired_signatures: HashSet<[u8; 80]>,
+
+    votes: Votes,
 }
 impl VoteRound {
     pub fn keys(&self) -> &AuthenticationKeys {
@@ -48,6 +115,18 @@ impl VoteRound {
 
     pub fn header(&self) -> &Header {
         &self.header
+    }
+
+    pub fn add_vote(&mut self, choice: Option<Choice>) {
+        self.votes.push(choice);
+    }
+
+    pub fn tally(self) -> io::Result<Tally> {
+        let votes = self.votes.clone();
+        match self.metadata.get_method() {
+            VoteMethod::Dichotomous => Tally::tally_dichotomous(votes),
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -80,6 +159,7 @@ impl VoteAuthority {
             registered_voters,
             expired_signatures,
             metadata,
+            votes: Vec::new(),
         });
     }
 

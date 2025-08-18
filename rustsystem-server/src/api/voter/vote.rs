@@ -9,9 +9,7 @@ use rustsystem_proof::{
     RegistrationResponse, Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo,
     ValidationInfo, ValidationRejectReason, ValidationResponse,
 };
-use serde::Deserialize;
 use tracing::{error, info};
-use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 use crate::{
     AppState, Meeting,
@@ -112,6 +110,8 @@ pub async fn validate_vote(
     if let Err(e) = validate_signature(validation, round) {
         return e.into_response();
     }
+
+    round.add_vote(choice.clone());
 
     (StatusCode::OK, Json(ValidationResponse::Accepted)).into_response()
 }

@@ -25,7 +25,7 @@ pub enum VoteMethod {
     STAR,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Choice {
     // true for "Yes", false for "No"
     Dichotomous(bool),
@@ -40,10 +40,10 @@ pub enum Choice {
     Approval(Vec<CandidateID>),
 
     // Contains the IDs of the candidates alongside their respective scores.
-    Score(HashMap<CandidateID, u8>),
+    Score(HashMap<CandidateID, usize>),
 
     // Contains the IDs of the candidates alongside their respective scores.
-    STAR(HashMap<CandidateID, u8>),
+    STAR(HashMap<CandidateID, usize>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,8 +53,8 @@ pub struct WASMChoice {
     plurality: Option<CandidateID>,
     ranked_choice: Option<Vec<CandidateID>>,
     approval: Option<Vec<CandidateID>>,
-    score: Option<HashMap<CandidateID, u8>>,
-    star: Option<HashMap<CandidateID, u8>>,
+    score: Option<HashMap<CandidateID, usize>>,
+    star: Option<HashMap<CandidateID, usize>>,
 }
 #[wasm_bindgen]
 impl WASMChoice {
