@@ -1,24 +1,37 @@
-export type AuthRequest = {
+import { err, ok, type Result } from "@/result";
+
+export type AuthMeetingRequest = {
   muid: any;
 };
 
-type AuthResponse = {
-  muid?: string;
-  uuid?: string;
-  is_host?: boolean;
-  success: boolean;
+type AuthMeetingResponse = {
+  muid: string;
+  uuid: string;
+  is_host: boolean;
 };
 
-export async function Auth(req: AuthRequest): Promise<AuthResponse> {
+enum AuthMeetingError {
+  InvalidMUID = "InvalidMUID",
+  MUIDMismatch = "MUIDMismatch",
+}
+
+export async function Auth(
+  req: AuthMeetingRequest,
+): Promise<Result<AuthMeetingResponse, AuthMeetingError>> {
   const res = await fetch("api/auth-meeting", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
-  const data = await res.json();
-  const obj = JSON.parse(data);
-  return obj as AuthResponse;
+
+  if (res.ok) {
+    const obj = await res.json();
+    return ok(obj as AuthMeetingResponse);
+  } else {
+    const error = await res.json();
+    return err(error as AuthMeetingError);
+  }
 }
 
 // Enum style status check

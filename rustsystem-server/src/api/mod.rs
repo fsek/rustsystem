@@ -15,7 +15,7 @@ mod login;
 use login::login;
 
 mod auth;
-use auth::auth_meeting;
+use auth::AuthMeeting;
 
 mod voter;
 use serde::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ use common::common_routes;
 pub fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/create-meeting", post(create_meeting))
-        .route("/auth-meeting", post(auth_meeting))
+        .route("/auth-meeting", post(AuthMeeting::handler))
         .route("/login", post(login))
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())

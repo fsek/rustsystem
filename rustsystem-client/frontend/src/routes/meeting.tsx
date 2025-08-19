@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { Auth, AuthStatus, type AuthRequest } from '@/api/auth';
+import { Auth, AuthStatus, type AuthMeetingRequest } from '@/api/auth';
 import Unauthorized from '@/components/error-pages/unauthorized.tsx';
 import HostPage from '@/components/meeting/host';
 import VoterPage from '@/components/meeting/voter';
+import { matchResult } from '@/result';
 
 export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {
@@ -23,16 +24,20 @@ function RouteComponent() {
   const uuid = search.uuid;
 
   useEffect(() => {
-    Auth({ muid } as AuthRequest).then((res) => {
-      if (res.success) {
-        if (res.is_host) {
-          setAuthStatus(AuthStatus.VerifiedHost);
-        } else {
-          setAuthStatus(AuthStatus.VerifiedNonHost)
-        }
-      } else {
-        setAuthStatus(AuthStatus.Denied);
-      }
+    Auth({ muid } as AuthMeetingRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          if (res.is_host) {
+            setAuthStatus(AuthStatus.VerifiedHost);
+          } else {
+            setAuthStatus(AuthStatus.VerifiedNonHost)
+          }
+        },
+        Err: (err) => {
+          setAuthStatus(AuthStatus.Denied);
+          console.error(err)
+        },
+      })
     });
   }, []);
 
