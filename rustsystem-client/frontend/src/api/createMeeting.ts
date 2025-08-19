@@ -1,15 +1,19 @@
+import { err, ok, type Result } from "@/result";
+
 export type CreateMeetingRequest = {
   title: string;
 };
 
 type CreateMeetingResponse = {
-  muid?: any;
-  uuid?: any;
+  muid: any;
+  uuid: any;
 };
+
+enum CreateMeetingError { }
 
 export async function CreateMeeting(
   req: CreateMeetingRequest,
-): Promise<CreateMeetingResponse> {
+): Promise<Result<CreateMeetingResponse, CreateMeetingError>> {
   console.log("got title", req.title);
   const res = await fetch("api/create-meeting", {
     method: "POST",
@@ -17,6 +21,11 @@ export async function CreateMeeting(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
   });
-  const data = await res.json();
-  return data as CreateMeetingResponse;
+
+  const obj = await res.json();
+  if (res.ok) {
+    return ok(obj as CreateMeetingResponse);
+  } else {
+    return err(obj as CreateMeetingError);
+  }
 }

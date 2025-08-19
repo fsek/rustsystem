@@ -25,7 +25,7 @@ pub enum AuthMeetingError {
 
 /// Endpoint for checking if the current user is authenticated for a given meeting
 ///
-/// Returns 200 OK if upon success
+/// Returns 200 OK upon success
 pub struct AuthMeeting;
 impl APIHandler for AuthMeeting {
     type State = AppState;

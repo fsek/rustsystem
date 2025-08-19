@@ -1,31 +1,68 @@
-use std::io;
+use std::{error::Error, fmt::Display};
 
 use axum::{
-    extract::State,
+    Json,
+    extract::{FromRequest, State},
     http::StatusCode,
-    response::{IntoResponse, Response, Sse, sse::Event},
+    response::{Sse, sse::Event},
 };
-use tokio_stream::{StreamExt, wrappers::WatchStream};
+use serde::Serialize;
+use tokio_stream::{Stream, StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use crate::AppState;
+use crate::{AppState, api::APIHandler};
 
 use super::auth::AuthVoter;
 
-pub async fn sse_watch_state(
-    AuthVoter { uuid, muid }: AuthVoter,
-    State(state): State<AppState>,
-) -> Response {
-    if let Some(meeting) = state.meetings.lock().await.get(&muid) {
-        let state_rx = meeting.vote_auth.new_watcher();
-        let stream = WatchStream::new(state_rx).filter_map(|new_state| {
+#[derive(FromRequest)]
+pub struct VoteWatchRequest {
+    auth: AuthVoter,
+    state: State<AppState>,
+}
+
+#[derive(Serialize, Debug)]
+pub enum VoteWatchError {
+    MUIDNotFound,
+}
+impl Display for VoteWatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl Error for VoteWatchError {}
+
+/// Endpoint for waiting for voting round to begin.
+///
+/// Returns 200 OK along with a server-side-event upon success
+pub struct VoteWatch;
+impl APIHandler for VoteWatch {
+    type State = AppState;
+    type Request = VoteWatchRequest;
+    type SuccessResponse =
+        Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, VoteWatchError>>>>;
+    type ErrorResponse = Json<VoteWatchError>;
+
+    async fn handler(
+        request: Self::Request,
+    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+        let VoteWatchRequest {
+            auth: AuthVoter { uuid, muid },
+            state: State(state),
+        } = request;
+
+        let upon_event = |new_state| {
             if new_state {
-                Some(Ok::<Event, io::Error>(Event::default().data("Start")))
+                Some(Ok::<Event, VoteWatchError>(Event::default().data("Start")))
             } else {
-                Some(Ok::<Event, io::Error>(Event::default().data("Stop")))
+                Some(Ok::<Event, VoteWatchError>(Event::default().data("Stop")))
             }
-        });
-        return (StatusCode::OK, Sse::new(stream)).into_response();
-    } else {
-        return StatusCode::NOT_FOUND.into_response();
+        };
+
+        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+            let state_rx = meeting.vote_auth.new_watcher();
+            let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
+            return Ok((StatusCode::OK, Sse::new(stream)));
+        } else {
+            return Err((StatusCode::NOT_FOUND, Json(VoteWatchError::MUIDNotFound)));
+        }
     }
 }

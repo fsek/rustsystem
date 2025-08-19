@@ -5,6 +5,7 @@ import MainSection from "@/components/templates/main"
 import FormSection from "@/components/templates/form"
 import Footer from "@/components/defaults/footer"
 import { CreateMeeting, type CreateMeetingRequest } from "@/api/createMeeting"
+import { matchResult } from "@/result"
 
 export const Route = createFileRoute('/new-meeting')({
   component: RouteComponent,
@@ -14,8 +15,18 @@ function RouteComponent() {
   const navigate = useNavigate();
 
   function submit(data: Record<string, string>) {
-    CreateMeeting(data as CreateMeetingRequest).then((res_data) => {
-      navigate({ to: "/meeting", search: { muid: res_data.muid, uuid: res_data.uuid } });
+    CreateMeeting(data as CreateMeetingRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          navigate({ to: "/meeting", search: { muid: res.muid, uuid: res.uuid } });
+        },
+        Err: (err) => {
+          // This sould be considered highly unusual. There must be something wrong 
+          // with the server or with the connection to get here since the create-meeting 
+          // function itself doesn't return any error
+          console.error(err)
+        }
+      })
     });
   }
 

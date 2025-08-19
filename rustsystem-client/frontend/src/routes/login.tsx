@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { useNavigate } from '@tanstack/react-router';
-import { Login, type LoginRequest } from '@/api/login';
+import { Login, LoginStatus, type LoginRequest } from '@/api/login';
+import { matchResult } from '@/result';
 
 export const Route = createFileRoute('/login')({
   validateSearch: (search) => {
@@ -14,13 +15,6 @@ export const Route = createFileRoute('/login')({
   component: RouteComponent,
 })
 
-const LoginStatus = {
-  Loading: 1,
-  Success: 2,
-  Failure: 3,
-} as const;
-
-type LoginStatus = (typeof LoginStatus)[keyof typeof LoginStatus];
 
 function RouteComponent() {
   const [loginStatus, setLoginStatus] = useState<LoginStatus>(LoginStatus.Loading);
@@ -31,12 +25,16 @@ function RouteComponent() {
   const uuid = search.uuid;
 
   useEffect(() => {
-    Login({ muid, uuid } as LoginRequest).then((res) => {
-      if (res.success) {
-        setLoginStatus(LoginStatus.Success);
-      } else {
-        setLoginStatus(LoginStatus.Failure);
-      }
+    Login({ muid, uuid } as LoginRequest).then((result) => {
+      matchResult(result, {
+        Ok: (_res) => {
+          setLoginStatus(LoginStatus.Success);
+        },
+        Err: (err) => {
+          console.error(err);
+          setLoginStatus(LoginStatus.Failure);
+        }
+      })
     });
   }, []);
 

@@ -25,12 +25,11 @@ export async function Auth(
     body: JSON.stringify(req),
   });
 
+  const obj = await res.json();
   if (res.ok) {
-    const obj = await res.json();
     return ok(obj as AuthMeetingResponse);
   } else {
-    const error = await res.json();
-    return err(error as AuthMeetingError);
+    return err(obj as AuthMeetingError);
   }
 }
 

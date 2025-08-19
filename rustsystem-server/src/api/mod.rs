@@ -1,24 +1,15 @@
-use crate::{AppState, tokens::AuthUser};
-use axum::{
-    Json, Router,
-    extract::{FromRequest, State},
-    handler::Handler,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::{MethodRouter, get, post},
-};
+use crate::AppState;
+use axum::{Router, extract::FromRequest, http::StatusCode, response::IntoResponse, routing::post};
 mod create_meeting;
-use axum_extra::extract::CookieJar;
-use create_meeting::{CreateMeetingQuery, create_meeting};
+use create_meeting::CreateMeeting;
 
 mod login;
-use login::login;
+use login::Login;
 
 mod auth;
 use auth::AuthMeeting;
 
 mod voter;
-use serde::{Deserialize, Serialize};
 use voter::voter_routes;
 
 mod host;
@@ -30,9 +21,9 @@ use common::common_routes;
 // Routes at /api/...
 pub fn api_routes() -> Router<AppState> {
     Router::new()
-        .route("/create-meeting", post(create_meeting))
+        .route("/create-meeting", post(CreateMeeting::handler))
         .route("/auth-meeting", post(AuthMeeting::handler))
-        .route("/login", post(login))
+        .route("/login", post(Login::handler))
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())
         .nest("/common", common_routes())

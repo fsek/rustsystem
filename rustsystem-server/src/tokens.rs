@@ -6,7 +6,7 @@ use std::{
 };
 
 use axum::{
-    extract::FromRequestParts,
+    extract::{FromRequest, FromRequestParts},
     http::{StatusCode, request::Parts},
 };
 use axum_extra::extract::cookie;
