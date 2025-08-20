@@ -6,6 +6,7 @@ import MainSection from '@/components/templates/main';
 import { VoteActive, type VoteActiveRequest } from '@/api/common/state';
 import { startVoteWait } from '@/api/voter/state';
 import DichotomousPage from './vote-page/dichotomous';
+import { matchResult } from '@/result';
 
 type VoterPageProps = {
   muid: any,
@@ -35,12 +36,20 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
 
   useEffect(() => {
     // Explicitly check for voteActive being true.
-    VoteActive({} as VoteActiveRequest).then((res) => {
-      if (res.isActive === true) {
-        setVotePageDisplay(VotePageDisplay.Register);
-      } else {
-        setVotePageDisplay(VotePageDisplay.Wait);
-      }
+    VoteActive({} as VoteActiveRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          if (res.isActive === true) {
+            setVotePageDisplay(VotePageDisplay.Register);
+          } else {
+            setVotePageDisplay(VotePageDisplay.Wait);
+          }
+        },
+        Err: (err) => {
+          // TODO: Handle this error
+          console.error(err);
+        }
+      })
     });
   }, []);
 
