@@ -37,7 +37,6 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
     // Explicitly check for voteActive being true.
     VoteActive({} as VoteActiveRequest).then((res) => {
       if (res.isActive === true) {
-        console.log("Getting fucked from direct request");
         setVotePageDisplay(VotePageDisplay.Register);
       } else {
         setVotePageDisplay(VotePageDisplay.Wait);
@@ -48,7 +47,6 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
   voteEvent.onmessage = function (event) {
     if (currentVotePageDisplay === VotePageDisplay.Wait)
       if (event.data === "Start") {
-        console.log("Getting fucked from onmessage");
         setVotePageDisplay(VotePageDisplay.Register);
       } else if (event.data === "Stop") {
         setVotePageDisplay(VotePageDisplay.Wait);

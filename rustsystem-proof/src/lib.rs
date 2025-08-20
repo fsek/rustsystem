@@ -1,4 +1,8 @@
-use std::{error::Error, fmt::Debug, time::Duration};
+use std::{
+    error::{self, Error},
+    fmt::{Debug, Display},
+    time::Duration,
+};
 
 use bincode::{Decode, Encode};
 use blake3::{Hash, Hasher};
@@ -22,21 +26,40 @@ pub use ballot::*;
 const TOKEN_SIZE: usize = 256;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum RegistrationRejectReason {
+pub enum RegistrationReject {
     SignatureFailure,
     AlreadyRegistered,
-}
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum RegistrationResponse {
-    Rejected(RegistrationRejectReason),
-    Accepted(BlindSignature<BbsBls12381Sha256>, BallotMetaData),
+    MUIDNotFound,
+    VoteInactive,
+
+    Empty,
+}
+impl Display for RegistrationReject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Registration failed due to {self:?}")
+    }
+}
+impl error::Error for RegistrationReject {}
+
+#[derive(Serialize, Deserialize)]
+pub struct RegistrationSuccessResponse {
+    signature: BlindSignature<BbsBls12381Sha256>,
+    metadata: BallotMetaData,
+}
+impl RegistrationSuccessResponse {
+    pub fn new(signature: BlindSignature<BbsBls12381Sha256>, metadata: BallotMetaData) -> Self {
+        Self {
+            signature,
+            metadata,
+        }
+    }
 }
 
 #[wasm_bindgen]
 pub struct WASMRegistrationResponse {
-    rejected: Option<RegistrationRejectReason>,
-    accepted: Option<(BlindSignature<BbsBls12381Sha256>, BallotMetaData)>,
+    rejected: Option<RegistrationReject>,
+    accepted: Option<RegistrationSuccessResponse>,
 }
 impl WASMRegistrationResponse {
     pub fn new() -> Self {
@@ -45,22 +68,22 @@ impl WASMRegistrationResponse {
             accepted: None,
         }
     }
-    pub fn into_response(self) -> Option<RegistrationResponse> {
+    pub fn into_response(self) -> Result<RegistrationSuccessResponse, RegistrationReject> {
         if let Some(rejected) = self.rejected {
-            Some(RegistrationResponse::Rejected(rejected))
-        } else if let Some((sign, md)) = self.accepted {
-            Some(RegistrationResponse::Accepted(sign, md))
+            Err(rejected)
+        } else if let Some(res) = self.accepted {
+            Ok(res)
         } else {
-            None
+            Err(RegistrationReject::Empty)
         }
     }
 
     pub fn signature(&self) -> Option<BlindSignature<BbsBls12381Sha256>> {
-        Some(self.accepted.as_ref()?.0.clone())
+        Some(self.accepted.as_ref()?.signature.clone())
     }
 
     pub fn metadata(&self) -> Option<BallotMetaData> {
-        Some(self.accepted.as_ref()?.1.clone())
+        Some(self.accepted.as_ref()?.metadata.clone())
     }
 
     pub fn is_valid(&self) -> bool {
@@ -73,34 +96,39 @@ impl WASMRegistrationResponse {
         }
     }
     pub fn is_successful(&self) -> bool {
-        self.accepted != None
+        if let Some(_) = self.accepted {
+            true
+        } else {
+            false
+        }
     }
 }
-impl From<RegistrationResponse> for WASMRegistrationResponse {
-    fn from(value: RegistrationResponse) -> Self {
-        let mut res = Self::new();
-        match value {
-            RegistrationResponse::Rejected(rejected) => res.rejected = Some(rejected),
-            RegistrationResponse::Accepted(sign, md) => res.accepted = Some((sign, md)),
+impl From<RegistrationSuccessResponse> for WASMRegistrationResponse {
+    fn from(value: RegistrationSuccessResponse) -> Self {
+        Self {
+            accepted: Some(value),
+            rejected: None,
         }
-        res
+    }
+}
+impl From<RegistrationReject> for WASMRegistrationResponse {
+    fn from(value: RegistrationReject) -> Self {
+        Self {
+            rejected: Some(value),
+            accepted: None,
+        }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[wasm_bindgen]
-pub enum ValidationRejectReason {
+pub enum ValidationReject {
     InvalidMetaData,
+    MUIDNotFound,
     VotingInactive,
 
     SignatureInvalid,
     SignatureExpired,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ValidationResponse {
-    Rejected(ValidationRejectReason),
-    Accepted,
 }
 
 #[derive(Serialize, Deserialize, Encode, Decode, Debug)]

@@ -1,27 +1,18 @@
 use axum::{
-    Extension, Json, Router,
-    http::{HeaderValue, StatusCode, header::CONTENT_SECURITY_POLICY},
-    response::IntoResponse,
-    routing::post,
+    Router,
+    http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
 };
 use axum_server::tls_rustls::RustlsConfig;
 use invite_auth::InviteAuthority;
 use rand::Rng;
-use rustsystem_proof::{Provider, RegistrationResponse, Sha256Provider, ValidationInfo};
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    sync::Arc,
-    time::SystemTime,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
 use tokio::sync::Mutex;
 use tower_http::{
     services::{ServeDir, ServeFile},
-    set_header::{SetResponseHeader, SetResponseHeaderLayer},
+    set_header::SetResponseHeaderLayer,
 };
-use tracing::{error, info, level_filters::LevelFilter};
+use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
-use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
 pub mod api;
 use api::api_routes;

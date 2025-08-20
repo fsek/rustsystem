@@ -1,6 +1,3 @@
-use rustsystem_proof::{
-    Ballot, Provider, RegistrationResponse, Sha256Provider, WASMRegistrationResponse,
-};
 use wasm_bindgen::prelude::*;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 

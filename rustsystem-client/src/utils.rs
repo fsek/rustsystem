@@ -29,7 +29,7 @@ pub fn log(value: &str) {
     info_1(&JsValue::from_str(value));
 }
 
-pub async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
+pub async fn send_post(body: &str, endpoint: &str) -> Result<Option<JsValue>, JsValue> {
     let opts = RequestInit::new();
     opts.set_method("POST");
     opts.set_body(&JsValue::from_str(&body));
@@ -43,7 +43,10 @@ pub async fn send_post(body: &str, endpoint: &str) -> Result<JsValue, JsValue> {
     let window = web_sys::window().unwrap();
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
     let json_promise = resp_value.clone().dyn_into::<Response>()?.json()?;
-    let json_val = JsFuture::from(json_promise).await?;
-
-    Ok(json_val)
+    if let Ok(json_val) = JsFuture::from(json_promise).await {
+        Ok(Some(json_val))
+    } else {
+        // For responses wihout json
+        Ok(None)
+    }
 }

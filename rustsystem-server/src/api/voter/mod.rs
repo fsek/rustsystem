@@ -2,7 +2,7 @@ use axum::{
     Router,
     routing::{get, post},
 };
-use vote::{register, validate_vote};
+use vote::{Register, Submit};
 
 use crate::AppState;
 
@@ -19,6 +19,6 @@ mod vote;
 pub fn voter_routes() -> Router<AppState> {
     Router::new()
         .route("/vote-watch", get(VoteWatch::handler))
-        .route("/register", post(register))
-        .route("/submit", post(validate_vote))
+        .route("/register", post(Register::handler))
+        .route("/submit", post(Submit::handler))
 }

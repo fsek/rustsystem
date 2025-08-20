@@ -29,15 +29,11 @@ const DichotomousPage: React.FC<DichotomousProps> = ({ setVotePageDisplay }) => 
   }
 
   async function validate(vote: boolean | null) {
+    console.log("Got here 1");
     const choice = new WASMChoice();
+    console.log("Got here 2");
     choice.set_dichotomous(vote);
-
-    const proof = new Uint8Array(Object.values(JSON.parse(sessionStorage.getItem("proof")!)));
-    const token = new Uint8Array(Object.values(JSON.parse(sessionStorage.getItem("token")!)));
-    const signature = JSON.parse(sessionStorage.getItem("signature")!);
-    console.log(proof);
-    console.log(token);
-    console.log(signature);
+    console.log("Got here 3");
 
     const validation = JSON.parse(sessionStorage.getItem("validation")!);
     const metadata = JSON.parse(sessionStorage.getItem("metadata")!);
@@ -46,8 +42,7 @@ const DichotomousPage: React.FC<DichotomousProps> = ({ setVotePageDisplay }) => 
     console.log(choice);
     console.log(validation);
 
-    const res = await send_vote(metadata, choice, validation);
-    console.log(res);
+    await send_vote(metadata, choice, validation);
   }
 
   return (

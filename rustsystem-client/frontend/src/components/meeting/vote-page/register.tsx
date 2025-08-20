@@ -21,6 +21,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ muid, uuid, setVotePageDisp
     const res = await try_register(muid, uuid);
     if (res.is_valid() && res.is_successful()) {
       const validation = new_ballot_validation(res.proof(), res.token(), res.signature());
+      console.log(validation.toValue());
       sessionStorage.setItem("validation", JSON.stringify(validation.toValue()));
       sessionStorage.setItem("metadata", JSON.stringify(res.metadata()!.toValue()))
       setVotePageDisplay(VotePageDisplay.Dichotomous);

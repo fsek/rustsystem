@@ -1,5 +1,6 @@
 use rustsystem_proof::{
-    BallotMetaData, Provider, RegistrationResponse, Sha256Provider, WASMRegistrationResponse,
+    BallotMetaData, Provider, RegistrationReject, RegistrationSuccessResponse, Sha256Provider,
+    WASMRegistrationResponse,
 };
 use wasm_bindgen::prelude::*;
 use zkryptium::bbsplus::commitment::BlindFactor;
@@ -28,15 +29,23 @@ pub async fn try_register(
     let info = Sha256Provider::new_reg_info(context, commitment);
     let body = serde_json::to_string(&info).unwrap();
 
-    match serde_wasm_bindgen::from_value::<RegistrationResponse>(
-        send_post(&body, "api/voter/register").await.unwrap(),
-    ) {
-        Ok(res) => Ok(RegistrationResult::new(
-            WASMRegistrationResponse::from(res),
-            token,
-            proof,
-        )),
-        Err(e) => Err(JsError::from(e)),
+    if let Ok(Some(res)) = send_post(&body, "api/voter/register").await {
+        // Requires clone because res isn't `Copy`
+        if let Ok(success_res) =
+            serde_wasm_bindgen::from_value::<RegistrationSuccessResponse>(res.clone())
+        {
+            Ok(RegistrationResult::new(
+                WASMRegistrationResponse::from(success_res),
+                token,
+                proof,
+            ))
+        } else if let Ok(err_res) = serde_wasm_bindgen::from_value::<RegistrationReject>(res) {
+            Err(JsError::from(err_res))
+        } else {
+            Err(JsError::from(RegistrationReject::Empty))
+        }
+    } else {
+        todo!("Fix error handling here");
     }
 }
 
