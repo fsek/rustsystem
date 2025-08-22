@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Button from '@/components/templates/button';
 import FormSection from '@/components/templates/form';
 import MainSection from '@/components/templates/main';
@@ -23,16 +23,24 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   }
 
   function startVote(data: Record<string, string>) {
-    StartVote({ name: data.name, metadata: new BallotMetaData(VoteMethod.Dichotomous, 1) } as StartVoteRequest);
+    StartVote({ name: data.name, metadata: new BallotMetaData(VoteMethod.Dichotomous, 1) } as StartVoteRequest).then((result) => {
+      matchResult(result, {
+        Ok: (_res) => { },
+        Err: (err) => { console.error(err) } // TODO: handle this error
+      })
+    });
   }
 
   // TODO: Change this into a SSE, so that the participants number is updated as more people join.
-  MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
-    matchResult(result, {
-      Ok: (s) => { setSpecs(s) },
-      Err: (err) => { console.error(err) } // TODO: Handle this error
-    })
-  });
+  useEffect(() => {
+    MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+      matchResult(result, {
+        Ok: (s) => { setSpecs(s) },
+        Err: (err) => { console.error(err) } // TODO: Handle this error
+      })
+    });
+  }, []);
+
   return (
     <div>
       <Button label="Invite" fn={invitePage} />

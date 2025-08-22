@@ -1,5 +1,6 @@
 import { startInviteWait } from '@/api/host/inviteEvent';
 import { newVoter, startInvite, type newVoterRequest, type startInviteRequest } from '@/api/host/newVoter';
+import { matchResult } from '@/result';
 import React, { useEffect, useState } from 'react';
 
 export const RunInvite: React.FC = () => {
@@ -22,7 +23,12 @@ export const RunInvite: React.FC = () => {
 
       inviteEvent.onopen = function () {
         resolve(inviteEvent);
-        startInvite({} as startInviteRequest);
+        startInvite({} as startInviteRequest).then((result) => {
+          matchResult(result, {
+            Ok: (_res) => { },
+            Err: (err) => { console.error(err) } // TODO: Handle this error
+          })
+        });
       }
 
     })
@@ -42,8 +48,16 @@ export const RunInvite: React.FC = () => {
 }
 
 async function get_qr_url(): Promise<string> {
-  const res = await newVoter({} as newVoterRequest);
-  return URL.createObjectURL(res.blob);
+  const result = await newVoter({} as newVoterRequest);
+  return matchResult(result, {
+    Ok: (res) => {
+      return URL.createObjectURL(res.blob)
+    },
+    Err: (err) => {
+      console.error(err) // TODO: handle this error
+      return "Could not get QR code"
+    }
+  })
 }
 
 export default RunInvite;

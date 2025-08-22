@@ -1,13 +1,6 @@
-use axum::{
-    Json,
-    http::StatusCode,
-    response::{IntoResponse, IntoResponseParts},
-};
+use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, HashSet},
-    io::{self, Error, ErrorKind},
-};
+use std::collections::{HashMap, HashSet};
 use tokio::sync::watch::{Receiver, Sender};
 use zkryptium::{
     keys::pair::KeyPair,
@@ -16,7 +9,7 @@ use zkryptium::{
 
 use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
 
-use crate::UUID;
+use crate::{UUID, api::APIResult};
 
 pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
@@ -46,24 +39,26 @@ pub enum TallyScore {
     STAR(HashMap<CandidateID, usize>),
 }
 
-pub type TallyError = (StatusCode, Json<TallyFailReason>);
-pub type TallyResult<T> = Result<T, TallyError>;
+pub type TallyResult<T> = APIResult<T, Json<TallyError>>;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum TallyFailReason {
+pub enum TallyError {
     InvalidVoteMethod,
     VoteInactive,
-}
-impl TallyFailReason {
-    // If an invalid vote has gotten to the point of tallying, there is something wrong inside of
-    // the server. This should NEVER happen. Invalid methods should be checked upon receival.
-    pub const INVALID_VOTE_METHOD_INTERNAL: TallyError = (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(TallyFailReason::InvalidVoteMethod),
-    );
 
-    pub const VOTE_INACTIVE_GONE: TallyError =
-        (StatusCode::GONE, Json(TallyFailReason::VoteInactive));
+    MUIDNotFound,
+}
+// If an invalid vote has gotten to the point of tallying, there is something wrong inside of
+// the server. This should NEVER happen. Invalid methods should be checked upon receival.
+pub const fn invalid_vote_method_internal<T>() -> (StatusCode, Json<TallyError>) {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(TallyError::InvalidVoteMethod),
+    )
+}
+
+pub const fn vote_inactive_gone<T>() -> (StatusCode, Json<TallyError>) {
+    (StatusCode::GONE, Json(TallyError::VoteInactive))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -88,7 +83,7 @@ impl Tally {
                         }
                     }
                     _ => {
-                        return Err(TallyFailReason::INVALID_VOTE_METHOD_INTERNAL);
+                        return Err(invalid_vote_method_internal::<Self>());
                     }
                 },
                 None => {
@@ -198,20 +193,11 @@ impl VoteAuthority {
         self.state_tx.send(false);
         self.round
             .take()
-            .ok_or_else(|| TallyFailReason::VOTE_INACTIVE_GONE)?
+            .ok_or_else(|| vote_inactive_gone::<Tally>())?
             .tally()
     }
 
     pub fn new_watcher(&self) -> Receiver<bool> {
         self.state_tx.subscribe()
     }
-
-    // /// Resets VoteAuth for new voting round. Old ballots are no longer valid since the
-    // /// keys have changed.
-    // /// Voters can now re-register.
-    // pub fn reset(&mut self) {
-    //     self.keys = Sha256Provider::generate_authentication_keys();
-    //     self.registered_voters.clear();
-    //     self.expired_signatures.clear();
-    // }
 }

@@ -32,7 +32,7 @@ pub fn api_routes() -> Router<AppState> {
 /// The response may be a failure type which is equally valid as it pertains to the API structure.
 /// Helper functions may use the APIResult type as a return type such that the "?" operator can be
 /// used to send the error all the way to the response
-type APIResult<T, E> = Result<T, (StatusCode, E)>;
+pub type APIResult<T, E> = Result<T, (StatusCode, E)>;
 
 /// Similar to APIResult, but also requires that the success type includes a [`StatusCode`].
 /// If `T` and `E` are the same in `APIResult` as they are in `APIResponse`, the "?" operator can

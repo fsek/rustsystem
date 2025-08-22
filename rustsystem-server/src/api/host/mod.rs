@@ -2,26 +2,28 @@ use axum::{
     Router,
     routing::{get, post},
 };
-use invite_event::sse_watch_invite;
 
 use crate::AppState;
+
+mod invite_event;
+use invite_event::InviteWatch;
 
 mod auth;
 
 mod state;
-use state::{start_vote, tally};
+use state::{StartVote, Tally};
 
 mod new_voter;
-use new_voter::{new_voter, start_invite};
+use new_voter::{NewVoter, StartInvite};
 
-mod invite_event;
+use super::APIHandler;
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
     Router::new()
-        .route("/start-vote", post(start_vote))
-        .route("/tally", post(tally))
-        .route("/new-voter", post(new_voter))
-        .route("/start-invite", post(start_invite))
-        .route("/invite-watch", get(sse_watch_invite))
+        .route("/start-vote", post(StartVote::handler))
+        .route("/tally", post(Tally::handler))
+        .route("/new-voter", post(NewVoter::handler))
+        .route("/start-invite", post(StartInvite::handler))
+        .route("/invite-watch", get(InviteWatch::handler))
 }
