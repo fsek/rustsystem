@@ -1,9 +1,12 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import React from "react";
+import React, { useState } from "react";
 import Button from '@/components/templates/button';
 import FormSection from '@/components/templates/form';
+import MainSection from '@/components/templates/main';
 import { StartVote, type StartVoteRequest } from '@/api/host/state';
 import init, { BallotMetaData, VoteMethod } from '@/pkg/rustsystem_client';
+import { MeetingSpecs, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
+import { matchResult } from '@/result';
 
 interface HostPageProps {
   muid: any,
@@ -11,6 +14,7 @@ interface HostPageProps {
 
 const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   init();
+  const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
 
   const navigate = useNavigate();
 
@@ -22,9 +26,18 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
     StartVote({ name: data.name, metadata: new BallotMetaData(VoteMethod.Dichotomous, 1) } as StartVoteRequest);
   }
 
+  // TODO: Change this into a SSE, so that the participants number is updated as more people join.
+  MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+    matchResult(result, {
+      Ok: (s) => { setSpecs(s) },
+      Err: (err) => { console.error(err) } // TODO: Handle this error
+    })
+  });
   return (
     <div>
       <Button label="Invite" fn={invitePage} />
+
+      <MainSection title={specs ? specs.title : "Undefined"} description=<p>You are the host of this meeting</p> />
       <FormSection
         key={useLocation().pathname}
         submit={{ label: "Start Vote!", data: startVote }}
