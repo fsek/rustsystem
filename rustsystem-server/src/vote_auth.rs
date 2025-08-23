@@ -7,9 +7,10 @@ use zkryptium::{
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
+use api_core::APIResult;
 use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
 
-use crate::{UUID, api::APIResult};
+use crate::UUID;
 
 pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 

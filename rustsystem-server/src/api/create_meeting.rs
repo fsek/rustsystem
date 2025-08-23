@@ -12,7 +12,7 @@ use crate::{
     vote_auth::VoteAuthority,
 };
 
-use super::APIHandler;
+use api_core::{APIHandler, APIResponse};
 
 #[derive(Deserialize)]
 pub struct CreateMeetingRequest {
@@ -39,7 +39,7 @@ impl APIHandler for CreateMeeting {
     type ErrorResponse = Json<CreateMeetingError>;
     async fn handler(
         request: Self::Request,
-    ) -> super::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(query)) = request;
 
         let (uuid, muid, jwt) = new_meeting_jwt(&state.secret);

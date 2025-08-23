@@ -1,9 +1,4 @@
-use axum::{
-    Json,
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use axum::{Json, extract::State, http::StatusCode};
 use rustsystem_proof::{
     Ballot, BallotMetaData, BallotValidation, Provider, RegistrationReject,
     RegistrationSuccessResponse, Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo,
@@ -11,11 +6,9 @@ use rustsystem_proof::{
 };
 use tracing::{error, info};
 
-use crate::{
-    AppState,
-    api::{APIHandler, APIResult, common::common_responses::ensure_round},
-    vote_auth::VoteRound,
-};
+use api_core::{APIHandler, APIResponse, APIResult};
+
+use crate::{AppState, api::common::common_responses::ensure_round, vote_auth::VoteRound};
 
 use super::auth::AuthVoter;
 
@@ -28,7 +21,7 @@ impl APIHandler for Register {
 
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (AuthVoter { uuid, muid }, State(state), Json(body)) = request;
         info!("Got register request");
 
@@ -86,7 +79,7 @@ impl APIHandler for Submit {
     type ErrorResponse = Json<ValidationReject>;
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (AuthVoter { uuid, muid }, State(state), Json(body)) = request;
         let metadata = body.get_metadata();
         let choice = body.get_choice();

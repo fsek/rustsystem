@@ -5,7 +5,9 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::{AppState, api::APIHandler, tokens::AuthUser};
+use api_core::{APIHandler, APIResponse};
+
+use crate::{AppState, tokens::AuthUser};
 
 #[derive(FromRequest)]
 pub struct MeetingSpecsRequest {
@@ -34,7 +36,7 @@ impl APIHandler for MeetingSpecs {
 
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let MeetingSpecsRequest {
             auth:
                 AuthUser {

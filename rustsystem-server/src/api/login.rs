@@ -6,9 +6,9 @@ use axum_extra::extract::{
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::{AppState, tokens::get_meeting_jwt};
+use api_core::{APIHandler, APIResponse};
 
-use super::APIHandler;
+use crate::{AppState, tokens::get_meeting_jwt};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -38,7 +38,7 @@ impl APIHandler for Login {
 
     async fn handler(
         request: Self::Request,
-    ) -> super::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(body)) = request;
         let uuid = if let Ok(id) = body.uuid.parse() {
             id

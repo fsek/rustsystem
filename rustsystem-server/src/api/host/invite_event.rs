@@ -4,12 +4,14 @@ use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
-    response::{IntoResponse, Response, Sse, sse::Event},
+    response::{Sse, sse::Event},
 };
 use serde::{Deserialize, Serialize};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use crate::{AppState, api::APIHandler};
+use api_core::{APIHandler, APIResponse};
+
+use crate::AppState;
 
 use super::auth::AuthHost;
 
@@ -39,7 +41,7 @@ impl APIHandler for InviteWatch {
     type ErrorResponse = Json<InviteWatchError>;
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let InviteWatchRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),

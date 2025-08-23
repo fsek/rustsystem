@@ -4,14 +4,14 @@ use axum::{
 };
 use vote::{Register, Submit};
 
+use api_core::APIHandler;
+
 use crate::AppState;
 
 mod auth;
 
 mod state;
 use state::VoteWatch;
-
-use super::APIHandler;
 
 mod vote;
 

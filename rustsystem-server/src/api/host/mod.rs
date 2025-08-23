@@ -3,6 +3,8 @@ use axum::{
     routing::{get, post},
 };
 
+use api_core::APIHandler;
+
 use crate::AppState;
 
 mod invite_event;
@@ -15,8 +17,6 @@ use state::{StartVote, Tally};
 
 mod new_voter;
 use new_voter::{NewVoter, StartInvite};
-
-use super::APIHandler;
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {

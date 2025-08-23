@@ -11,9 +11,9 @@ use qrcode::{EcLevel, QrCode};
 use serde::Serialize;
 use tracing::info;
 
-use crate::api::APIHandler;
-use crate::{API_ENDPOINT, AppState, new_uuid};
-use crate::{MUID, UUID};
+use api_core::{APIHandler, APIResponse};
+
+use crate::{API_ENDPOINT, AppState, MUID, UUID, new_uuid};
 
 use super::auth::AuthHost;
 
@@ -37,7 +37,7 @@ impl APIHandler for StartInvite {
 
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let StartInviteRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),
@@ -71,7 +71,7 @@ impl APIHandler for NewVoter {
     type ErrorResponse = Json<NewVoterError>;
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let NewVoterRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),

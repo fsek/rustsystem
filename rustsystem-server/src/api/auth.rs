@@ -1,9 +1,9 @@
 use axum::{Json, http::StatusCode, response::IntoResponse};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, AuthUser, MUID, UUID};
+use api_core::{APIHandler, APIResponse};
 
-use super::APIHandler;
+use crate::{AppState, AuthUser, MUID, UUID};
 
 #[derive(Deserialize)]
 pub struct AuthMeetingRequest {
@@ -36,7 +36,7 @@ impl APIHandler for AuthMeeting {
 
     async fn handler(
         request: Self::Request,
-    ) -> super::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (
             AuthUser {
                 uuid,

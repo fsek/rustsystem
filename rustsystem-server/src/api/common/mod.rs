@@ -1,8 +1,8 @@
 use axum::{Router, routing::get};
 
-use crate::AppState;
+use api_core::APIHandler;
 
-use super::APIHandler;
+use crate::AppState;
 
 mod state;
 use state::VoteActive;

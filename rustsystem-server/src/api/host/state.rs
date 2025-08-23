@@ -7,9 +7,10 @@ use rustsystem_proof::BallotMetaData;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
+use api_core::{APIHandler, APIResponse};
+
 use crate::{
     AppState,
-    api::APIHandler,
     vote_auth::{self, TallyError},
 };
 
@@ -34,7 +35,7 @@ impl APIHandler for StartVote {
     type ErrorResponse = Json<StartVoteError>;
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let (AuthHost { uuid, muid }, State(state), Json(body)) = request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
@@ -63,7 +64,7 @@ impl APIHandler for Tally {
 
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let TallyRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),

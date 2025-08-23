@@ -9,7 +9,9 @@ use axum::{
 use serde::Serialize;
 use tokio_stream::{Stream, StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use crate::{AppState, api::APIHandler};
+use api_core::{APIHandler, APIResponse};
+
+use crate::AppState;
 
 use super::auth::AuthVoter;
 
@@ -43,7 +45,7 @@ impl APIHandler for VoteWatch {
 
     async fn handler(
         request: Self::Request,
-    ) -> crate::api::APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
         let VoteWatchRequest {
             auth: AuthVoter { uuid, muid },
             state: State(state),
