@@ -1,3 +1,4 @@
+use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::{
     CookieJar,
@@ -12,7 +13,7 @@ use crate::{
     vote_auth::VoteAuthority,
 };
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIHandler, APIResult};
 
 #[derive(Deserialize)]
 pub struct CreateMeetingRequest {
@@ -25,7 +26,8 @@ pub struct CreateMeetingResponse {
     pub uuid: String,
 }
 
-#[derive(Serialize)]
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "POST", path = "/create-meeting"))]
 pub enum CreateMeetingError {}
 
 /// Endpoint for creating a new meeting resource
@@ -35,11 +37,13 @@ pub struct CreateMeeting;
 impl APIHandler for CreateMeeting {
     type State = AppState;
     type Request = (CookieJar, State<AppState>, Json<CreateMeetingRequest>);
+
+    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
     type SuccessResponse = (CookieJar, Json<CreateMeetingResponse>);
-    type ErrorResponse = Json<CreateMeetingError>;
-    async fn handler(
+    type ErrorResponse = CreateMeetingError;
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(query)) = request;
 
         let (uuid, muid, jwt) = new_meeting_jwt(&state.secret);
@@ -70,14 +74,11 @@ impl APIHandler for CreateMeeting {
         );
 
         Ok((
-            StatusCode::CREATED,
-            (
-                jar.add(new_cookie),
-                Json(CreateMeetingResponse {
-                    muid: muid.to_string(),
-                    uuid: uuid.to_string(),
-                }),
-            ),
+            jar.add(new_cookie),
+            Json(CreateMeetingResponse {
+                muid: muid.to_string(),
+                uuid: uuid.to_string(),
+            }),
         ))
     }
 }

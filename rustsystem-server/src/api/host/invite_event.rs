@@ -1,5 +1,6 @@
 use std::{error::Error, fmt::Display, io};
 
+use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
@@ -9,7 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
 
 use crate::AppState;
 
@@ -21,8 +22,10 @@ pub struct InviteWatchRequest {
     state: State<AppState>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(APIEndpointError, Debug)]
+#[api(endpoint(method = "GET", path = "/api/host/invite-watch"))]
 pub enum InviteWatchError {
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
 }
 impl Display for InviteWatchError {
@@ -36,12 +39,14 @@ pub struct InviteWatch;
 impl APIHandler for InviteWatch {
     type State = AppState;
     type Request = InviteWatchRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse =
         Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, InviteWatchError>>>>;
-    type ErrorResponse = Json<InviteWatchError>;
-    async fn handler(
+    type ErrorResponse = InviteWatchError;
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let InviteWatchRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),
@@ -61,9 +66,9 @@ impl APIHandler for InviteWatch {
 
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
 
-            return Ok((StatusCode::OK, Sse::new(stream)));
+            return Ok(Sse::new(stream));
         } else {
-            return Err((StatusCode::NOT_FOUND, Json(InviteWatchError::MUIDNotFound)));
+            return Err(InviteWatchError::MUIDNotFound);
         }
     }
 }

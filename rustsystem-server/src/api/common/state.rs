@@ -1,3 +1,4 @@
+use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
@@ -5,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
 
 use crate::{AppState, tokens::AuthUser};
 
@@ -20,8 +21,10 @@ pub struct VoteActiveResponse {
     isActive: bool,
 }
 
-#[derive(Serialize)]
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "GET", path = "/api/common/vote-active"))]
 pub enum VoteActiveError {
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
 }
 
@@ -29,11 +32,13 @@ pub struct VoteActive;
 impl APIHandler for VoteActive {
     type State = AppState;
     type Request = VoteActiveRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = Json<VoteActiveResponse>;
-    type ErrorResponse = Json<VoteActiveError>;
-    async fn handler(
+    type ErrorResponse = VoteActiveError;
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let VoteActiveRequest {
             auth:
                 AuthUser {
@@ -47,9 +52,9 @@ impl APIHandler for VoteActive {
         let res = if let Some(meeting) = state.meetings.lock().await.get(&muid) {
             meeting.vote_auth.is_active()
         } else {
-            return Err((StatusCode::NOT_FOUND, Json(VoteActiveError::MUIDNotFound)));
+            return Err(VoteActiveError::MUIDNotFound);
         };
 
-        Ok((StatusCode::OK, Json(VoteActiveResponse { isActive: res })))
+        Ok(Json(VoteActiveResponse { isActive: res }))
     }
 }

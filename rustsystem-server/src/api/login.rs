@@ -1,12 +1,13 @@
+use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::{
     CookieJar,
     cookie::{self, Cookie},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::{error, info};
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{AppState, tokens::get_meeting_jwt};
 
@@ -16,14 +17,21 @@ pub struct LoginRequest {
     pub muid: String,
 }
 
-#[derive(Serialize)]
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "POST", path = "/login"))]
 pub enum LoginError {
+    #[api(code = APIErrorCode::InvalidUUID, status=400)]
     InvalidUUID,
+    #[api(code = APIErrorCode::InvalidMUID, status=400)]
     InvalidMUID,
 
-    UUIDAlreadyClaimed,
+    #[api(code = APIErrorCode::UUIDNotFound, status=404)]
     UUIDNotFound,
+    #[api(code = APIErrorCode::MUIDNotFound, status=404)]
     MUIDNotFound,
+
+    #[api(code = APIErrorCode::UUIDAlreadyClaimed, status=409)]
+    UUIDAlreadyClaimed,
 }
 
 /// Endpoint for logging in and claiming a UUID (voter)
@@ -33,23 +41,25 @@ pub struct Login;
 impl APIHandler for Login {
     type State = AppState;
     type Request = (CookieJar, State<AppState>, Json<LoginRequest>);
-    type SuccessResponse = CookieJar;
-    type ErrorResponse = Json<LoginError>;
 
-    async fn handler(
+    const SUCCESS_CODE: StatusCode = StatusCode::ACCEPTED;
+    type SuccessResponse = CookieJar;
+    type ErrorResponse = LoginError;
+
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(body)) = request;
         let uuid = if let Ok(id) = body.uuid.parse() {
             id
         } else {
-            return Err((StatusCode::BAD_REQUEST, Json(LoginError::InvalidUUID)));
+            return Err(LoginError::InvalidUUID);
         };
 
         let muid = if let Ok(id) = body.muid.parse() {
             id
         } else {
-            return Err((StatusCode::BAD_REQUEST, Json(LoginError::InvalidMUID)));
+            return Err(LoginError::InvalidMUID);
         };
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
@@ -58,7 +68,7 @@ impl APIHandler for Login {
                     // If voter has already logged in, it means that this specific
                     // uuid has already been claimed.
                     error!("Voter id {uuid} has already been claimed");
-                    return Err((StatusCode::FORBIDDEN, Json(LoginError::UUIDAlreadyClaimed)));
+                    return Err(LoginError::UUIDAlreadyClaimed);
                 } else {
                     // Claim this uuid
                     voter.logged_in = true;
@@ -66,10 +76,10 @@ impl APIHandler for Login {
                     meeting.invite_auth.set_state(true);
                 }
             } else {
-                return Err((StatusCode::NOT_FOUND, Json(LoginError::UUIDNotFound)));
+                return Err(LoginError::UUIDNotFound);
             }
         } else {
-            return Err((StatusCode::NOT_FOUND, Json(LoginError::MUIDNotFound)));
+            return Err(LoginError::MUIDNotFound);
         }
 
         let jwt = get_meeting_jwt(uuid, muid, false, &state.secret);
@@ -80,6 +90,6 @@ impl APIHandler for Login {
             .path("/");
 
         info!("Voter with id {uuid} has been accepted");
-        Ok((StatusCode::ACCEPTED, jar.add(new_cookie)))
+        Ok(jar.add(new_cookie))
     }
 }

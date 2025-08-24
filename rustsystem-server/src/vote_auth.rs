@@ -1,3 +1,4 @@
+use api_derive::APIEndpointError;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -7,7 +8,7 @@ use zkryptium::{
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
-use api_core::APIResult;
+use api_core::{APIErrorCode, APIResult};
 use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
 
 use crate::UUID;
@@ -40,26 +41,20 @@ pub enum TallyScore {
     STAR(HashMap<CandidateID, usize>),
 }
 
-pub type TallyResult<T> = APIResult<T, Json<TallyError>>;
+pub type TallyResult<T> = APIResult<T, TallyError>;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(APIEndpointError, Debug)]
+#[api(endpoint(method = "POST", path = "/api/host/tally"))]
 pub enum TallyError {
+    // If an invalid vote has gotten to the point of tallying, there is something wrong inside of
+    // the server. This should NEVER happen. Invalid methods should be checked upon receival.
+    #[api(code = APIErrorCode::InvalidVoteMethod, status = 500)]
     InvalidVoteMethod,
-    VoteInactive,
+    #[api(code = APIErrorCode::VotingInactive, status = 410)]
+    VotingInactive,
 
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
-}
-// If an invalid vote has gotten to the point of tallying, there is something wrong inside of
-// the server. This should NEVER happen. Invalid methods should be checked upon receival.
-pub const fn invalid_vote_method_internal<T>() -> (StatusCode, Json<TallyError>) {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(TallyError::InvalidVoteMethod),
-    )
-}
-
-pub const fn vote_inactive_gone<T>() -> (StatusCode, Json<TallyError>) {
-    (StatusCode::GONE, Json(TallyError::VoteInactive))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -84,7 +79,7 @@ impl Tally {
                         }
                     }
                     _ => {
-                        return Err(invalid_vote_method_internal::<Self>());
+                        return Err(TallyError::InvalidVoteMethod);
                     }
                 },
                 None => {
@@ -194,7 +189,7 @@ impl VoteAuthority {
         self.state_tx.send(false);
         self.round
             .take()
-            .ok_or_else(|| vote_inactive_gone::<Tally>())?
+            .ok_or_else(|| TallyError::VotingInactive)?
             .tally()
     }
 

@@ -46,6 +46,7 @@ name = "api-core"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "chrono",
  "serde",
 ]
 
@@ -54,6 +55,7 @@ name = "api-derive"
 version = "0.1.0"
 dependencies = [
  "api-core",
+ "chrono",
  "proc-macro2",
  "quote",
  "syn",
@@ -1510,6 +1512,7 @@ name = "rustsystem-server"
 version = "0.1.0"
 dependencies = [
  "api-core",
+ "api-derive",
  "axum",
  "axum-extra",
  "axum-server",

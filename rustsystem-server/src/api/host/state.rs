@@ -1,3 +1,4 @@
+use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
@@ -7,7 +8,7 @@ use rustsystem_proof::BallotMetaData;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
 
 use crate::{
     AppState,
@@ -22,8 +23,10 @@ pub struct StartVoteRequest {
     metadata: BallotMetaData,
 }
 
-#[derive(Serialize)]
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "POST", path = "/api/host/start-vote"))]
 pub enum StartVoteError {
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
 }
 
@@ -31,20 +34,22 @@ pub struct StartVote;
 impl APIHandler for StartVote {
     type State = AppState;
     type Request = (AuthHost, State<AppState>, Json<StartVoteRequest>);
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = ();
-    type ErrorResponse = Json<StartVoteError>;
-    async fn handler(
+    type ErrorResponse = StartVoteError;
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (AuthHost { uuid, muid }, State(state), Json(body)) = request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
             info!("Starting vote: {}", body.name);
             meeting.get_auth().start_round(body.metadata, body.name);
 
-            return Ok((StatusCode::OK, ()));
+            return Ok(());
         } else {
-            return Err((StatusCode::NOT_FOUND, Json(StartVoteError::MUIDNotFound)));
+            return Err(StartVoteError::MUIDNotFound);
         }
     }
 }
@@ -59,12 +64,14 @@ pub struct Tally;
 impl APIHandler for Tally {
     type State = AppState;
     type Request = TallyRequest;
-    type SuccessResponse = Json<vote_auth::Tally>;
-    type ErrorResponse = Json<TallyError>;
 
-    async fn handler(
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse = Json<vote_auth::Tally>;
+    type ErrorResponse = TallyError;
+
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let TallyRequest {
             auth: AuthHost { uuid, muid },
             state: State(state),
@@ -73,9 +80,9 @@ impl APIHandler for Tally {
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
             let vote_auth = meeting.get_auth();
 
-            Ok((StatusCode::OK, Json(vote_auth.finalize_round()?)))
+            Ok(Json(vote_auth.finalize_round()?))
         } else {
-            Err((StatusCode::NOT_FOUND, Json(TallyError::MUIDNotFound)))
+            Err(TallyError::MUIDNotFound)
         }
     }
 }

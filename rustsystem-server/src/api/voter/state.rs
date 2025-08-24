@@ -1,5 +1,6 @@
 use std::{error::Error, fmt::Display};
 
+use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
@@ -9,7 +10,7 @@ use axum::{
 use serde::Serialize;
 use tokio_stream::{Stream, StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use api_core::{APIHandler, APIResponse};
+use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
 
 use crate::AppState;
 
@@ -21,8 +22,10 @@ pub struct VoteWatchRequest {
     state: State<AppState>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, APIEndpointError)]
+#[api(endpoint(method = "GET", path = "/api/voter/vote-watch"))]
 pub enum VoteWatchError {
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
 }
 impl Display for VoteWatchError {
@@ -39,13 +42,15 @@ pub struct VoteWatch;
 impl APIHandler for VoteWatch {
     type State = AppState;
     type Request = VoteWatchRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse =
         Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, VoteWatchError>>>>;
-    type ErrorResponse = Json<VoteWatchError>;
+    type ErrorResponse = VoteWatchError;
 
-    async fn handler(
+    async fn route(
         request: Self::Request,
-    ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let VoteWatchRequest {
             auth: AuthVoter { uuid, muid },
             state: State(state),
@@ -62,9 +67,9 @@ impl APIHandler for VoteWatch {
         if let Some(meeting) = state.meetings.lock().await.get(&muid) {
             let state_rx = meeting.vote_auth.new_watcher();
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
-            return Ok((StatusCode::OK, Sse::new(stream)));
+            return Ok(Sse::new(stream));
         } else {
-            return Err((StatusCode::NOT_FOUND, Json(VoteWatchError::MUIDNotFound)));
+            return Err(VoteWatchError::MUIDNotFound);
         }
     }
 }
