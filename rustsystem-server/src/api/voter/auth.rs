@@ -1,6 +1,10 @@
-use axum::{extract::FromRequestParts, http::StatusCode};
+use api_core::APIError;
+use axum::{Json, extract::FromRequestParts, http::StatusCode};
 
-use crate::{AppState, MUID, UUID, tokens::AuthUser};
+use crate::{
+    AppState, MUID, UUID,
+    tokens::{AuthError, AuthUser},
+};
 
 pub struct AuthVoter {
     pub uuid: UUID,
@@ -16,7 +20,7 @@ impl From<AuthUser> for AuthVoter {
 }
 
 impl FromRequestParts<AppState> for AuthVoter {
-    type Rejection = StatusCode;
+    type Rejection = (StatusCode, Json<APIError>);
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
@@ -24,7 +28,7 @@ impl FromRequestParts<AppState> for AuthVoter {
     ) -> Result<Self, Self::Rejection> {
         let user = AuthUser::from_request_parts(parts, state).await?;
         if user.is_host {
-            Err(StatusCode::FORBIDDEN)
+            Err(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())
         } else {
             Ok(user.into())
         }

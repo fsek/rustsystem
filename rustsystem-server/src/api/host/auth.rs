@@ -1,6 +1,10 @@
-use axum::{extract::FromRequestParts, http::StatusCode};
+use api_core::APIError;
+use axum::{Json, extract::FromRequestParts, http::StatusCode};
 
-use crate::{AppState, MUID, UUID, tokens::AuthUser};
+use crate::{
+    AppState, MUID, UUID,
+    tokens::{AuthError, AuthUser},
+};
 
 pub struct AuthHost {
     pub uuid: UUID,
@@ -16,7 +20,7 @@ impl From<AuthUser> for AuthHost {
 }
 
 impl FromRequestParts<AppState> for AuthHost {
-    type Rejection = StatusCode;
+    type Rejection = (StatusCode, Json<APIError>);
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
@@ -26,7 +30,7 @@ impl FromRequestParts<AppState> for AuthHost {
         if user.is_host {
             Ok(user.into())
         } else {
-            Err(StatusCode::FORBIDDEN)
+            Err(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())
         }
     }
 }

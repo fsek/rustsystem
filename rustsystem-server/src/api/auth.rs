@@ -1,10 +1,10 @@
 use api_derive::APIEndpointError;
-use axum::{Json, http::StatusCode, response::IntoResponse};
+use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
-use crate::{AppState, AuthUser, MUID, UUID};
+use crate::{AppState, AuthUser};
 
 #[derive(Deserialize)]
 pub struct AuthMeetingRequest {

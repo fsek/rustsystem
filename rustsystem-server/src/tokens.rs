@@ -5,7 +5,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use api_core::{APIError, APIErrorCode};
+use api_derive::APIEndpointError;
 use axum::{
+    Json,
     extract::{FromRequest, FromRequestParts},
     http::{StatusCode, request::Parts},
 };
@@ -135,16 +138,29 @@ pub struct AuthUser {
     pub is_host: bool,
 }
 
-impl FromRequestParts<AppState> for AuthUser {
-    type Rejection = StatusCode;
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "-" path = "-"))]
+pub enum AuthError {
+    #[api(code = APIErrorCode::AuthError, status = 401)]
+    AuthError,
+}
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, StatusCode> {
+impl FromRequestParts<AppState> for AuthUser {
+    type Rejection = (StatusCode, Json<APIError>);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let cookie_header = parts
             .headers
             .get(axum::http::header::COOKIE)
-            .ok_or(StatusCode::UNAUTHORIZED)?
+            .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?
             .to_str()
-            .or(Err(StatusCode::UNAUTHORIZED))?;
+            .or(Err(<AuthError as Into<APIError>>::into(
+                AuthError::AuthError,
+            )
+            .finalize()))?;
 
         let mut cookie_iter = cookie::Cookie::split_parse(cookie_header);
 
@@ -159,11 +175,12 @@ impl FromRequestParts<AppState> for AuthUser {
         }
 
         let token_data = decode::<MeetingClaims>(
-            &access_token.ok_or(StatusCode::UNAUTHORIZED)?,
+            &access_token
+                .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?,
             &DecodingKey::from_secret(state.secret.as_ref()),
             &Validation::default(),
         )
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        .map_err(|_| <AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
 
         Ok(AuthUser {
             uuid: token_data.claims.uuid,

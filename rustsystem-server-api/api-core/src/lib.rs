@@ -35,6 +35,10 @@ pub enum APIErrorCode {
     SignatureExpired,
     SignatureFailure,
 
+    // TODO: AuthError should be expanded to be more specific as to what exactly failed during
+    // authentication
+    AuthError,
+
     InvalidStatusCode,
 }
 impl APIErrorCode {
@@ -68,6 +72,8 @@ impl APIErrorCode {
             }
             Self::SignatureFailure => "Failed to create blindsignature from token.",
 
+            Self::AuthError => "Authentication Failed",
+
             // System faults - Immediate cause for patch.
             Self::InvalidStatusCode => "Invalid HTTP status code.",
         }
@@ -75,12 +81,14 @@ impl APIErrorCode {
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointMeta {
     pub method: &'static str,
     pub path: &'static str,
 }
 
 #[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct APIError {
     pub code: APIErrorCode,
     // The message is not actually optional. It's only ever None to differentiate from an
@@ -111,10 +119,10 @@ impl APIError {
         )
     }
 
-    fn finalize(self, endpoint: EndpointMeta) -> (StatusCode, Json<Self>) {
+    pub fn finalize(self) -> (StatusCode, Json<Self>) {
         let (status, mut res) = match StatusCode::from_u16(self.http_status) {
             Ok(status) => (status, Json(self)),
-            Err(_err) => APIError::invalid_status_code(endpoint),
+            Err(_err) => APIError::invalid_status_code(self.endpoint),
         };
 
         if res.message == None {
@@ -230,8 +238,7 @@ pub trait APIHandler {
             Ok(res) => Ok((Self::SUCCESS_CODE, res)),
             Err(endpoint_err) => {
                 let err = endpoint_err.into();
-                let endpoint = err.endpoint;
-                Err(err.finalize(endpoint))
+                Err(err.finalize())
             }
         }
     }
