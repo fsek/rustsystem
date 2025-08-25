@@ -1,5 +1,6 @@
 import { BallotMetaData, start_vote_json_req } from "@/pkg/rustsystem_client";
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "../error";
 
 export type StartVoteRequest = {
   name: string;
@@ -8,13 +9,9 @@ export type StartVoteRequest = {
 
 type StartVoteResponse = {};
 
-enum StartVoteError {
-  MUIDNotFound = "MUIDNotFound",
-}
-
 export async function StartVote(
   req: StartVoteRequest,
-): Promise<Result<StartVoteResponse, StartVoteError>> {
+): Promise<Result<StartVoteResponse, APIError>> {
   const res = await fetch("api/host/start-vote", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -25,6 +22,6 @@ export async function StartVote(
     return ok({} as StartVoteResponse);
   } else {
     const obj = await res.json();
-    return err(obj as StartVoteError);
+    return err(obj as APIError);
   }
 }

@@ -6,6 +6,9 @@ import FormSection from "@/components/templates/form"
 import Footer from "@/components/defaults/footer"
 import { CreateMeeting, type CreateMeetingRequest } from "@/api/createMeeting"
 import { matchResult } from "@/result"
+import { useState } from "react"
+import type { APIError } from "@/api/error"
+import ErrorHandler from "@/components/error"
 
 export const Route = createFileRoute('/new-meeting')({
   component: RouteComponent,
@@ -13,6 +16,7 @@ export const Route = createFileRoute('/new-meeting')({
 
 function RouteComponent() {
   const navigate = useNavigate();
+  const [error, setError] = useState<APIError | null>(null);
 
   function submit(data: Record<string, string>) {
     CreateMeeting(data as CreateMeetingRequest).then((result) => {
@@ -24,12 +28,15 @@ function RouteComponent() {
           // This sould be considered highly unusual. There must be something wrong 
           // with the server or with the connection to get here since the create-meeting 
           // function itself doesn't return any error
-          console.error(err)
+          setError(err);
         }
       })
     });
   }
 
+  if (error) {
+    return <ErrorHandler error={error} />
+  }
   return (
     <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
       <Header />

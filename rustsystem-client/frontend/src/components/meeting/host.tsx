@@ -7,6 +7,8 @@ import { StartVote, type StartVoteRequest } from '@/api/host/state';
 import init, { BallotMetaData, VoteMethod } from '@/pkg/rustsystem_client';
 import { MeetingSpecs, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
 import { matchResult } from '@/result';
+import type { APIError } from '@/api/error';
+import ErrorHandler from '../error';
 
 interface HostPageProps {
   muid: any,
@@ -15,6 +17,7 @@ interface HostPageProps {
 const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   init();
   const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
+  const [error, setError] = useState<APIError | null>(null);
 
   const navigate = useNavigate();
 
@@ -26,7 +29,7 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
     StartVote({ name: data.name, metadata: new BallotMetaData(VoteMethod.Dichotomous, 1) } as StartVoteRequest).then((result) => {
       matchResult(result, {
         Ok: (_res) => { },
-        Err: (err) => { console.error(err) } // TODO: handle this error
+        Err: (err) => { setError(err); }
       })
     });
   }
@@ -36,11 +39,14 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
     MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
       matchResult(result, {
         Ok: (s) => { setSpecs(s) },
-        Err: (err) => { console.error(err) } // TODO: Handle this error
+        Err: (err) => { setError(err) }
       })
     });
   }, []);
 
+  if (error) {
+    return <ErrorHandler error={error} />
+  }
   return (
     <div>
       <Button label="Invite" fn={invitePage} />

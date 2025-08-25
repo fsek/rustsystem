@@ -7,6 +7,8 @@ import { VoteActive, type VoteActiveRequest } from '@/api/common/state';
 import { startVoteWait } from '@/api/voter/state';
 import DichotomousPage from './vote-page/dichotomous';
 import { matchResult } from '@/result';
+import type { APIError } from '@/api/error';
+import ErrorHandler from '../error';
 
 type VoterPageProps = {
   muid: any,
@@ -33,6 +35,7 @@ export type VotePageDisplay = (typeof VotePageDisplay)[keyof typeof VotePageDisp
 const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
   const voteEvent = startVoteWait();
   const [currentVotePageDisplay, setVotePageDisplay] = useState<VotePageDisplay>(VotePageDisplay.Wait);
+  const [error, setError] = useState<APIError | null>(null);
 
   useEffect(() => {
     // Explicitly check for voteActive being true.
@@ -46,8 +49,7 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
           }
         },
         Err: (err) => {
-          // TODO: Handle this error
-          console.error(err);
+          setError(err);
         }
       })
     });
@@ -62,6 +64,9 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
       }
   }
 
+  if (error) {
+    return <ErrorHandler error={error} />
+  }
   switch (currentVotePageDisplay) {
     case VotePageDisplay.Wait:
       console.log("Got to Wait!");

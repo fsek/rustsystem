@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { Auth, AuthStatus, type AuthMeetingRequest } from '@/api/auth';
 import RunInvite from '@/components/invite/run_invite.tsx';
 import { matchResult } from '@/result';
-import ErrorPage from '@/components/error';
+import ErrorHandler from '@/components/error';
 import type { APIError } from '@/api/error';
 
 export const Route = createFileRoute('/invite')({
@@ -42,7 +42,7 @@ function RouteComponent() {
   }, []);
 
   if (error) {
-    return (<ErrorPage error={error} />);
+    return (<ErrorHandler error={error} />);
   }
   if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
   if (authStatus === AuthStatus.VerifiedHost) return <RunInvite />;

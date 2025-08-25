@@ -1,13 +1,12 @@
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "../error";
 
 export type startInviteRequest = {};
 type startInviteResponse = {};
-enum StartInviteError {
-  MUIDNotFound = "MUIDNotFound",
-}
+
 export async function startInvite(
   _req: startInviteRequest,
-): Promise<Result<startInviteResponse, StartInviteError>> {
+): Promise<Result<startInviteResponse, APIError>> {
   const res = await fetch("api/host/start-invite", {
     method: "POST",
     credentials: "include",
@@ -17,7 +16,7 @@ export async function startInvite(
     return ok(res as startInviteResponse);
   } else {
     const obj = await res.json();
-    return err(obj as StartInviteError);
+    return err(obj as APIError);
   }
 }
 
@@ -26,13 +25,9 @@ type newVoterResponse = {
   blob: Blob;
 };
 
-enum newVoterError {
-  MUIDNotFound = "MUIDNotFound",
-}
-
 export async function newVoter(
   _req: newVoterRequest,
-): Promise<Result<newVoterResponse, newVoterError>> {
+): Promise<Result<newVoterResponse, APIError>> {
   const res = await fetch("api/host/new-voter", {
     method: "POST",
     credentials: "include",
@@ -42,6 +37,6 @@ export async function newVoter(
     return ok({ blob: await res.blob() } as newVoterResponse);
   } else {
     const obj = await res.json();
-    return err(obj as newVoterError);
+    return err(obj as APIError);
   }
 }

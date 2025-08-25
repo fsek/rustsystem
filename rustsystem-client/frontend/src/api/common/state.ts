@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "../error";
 
 export type VoteActiveRequest = {};
 
@@ -6,13 +7,9 @@ type VoteActiveResponse = {
   isActive: boolean;
 };
 
-enum VoteActiveError {
-  MUIDNotFound = "MUIDNotFound",
-}
-
 export async function VoteActive(
   _req: VoteActiveRequest,
-): Promise<Result<VoteActiveResponse, VoteActiveError>> {
+): Promise<Result<VoteActiveResponse, APIError>> {
   const res = await fetch("api/common/vote-active", {
     method: "GET",
     credentials: "include",
@@ -22,6 +19,6 @@ export async function VoteActive(
   if (res.ok) {
     return ok(obj as VoteActiveResponse);
   } else {
-    return err(obj as VoteActiveError);
+    return err(obj as APIError);
   }
 }

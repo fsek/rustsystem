@@ -1,11 +1,9 @@
 import type { APIError } from "@/api/error";
+import type React from "react";
+import Unauthorized from "@/components/error-pages/unauthorized";
 
-interface ErrorPageProps {
+interface ErrorProps {
   error: APIError;
-  /** Where the "Go to start" button should point. Default: "/" */
-  homeHref?: string;
-  /** Optional: custom heading shown at the top. */
-  title?: string;
 }
 
 /**
@@ -14,11 +12,9 @@ interface ErrorPageProps {
 * - Clearly shows all APIError fields
 * - Provides navigation actions: back & go to start
 */
-export default function ErrorPage({
+function ErrorPage({
   error,
-  homeHref = "/",
-  title = "Something went wrong",
-}: ErrorPageProps) {
+}: ErrorProps) {
   const goBack = () => {
     try {
       if (typeof window !== "undefined") {
@@ -27,10 +23,10 @@ export default function ErrorPage({
           return;
         }
         // If we don't have history, go home instead
-        window.location.assign(homeHref);
+        window.location.assign("/");
       }
-    } catch {
-      // Fallback: do nothing
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -70,7 +66,7 @@ export default function ErrorPage({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-semibold text-red-800 tracking-tight">
-              {title}
+              Something went wrong
             </h1>
             <p className="mt-1 text-sm text-red-700/90">
               There was an error encountered while processing your request.
@@ -133,7 +129,7 @@ export default function ErrorPage({
               Go back to previous page
             </button>
             <a
-              href={homeHref}
+              href={"/"}
               className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
             >
               Go to start
@@ -152,3 +148,19 @@ export default function ErrorPage({
     </main>
   );
 }
+
+// Direct the the proper page based on the error found
+const ErrorHandler: React.FC<ErrorProps> = ({ error }) => {
+  switch (error.code) {
+    case "AuthError":
+      return <Unauthorized />;
+
+    // TODO: Fill out more non-fatal error pages
+
+    default:
+      // These are errors upon which a bug report should be submitted. They are not expected to be seen.
+      return ErrorPage({ error });
+  }
+}
+
+export default ErrorHandler;

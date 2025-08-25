@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "./error";
 
 export type LoginRequest = {
   muid: any;
@@ -7,18 +8,9 @@ export type LoginRequest = {
 
 type LoginResponse = {};
 
-enum LoginError {
-  InvalidUUID = "InvalidUUID",
-  InvalidMUID = "InvalidMUID",
-
-  UUIDAlreadyClaimed = "UUIDAlreadyClaimed",
-  UUIDNotFound = "UUIDNotFound",
-  MUIDNotFound = "MUIDNotFound",
-}
-
 export async function Login(
   req: LoginRequest,
-): Promise<Result<LoginResponse, LoginError>> {
+): Promise<Result<LoginResponse, APIError>> {
   const res = await fetch("api/login", {
     method: "POST",
     credentials: "include",
@@ -30,7 +22,7 @@ export async function Login(
     return ok({} as LoginResponse);
   } else {
     const obj = await res.json();
-    return err(obj as LoginError);
+    return err(obj as APIError);
   }
 }
 

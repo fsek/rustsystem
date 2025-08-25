@@ -5,6 +5,8 @@ import Unauthorized from '@/components/error-pages/unauthorized.tsx';
 import HostPage from '@/components/meeting/host';
 import VoterPage from '@/components/meeting/voter';
 import { matchResult } from '@/result';
+import type { APIError } from '@/api/error';
+import ErrorHandler from '@/components/error';
 
 export const Route = createFileRoute('/meeting')({
   validateSearch: (search) => {
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/meeting')({
 
 function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
+  const [error, setError] = useState<APIError | null>(null);
   const search = Route.useSearch();
   const muid = search.muid;
   const uuid = search.uuid;
@@ -34,12 +37,15 @@ function RouteComponent() {
           }
         },
         Err: (err) => {
-          setAuthStatus(AuthStatus.Denied);
-          console.error(err)
+          setError(err);
         },
       })
     });
   }, []);
+
+  if (error) {
+    return <ErrorHandler error={error} />
+  }
 
   var page = undefined;
 

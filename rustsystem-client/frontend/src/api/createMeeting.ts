@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "./error";
 
 export type CreateMeetingRequest = {
   title: string;
@@ -9,11 +10,9 @@ type CreateMeetingResponse = {
   uuid: any;
 };
 
-enum CreateMeetingError { }
-
 export async function CreateMeeting(
   req: CreateMeetingRequest,
-): Promise<Result<CreateMeetingResponse, CreateMeetingError>> {
+): Promise<Result<CreateMeetingResponse, APIError>> {
   console.log("got title", req.title);
   const res = await fetch("api/create-meeting", {
     method: "POST",
@@ -26,6 +25,6 @@ export async function CreateMeeting(
   if (res.ok) {
     return ok(obj as CreateMeetingResponse);
   } else {
-    return err(obj as CreateMeetingError);
+    return err(obj as APIError);
   }
 }
