@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "@/result";
+import type { APIError } from "./error";
 
 export type AuthMeetingRequest = {
   muid: any;
@@ -10,14 +11,9 @@ type AuthMeetingResponse = {
   is_host: boolean;
 };
 
-enum AuthMeetingError {
-  InvalidMUID = "InvalidMUID",
-  MUIDMismatch = "MUIDMismatch",
-}
-
 export async function Auth(
   req: AuthMeetingRequest,
-): Promise<Result<AuthMeetingResponse, AuthMeetingError>> {
+): Promise<Result<AuthMeetingResponse, APIError>> {
   const res = await fetch("api/auth-meeting", {
     method: "POST",
     credentials: "include",
@@ -29,7 +25,7 @@ export async function Auth(
   if (res.ok) {
     return ok(obj as AuthMeetingResponse);
   } else {
-    return err(obj as AuthMeetingError);
+    return err(obj as APIError);
   }
 }
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Auth, AuthStatus, type AuthMeetingRequest } from '@/api/auth';
-import Unauthorized from '@/components/error-pages/unauthorized.tsx';
 import RunInvite from '@/components/invite/run_invite.tsx';
 import { matchResult } from '@/result';
+import ErrorPage from '@/components/error';
+import type { APIError } from '@/api/error';
 
 export const Route = createFileRoute('/invite')({
   validateSearch: (search) => {
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/invite')({
 
 function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
+  const [error, setError] = useState<APIError | null>(null);
 
   const search = Route.useSearch();
 
@@ -33,16 +35,15 @@ function RouteComponent() {
           }
         },
         Err: (err) => {
-          setAuthStatus(AuthStatus.Denied);
-          console.error(err)
+          setError(err);
         },
       })
     });
   }, []);
 
-
-
+  if (error) {
+    return (<ErrorPage error={error} />);
+  }
   if (authStatus === AuthStatus.Loading) return <div>Checking...</div>;
   if (authStatus === AuthStatus.VerifiedHost) return <RunInvite />;
-  if (authStatus === AuthStatus.Denied) return <div><Unauthorized /></div>;
 }
