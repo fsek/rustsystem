@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{AppState, tokens::AuthUser};
 

@@ -1,6 +1,4 @@
 use api_core::APIEndpointError;
-use axum::{Json, http::StatusCode};
-use serde::Serialize;
 
 use crate::vote_auth::{VoteAuthority, VoteRound};
 

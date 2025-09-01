@@ -2,15 +2,14 @@ use std::{error::Error, fmt::Display};
 
 use api_derive::APIEndpointError;
 use axum::{
-    Json,
     extract::{FromRequest, State},
     http::StatusCode,
     response::{Sse, sse::Event},
 };
 use serde::Serialize;
-use tokio_stream::{Stream, StreamExt, adapters::FilterMap, wrappers::WatchStream};
+use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::AppState;
 

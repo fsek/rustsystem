@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{AppState, tokens::AuthUser};
 
@@ -17,8 +17,9 @@ pub struct VoteActiveRequest {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VoteActiveResponse {
-    isActive: bool,
+    is_active: bool,
 }
 
 #[derive(APIEndpointError)]
@@ -55,6 +56,6 @@ impl APIHandler for VoteActive {
             return Err(VoteActiveError::MUIDNotFound);
         };
 
-        Ok(Json(VoteActiveResponse { isActive: res }))
+        Ok(Json(VoteActiveResponse { is_active: res }))
     }
 }

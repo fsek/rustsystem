@@ -9,7 +9,7 @@ use api_core::{APIError, APIErrorCode};
 use api_derive::APIEndpointError;
 use axum::{
     Json,
-    extract::{FromRequest, FromRequestParts},
+    extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
 use axum_extra::extract::cookie;

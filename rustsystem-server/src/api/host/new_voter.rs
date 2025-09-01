@@ -1,18 +1,12 @@
 use api_derive::APIEndpointError;
-use axum::Json;
 use axum::extract::FromRequest;
 use axum::http::header;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
+use axum::{extract::State, http::StatusCode};
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
-use serde::Serialize;
 use tracing::info;
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{API_ENDPOINT, AppState, MUID, UUID, new_uuid};
 

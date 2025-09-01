@@ -5,10 +5,10 @@ use axum::{
     http::StatusCode,
 };
 use rustsystem_proof::BallotMetaData;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::info;
 
-use api_core::{APIErrorCode, APIHandler, APIResponse, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{
     AppState,
