@@ -1,12 +1,16 @@
+use std::{error::Error, fmt::Display};
+
 use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
+    response::{Sse, sse::Event},
 };
 use serde::Serialize;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
+use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
 use crate::{AppState, tokens::AuthUser};
 
@@ -22,15 +26,20 @@ pub struct MeetingSpecsResponse {
     participants: usize,
 }
 
-#[derive(APIEndpointError)]
+#[derive(APIEndpointError, Debug)]
 #[api(endpoint(method = "GET", path = "api/common/meeting-specs"))]
 pub enum MeetingSpecsError {
     #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
 }
+impl Display for MeetingSpecsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl Error for MeetingSpecsError {}
 
 pub struct MeetingSpecs;
-
 impl APIHandler for MeetingSpecs {
     type State = AppState;
     type Request = MeetingSpecsRequest;
@@ -57,6 +66,51 @@ impl APIHandler for MeetingSpecs {
                 title: meeting.title.clone(),
                 participants: meeting.voters.len(),
             }))
+        } else {
+            Err(MeetingSpecsError::MUIDNotFound)
+        }
+    }
+}
+
+pub struct MeetingSpecsWatch;
+impl APIHandler for MeetingSpecsWatch {
+    type State = AppState;
+    type Request = MeetingSpecsRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse =
+        Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, MeetingSpecsError>>>>;
+    type ErrorResponse = MeetingSpecsError;
+    async fn route(
+        request: Self::Request,
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let MeetingSpecsRequest {
+            auth:
+                AuthUser {
+                    uuid,
+                    muid,
+                    is_host,
+                },
+            state: State(state),
+        } = request;
+
+        let upon_event = |new_state: bool| {
+            if new_state {
+                Some(Ok::<Event, MeetingSpecsError>(
+                    Event::default().data("NewData"),
+                ))
+            } else {
+                // This should never be called. The frontend will not recognize it!
+                Some(Ok::<Event, MeetingSpecsError>(
+                    Event::default().data("DataFailure"),
+                ))
+            }
+        };
+
+        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+            let update_rx = meeting.vote_auth.new_update_watcher();
+            let stream = WatchStream::new(update_rx).filter_map(upon_event as _);
+            Ok(Sse::new(stream))
         } else {
             Err(MeetingSpecsError::MUIDNotFound)
         }

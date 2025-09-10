@@ -126,7 +126,7 @@ impl APIHandler for VoteStateWatch {
         };
 
         if let Some(meeting) = state.meetings.lock().await.get(&muid) {
-            let state_rx = meeting.vote_auth.new_watcher();
+            let state_rx = meeting.vote_auth.new_state_watcher();
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
             Ok(Sse::new(stream))
         } else {

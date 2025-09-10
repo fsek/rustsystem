@@ -23,3 +23,7 @@ export async function MeetingSpecs(
     return err(obj as APIError);
   }
 }
+
+export function meetingSpecsWatch(): EventSource {
+  return new EventSource("/api/common/meeting-specs-watch");
+}

@@ -8,7 +8,7 @@ mod state;
 use state::{VoteActive, VoteStateWatch};
 
 mod meeting_specs;
-use meeting_specs::MeetingSpecs;
+use meeting_specs::{MeetingSpecs, MeetingSpecsWatch};
 
 pub mod common_responses;
 
@@ -18,4 +18,5 @@ pub fn common_routes() -> Router<AppState> {
         .route("/vote-state-watch", get(VoteStateWatch::handler))
         .route("/vote-active", get(VoteActive::handler))
         .route("/meeting-specs", get(MeetingSpecs::handler))
+        .route("/meeting-specs-watch", get(MeetingSpecsWatch::handler))
 }

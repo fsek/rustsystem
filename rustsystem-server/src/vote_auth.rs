@@ -155,6 +155,7 @@ pub enum VoteState {
 
 pub struct VoteAuthority {
     state_tx: Sender<VoteState>,
+    update_tx: Sender<bool>,
     round: Option<VoteRound>,
 }
 impl VoteAuthority {
@@ -162,6 +163,7 @@ impl VoteAuthority {
     pub fn new() -> Self {
         Self {
             state_tx: Sender::new(VoteState::Creation),
+            update_tx: Sender::new(true),
             round: None,
         }
     }
@@ -199,7 +201,11 @@ impl VoteAuthority {
             .tally()
     }
 
-    pub fn new_watcher(&self) -> Receiver<VoteState> {
+    pub fn new_state_watcher(&self) -> Receiver<VoteState> {
         self.state_tx.subscribe()
+    }
+
+    pub fn new_update_watcher(&self) -> Receiver<bool> {
+        self.update_tx.subscribe()
     }
 }

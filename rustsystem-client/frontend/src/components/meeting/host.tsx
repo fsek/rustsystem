@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { MeetingSpecs, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
+import { MeetingSpecs, meetingSpecsWatch, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
 import { matchResult } from '@/result';
 import type { APIError } from '@/api/error';
 import ErrorHandler from '../error';
@@ -21,6 +21,7 @@ export type HostPageDisplay = (typeof HostPageDisplay)[keyof typeof HostPageDisp
 
 const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   const voteStateEvent = voteStateWatch();
+  const specsEvent = meetingSpecsWatch();
   const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
   const [currentHostPageDisplay, setHostPageDisplay] = useState<HostPageDisplay>(HostPageDisplay.Creation)
   const [error, setError] = useState<APIError | null>(null);
@@ -37,15 +38,26 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
     }
   }
 
-  // TODO: Change this into a SSE, so that the participants number is updated as more people join.
-  useEffect(() => {
-    MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
-      matchResult(result, {
-        Ok: (s) => { setSpecs(s) },
-        Err: (err) => { setError(err) }
-      })
-    });
-  }, []);
+  function fetchSpecs() {
+    useEffect(() => {
+      MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+        matchResult(result, {
+          Ok: (s) => { setSpecs(s) },
+          Err: (err) => { setError(err) }
+        })
+      });
+    }, []);
+  }
+
+  // Get specs on load/reload
+  fetchSpecs();
+
+  // Watch for updates
+  specsEvent.onmessage = function (event) {
+    if (event.data === "NewData") {
+      fetchSpecs();
+    }
+  }
 
   if (error) {
     return <ErrorHandler error={error} />
