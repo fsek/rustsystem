@@ -7,8 +7,8 @@ use api_core::APIHandler;
 
 use crate::AppState;
 
-mod invite_event;
-use invite_event::InviteWatch;
+mod invite_watch;
+use invite_watch::InviteWatch;
 
 mod auth;
 

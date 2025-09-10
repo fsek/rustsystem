@@ -146,21 +146,28 @@ impl VoteRound {
     }
 }
 
+#[derive(Clone, PartialEq, PartialOrd)]
+pub enum VoteState {
+    Creation,
+    Voting,
+    Tally,
+}
+
 pub struct VoteAuthority {
-    state_tx: Sender<bool>,
+    state_tx: Sender<VoteState>,
     round: Option<VoteRound>,
 }
 impl VoteAuthority {
     /// For new meeting
     pub fn new() -> Self {
         Self {
-            state_tx: Sender::new(false),
+            state_tx: Sender::new(VoteState::Creation),
             round: None,
         }
     }
 
     pub fn is_active(&self) -> bool {
-        *self.state_tx.borrow()
+        *self.state_tx.borrow() == VoteState::Voting
     }
 
     pub fn start_round(&mut self, metadata: BallotMetaData, header: String) {
@@ -168,7 +175,7 @@ impl VoteAuthority {
         let header = header.as_bytes().to_vec();
         let registered_voters = HashSet::new();
         let expired_signatures = HashSet::new();
-        self.state_tx.send(true);
+        self.state_tx.send(VoteState::Voting);
         self.round = Some(VoteRound {
             keys,
             header,
@@ -185,14 +192,14 @@ impl VoteAuthority {
 
     // This is the function that should later handle the tallying of votes
     pub fn finalize_round(&mut self) -> TallyResult<Tally> {
-        self.state_tx.send(false);
+        self.state_tx.send(VoteState::Tally);
         self.round
             .take()
             .ok_or_else(|| TallyError::VotingInactive)?
             .tally()
     }
 
-    pub fn new_watcher(&self) -> Receiver<bool> {
+    pub fn new_watcher(&self) -> Receiver<VoteState> {
         self.state_tx.subscribe()
     }
 }

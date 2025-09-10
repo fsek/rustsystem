@@ -1,17 +1,22 @@
+use std::{error::Error, fmt::Display, iter::FilterMap};
+
 use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
+    response::{Sse, sse::Event},
 };
 use rustsystem_proof::BallotMetaData;
 use serde::Deserialize;
+use tokio_stream::wrappers::WatchStream;
 use tracing::info;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{
     AppState,
+    tokens::AuthUser,
     vote_auth::{self, TallyError},
 };
 

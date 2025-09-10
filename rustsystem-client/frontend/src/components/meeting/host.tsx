@@ -1,37 +1,40 @@
-import { useLocation, useNavigate } from '@tanstack/react-router';
 import React, { useEffect, useState } from "react";
-import Button from '@/components/templates/button';
-import FormSection from '@/components/templates/form';
-import MainSection from '@/components/templates/main';
-import { StartVote, type StartVoteRequest } from '@/api/host/state';
-import init, { BallotMetaData, VoteMethod } from '@/pkg/rustsystem_client';
 import { MeetingSpecs, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
 import { matchResult } from '@/result';
 import type { APIError } from '@/api/error';
 import ErrorHandler from '../error';
+import CreationPage from './host-page/creation';
+import VotingPage from "./host-page/voting";
+import { voteStateWatch } from "@/api/common/state";
 
 interface HostPageProps {
   muid: any,
 }
 
+export const HostPageDisplay = {
+  // Stages of the voting process (from the host side)
+  Creation: 1,
+  Voting: 2,
+  Tally: 3,
+} as const;
+export type HostPageDisplay = (typeof HostPageDisplay)[keyof typeof HostPageDisplay];
+
 const HostPage: React.FC<HostPageProps> = ({ muid }) => {
-  init();
+  const voteStateEvent = voteStateWatch();
   const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
+  const [currentHostPageDisplay, setHostPageDisplay] = useState<HostPageDisplay>(HostPageDisplay.Creation)
   const [error, setError] = useState<APIError | null>(null);
 
-  const navigate = useNavigate();
-
-  function invitePage() {
-    navigate({ to: "/invite", search: { muid: muid } });
-  }
-
-  function startVote(data: Record<string, string>) {
-    StartVote({ name: data.name, metadata: new BallotMetaData(VoteMethod.Dichotomous, 1) } as StartVoteRequest).then((result) => {
-      matchResult(result, {
-        Ok: (_res) => { },
-        Err: (err) => { setError(err); }
-      })
-    });
+  voteStateEvent.onmessage = function (event) {
+    if (currentHostPageDisplay === HostPageDisplay.Creation) {
+      if (event.data === "Creation") {
+        setHostPageDisplay(HostPageDisplay.Creation)
+      } else if (event.data === "Voting") {
+        setHostPageDisplay(HostPageDisplay.Voting)
+      } else if (event.data === "Tally") {
+        setHostPageDisplay(HostPageDisplay.Tally)
+      }
+    }
   }
 
   // TODO: Change this into a SSE, so that the participants number is updated as more people join.
@@ -47,20 +50,14 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   if (error) {
     return <ErrorHandler error={error} />
   }
-  return (
-    <div>
-      <Button label="Invite" fn={invitePage} />
-
-      <MainSection title={specs ? specs.title : "Undefined"} description=<p>You are the host of this meeting</p> />
-      <FormSection
-        key={useLocation().pathname}
-        submit={{ label: "Start Vote!", data: startVote }}
-        fields={[
-          { label: "name", id: "name", type: "text" },
-        ]}
-      />
-    </div>
-  );
+  switch (currentHostPageDisplay) {
+    case HostPageDisplay.Creation:
+      return <CreationPage specs={specs} muid={muid} setHostPageDisplay={setHostPageDisplay} setError={setError} />;
+    case HostPageDisplay.Voting:
+      return <VotingPage specs={specs} setHostPageDisplay={setHostPageDisplay} setError={setError} />
+    default:
+      setHostPageDisplay(HostPageDisplay.Creation);
+  }
 }
 
 export default HostPage;

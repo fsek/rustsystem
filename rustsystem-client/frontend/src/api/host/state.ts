@@ -25,3 +25,23 @@ export async function StartVote(
     return err(obj as APIError);
   }
 }
+
+export type TallyRequest = {};
+
+type TallyResponse = {};
+
+export async function Tally(
+  _req: TallyRequest,
+): Promise<Result<TallyResponse, APIError>> {
+  const res = await fetch("api/host/start-vote", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const obj = await res.json();
+  if (res.ok) {
+    return ok(obj as TallyResponse);
+  } else {
+    return err(obj as APIError);
+  }
+}

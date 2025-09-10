@@ -3,8 +3,7 @@ import RegisterPage from '@/components/meeting/vote-page/register';
 import Header from '@/components/defaults/header';
 import Footer from '@/components/defaults/footer';
 import MainSection from '@/components/templates/main';
-import { VoteActive, type VoteActiveRequest } from '@/api/common/state';
-import { startVoteWait } from '@/api/voter/state';
+import { VoteActive, voteStateWatch, type VoteActiveRequest } from '@/api/common/state';
 import DichotomousPage from './vote-page/dichotomous';
 import { matchResult } from '@/result';
 import type { APIError } from '@/api/error';
@@ -33,7 +32,7 @@ export const VotePageDisplay = {
 export type VotePageDisplay = (typeof VotePageDisplay)[keyof typeof VotePageDisplay];
 
 const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
-  const voteEvent = startVoteWait();
+  const voteStateEvent = voteStateWatch();
   const [currentVotePageDisplay, setVotePageDisplay] = useState<VotePageDisplay>(VotePageDisplay.Wait);
   const [error, setError] = useState<APIError | null>(null);
 
@@ -55,11 +54,11 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
     });
   }, []);
 
-  voteEvent.onmessage = function (event) {
+  voteStateEvent.onmessage = function (event) {
     if (currentVotePageDisplay === VotePageDisplay.Wait)
-      if (event.data === "Start") {
+      if (event.data === "Voting") {
         setVotePageDisplay(VotePageDisplay.Register);
-      } else if (event.data === "Stop") {
+      } else if (event.data === "Creation" || event.data === "Tally") {
         setVotePageDisplay(VotePageDisplay.Wait);
       }
   }
@@ -69,7 +68,6 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
   }
   switch (currentVotePageDisplay) {
     case VotePageDisplay.Wait:
-      console.log("Got to Wait!");
       return WaitPage();
     case VotePageDisplay.Register:
       return <RegisterPage muid={muid} uuid={uuid} setVotePageDisplay={setVotePageDisplay} />;

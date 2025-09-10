@@ -22,3 +22,7 @@ export async function VoteActive(
     return err(obj as APIError);
   }
 }
+
+export function voteStateWatch(): EventSource {
+  return new EventSource("/api/common/vote-state-watch");
+}
