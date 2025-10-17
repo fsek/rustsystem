@@ -19,6 +19,8 @@ type CreationPageProps = {
 
 const CreationPage: React.FC<CreationPageProps> = ({ specs, muid, setError }) => {
   init()
+  console.log("Got to creation");
+  const location = useLocation();
   const navigate = useNavigate();
 
   function invitePage() {
@@ -40,7 +42,7 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, muid, setError }) =>
 
       <MainSection title={specs ? specs.title : "Undefined"} description=<p>You are the host of this meeting. There are {specs ? specs.participants : "unknown"} participants in this meeting</p> />
       <FormSection
-        key={useLocation().pathname}
+        key={location.pathname}
         submit={{ label: "Start Vote!", data: startVote }}
         fields={[
           { label: "name", id: "name", type: "text" },

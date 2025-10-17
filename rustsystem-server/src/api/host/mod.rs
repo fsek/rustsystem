@@ -1,11 +1,11 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 
 use api_core::APIHandler;
 
-use crate::AppState;
+use crate::{AppState, api::host::state::EndVoteRound};
 
 mod invite_watch;
 use invite_watch::InviteWatch;
@@ -22,7 +22,8 @@ use new_voter::{NewVoter, StartInvite};
 pub fn host_routes() -> Router<AppState> {
     Router::new()
         .route("/start-vote", post(StartVote::handler))
-        .route("/tally", post(Tally::handler))
+        .route("/end-vote-round", delete(EndVoteRound::handler))
+        .route("/tally", get(Tally::handler))
         .route("/new-voter", post(NewVoter::handler))
         .route("/start-invite", post(StartInvite::handler))
         .route("/invite-watch", get(InviteWatch::handler))

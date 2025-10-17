@@ -1,22 +1,17 @@
-use std::{error::Error, fmt::Display, iter::FilterMap};
-
 use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
-    response::{Sse, sse::Event},
 };
 use rustsystem_proof::BallotMetaData;
 use serde::Deserialize;
-use tokio_stream::wrappers::WatchStream;
 use tracing::info;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{
     AppState,
-    tokens::AuthUser,
     vote_auth::{self, TallyError},
 };
 
@@ -88,6 +83,46 @@ impl APIHandler for Tally {
             Ok(Json(vote_auth.finalize_round()?))
         } else {
             Err(TallyError::MUIDNotFound)
+        }
+    }
+}
+
+#[derive(FromRequest)]
+pub struct EndVoteRoundRequest {
+    auth: AuthHost,
+    state: State<AppState>,
+}
+
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "DELETE", path = "/api/host/end-vote-round"))]
+pub enum EndVoteRoundError {
+    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    MUIDNotFound,
+}
+
+pub struct EndVoteRound;
+impl APIHandler for EndVoteRound {
+    type State = AppState;
+    type Request = EndVoteRoundRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse = ();
+    type ErrorResponse = EndVoteRoundError;
+
+    async fn route(
+        request: Self::Request,
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let EndVoteRoundRequest {
+            auth: AuthHost { uuid, muid },
+            state: State(state),
+        } = request;
+
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+            meeting.get_auth().reset();
+
+            return Ok(());
+        } else {
+            return Err(EndVoteRoundError::MUIDNotFound);
         }
     }
 }

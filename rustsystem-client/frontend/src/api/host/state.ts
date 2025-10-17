@@ -28,12 +28,15 @@ export async function StartVote(
 
 export type TallyRequest = {};
 
-type TallyResponse = {};
+export type TallyResponse = {
+  score: Object;
+  blank: number;
+};
 
 export async function Tally(
   _req: TallyRequest,
 ): Promise<Result<TallyResponse, APIError>> {
-  const res = await fetch("api/host/start-vote", {
+  const res = await fetch("api/host/tally", {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });
@@ -42,6 +45,24 @@ export async function Tally(
   if (res.ok) {
     return ok(obj as TallyResponse);
   } else {
+    return err(obj as APIError);
+  }
+}
+
+export type EndVoteRoundRequest = {};
+type EndVoteRoundResponse = {};
+
+export async function EndVoteRound(
+  _req: EndVoteRoundRequest,
+): Promise<Result<EndVoteRoundResponse, APIError>> {
+  const res = await fetch("api/host/end-vote-round", {
+    method: "DELETE",
+  });
+
+  if (res.ok) {
+    return ok({} as TallyResponse);
+  } else {
+    const obj = await res.json();
     return err(obj as APIError);
   }
 }

@@ -201,6 +201,12 @@ impl VoteAuthority {
             .tally()
     }
 
+    // Set everything back to default
+    pub fn reset(&mut self) {
+        self.state_tx.send(VoteState::Creation);
+        self.round = None;
+    }
+
     pub fn new_state_watcher(&self) -> Receiver<VoteState> {
         self.state_tx.subscribe()
     }

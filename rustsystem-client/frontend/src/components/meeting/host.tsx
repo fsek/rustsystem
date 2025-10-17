@@ -6,6 +6,8 @@ import ErrorHandler from '../error';
 import CreationPage from './host-page/creation';
 import VotingPage from "./host-page/voting";
 import { voteStateWatch } from "@/api/common/state";
+import TallyPage from "./host-page/tally";
+import type { TallyResponse } from "@/api/host/state";
 
 interface HostPageProps {
   muid: any,
@@ -25,6 +27,7 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
   const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
   const [currentHostPageDisplay, setHostPageDisplay] = useState<HostPageDisplay>(HostPageDisplay.Creation)
   const [error, setError] = useState<APIError | null>(null);
+  const [tally, setTally] = useState<TallyResponse | null>(null);
 
   voteStateEvent.onmessage = function (event) {
     if (currentHostPageDisplay === HostPageDisplay.Creation) {
@@ -66,7 +69,9 @@ const HostPage: React.FC<HostPageProps> = ({ muid }) => {
     case HostPageDisplay.Creation:
       return <CreationPage specs={specs} muid={muid} setHostPageDisplay={setHostPageDisplay} setError={setError} />;
     case HostPageDisplay.Voting:
-      return <VotingPage specs={specs} setHostPageDisplay={setHostPageDisplay} setError={setError} />
+      return <VotingPage specs={specs} setHostPageDisplay={setHostPageDisplay} setError={setError} setTally={setTally} />
+    case HostPageDisplay.Tally:
+      return <TallyPage setHostPageDisplay={setHostPageDisplay} setError={setError} tally={tally}></TallyPage>
     default:
       setHostPageDisplay(HostPageDisplay.Creation);
   }
