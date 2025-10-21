@@ -38,11 +38,13 @@ const DichotomousPage: React.FC<DichotomousProps> = ({ setVotePageDisplay }) => 
     const validation = JSON.parse(sessionStorage.getItem("validation")!);
     const metadata = JSON.parse(sessionStorage.getItem("metadata")!);
 
+    const js_coice = JSON.parse(choice.into_js());
+
     console.log(metadata);
-    console.log(choice);
+    console.log(js_coice);
     console.log(validation);
 
-    await send_vote(metadata, choice, validation);
+    await send_vote(metadata, js_coice, validation);
   }
 
   return (

@@ -4,6 +4,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use web_sys::console::info_1;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 use wasm_bindgen::prelude::*;
@@ -78,7 +79,13 @@ impl WASMChoice {
     // Dichotomous
     #[wasm_bindgen]
     pub fn set_dichotomous(&mut self, choice: Option<bool>) {
+        info_1(&JsValue::from_str(&format!("Choice is {choice:?}")));
         self.dichotomous = choice;
+    }
+
+    #[wasm_bindgen]
+    pub fn into_js(self) -> JsValue {
+        JsValue::from_str(&serde_json::to_string(&self).unwrap())
     }
 }
 impl WASMChoice {
