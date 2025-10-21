@@ -35,6 +35,9 @@ pub enum APIErrorCode {
     SignatureExpired,
     SignatureFailure,
 
+    MeetingUnlocked,
+    MeetingLocked,
+
     // TODO: AuthError should be expanded to be more specific as to what exactly failed during
     // authentication
     AuthError,
@@ -71,6 +74,9 @@ impl APIErrorCode {
                 "Server rejected validation signature because it has already been used."
             }
             Self::SignatureFailure => "Failed to create blindsignature from token.",
+
+            Self::MeetingUnlocked => "Action requires the meeting be locked",
+            Self::MeetingLocked => "Action requires tha meeting be unlocked",
 
             Self::AuthError => "Authentication Failed",
 

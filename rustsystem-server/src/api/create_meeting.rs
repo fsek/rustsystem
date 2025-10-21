@@ -70,6 +70,7 @@ impl APIHandler for CreateMeeting {
                 voters,
                 vote_auth,
                 invite_auth,
+                locked: false,
             },
         );
 

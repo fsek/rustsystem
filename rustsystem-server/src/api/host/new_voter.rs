@@ -62,6 +62,8 @@ pub struct NewVoterRequest {
 pub enum NewVoterError {
     #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
     MUIDNotFound,
+    #[api(code = APIErrorCode::MeetingLocked, status = 409)]
+    MeetingLocked,
 }
 
 pub struct NewVoter;
@@ -82,6 +84,10 @@ impl APIHandler for NewVoter {
 
         let new_uuid = new_uuid();
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+            if meeting.locked {
+                return Err(NewVoterError::MeetingLocked);
+            }
+
             meeting.invite_auth.set_state(false);
             // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.
             meeting.add_voter(new_uuid);

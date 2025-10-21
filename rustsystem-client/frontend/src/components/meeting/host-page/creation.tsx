@@ -1,6 +1,6 @@
 import type { MeetingSpecsResponse } from "@/api/common/meetingSpecs"
 import type { APIError } from "@/api/error";
-import { StartVote, type StartVoteRequest } from "@/api/host/state";
+import { Lock, StartVote, Unlock, type LockRequest, type StartVoteRequest, type UnlockRequest } from "@/api/host/state";
 import Button from "@/components/templates/button";
 import FormSection from "@/components/templates/form";
 import MainSection from "@/components/templates/main";
@@ -36,6 +36,24 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, muid, setError }) =>
     });
   }
 
+  function lock() {
+    Lock({} as LockRequest).then((result) => {
+      matchResult(result, {
+        Ok: (_res) => { },
+        Err: (err) => { setError(err); }
+      })
+    });
+  }
+
+  function unlock() {
+    Unlock({} as UnlockRequest).then((result) => {
+      matchResult(result, {
+        Ok: (_res) => { },
+        Err: (err) => { setError(err); }
+      })
+    });
+  }
+
   return (
     <div>
       <Button label="Invite" fn={invitePage} />
@@ -48,6 +66,8 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, muid, setError }) =>
           { label: "name", id: "name", type: "text" },
         ]}
       />
+      <Button label="Lock" fn={lock} />
+      <Button label="Unlock" fn={unlock} />
     </div>
   );
 }

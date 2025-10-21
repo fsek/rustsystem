@@ -5,6 +5,7 @@ use axum::{
 use axum_server::tls_rustls::RustlsConfig;
 use invite_auth::InviteAuthority;
 use rand::Rng;
+use rustsystem_proof::BallotMetaData;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
 use tokio::sync::Mutex;
 use tower_http::{
@@ -53,6 +54,7 @@ pub struct Meeting {
     voters: HashMap<u128, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
+    locked: bool,
 }
 impl Meeting {
     pub fn add_voter(&mut self, uuid: UUID) -> Option<Voter> {
@@ -61,6 +63,20 @@ impl Meeting {
 
     pub fn get_auth(&mut self) -> &mut VoteAuthority {
         &mut self.vote_auth
+    }
+
+    pub fn remove_unclaimed_voters(&mut self) {
+        self.voters.retain(|_id, voter| voter.logged_in);
+    }
+
+    // Locking also removes unclaimed voters
+    pub fn lock(&mut self) {
+        self.remove_unclaimed_voters();
+        self.locked = true;
+    }
+
+    pub fn unlock(&mut self) {
+        self.locked = false;
     }
 }
 
@@ -83,7 +99,7 @@ async fn main() {
         meetings: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    let user_id = u128::from_be_bytes(rand::random()); // This should be a randomly generated hash later on!
+    let user_id = u128::from_be_bytes(rand::random());
     let user = Voter { logged_in: false };
     let mut users = HashMap::new();
     users.insert(user_id, user);
