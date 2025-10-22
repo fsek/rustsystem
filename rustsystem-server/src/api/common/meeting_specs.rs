@@ -64,7 +64,7 @@ impl APIHandler for MeetingSpecs {
         if let Some(meeting) = state.meetings.lock().await.get(&muid) {
             Ok(Json(MeetingSpecsResponse {
                 title: meeting.title.clone(),
-                participants: meeting.voters.len(),
+                participants: meeting.voters.values().filter(|v| v.logged_in).count(),
             }))
         } else {
             Err(MeetingSpecsError::MUIDNotFound)
