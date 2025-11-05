@@ -1,0 +1,72 @@
+{% extends "base.html" %} {% block main %}
+<h1>Möte</h1>
+<p>Mötes-ID: {{meeting_id}}</p>
+<a href="invite">QR-kod</a>
+
+{% if let Some(voting) = current_voting %}
+
+<h2>Pågående votering: {{ voting.title }}</h2>
+<ul>
+    {% for option in voting.options %}
+    <li>{{ option }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    <button type="submit">Avsluta votering och visa resultat</button>
+</form>
+
+{% else %}
+
+<form method="post">
+    <div>
+        <input type="text" name="title" placeholder="Titel" required />
+    </div>
+
+    <div>
+        <textarea
+            name="options"
+            placeholder="Banan&#10;Melon&#10;Kiwi&#10;Citron"
+            rows="5"
+            required
+        ></textarea>
+    </div>
+
+    <div>
+        <input type="checkbox" id="shuffle" name="shuffle" checked />
+        <label for="shuffle">Slumpa alternativordning</label>
+    </div>
+
+    <button type="submit">Starta votering</button>
+</form>
+
+{% endif %}
+
+<h2>Tidigare voteringar</h2>
+
+{% for voting in past_votings.iter().rev() %}
+
+<h3>{{ voting.title }}</h3>
+
+<table>
+    <caption>
+        Antal registrerade: {{ voting.registered_voters }}
+        <br />
+        Antal röster: {{ voting.votes_cast }}
+    </caption>
+
+    <tr>
+        <th scope="col">Alternativ</th>
+        <th scope="col">Röster</th>
+    </tr>
+    <tbody>
+        {% for (name, count) in voting.option_tallies %}
+        <tr>
+            <td>{{ name }}</td>
+            <td>{{ count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endfor %} {% endblock %}

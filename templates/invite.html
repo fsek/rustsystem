@@ -1,0 +1,17 @@
+{% extends "base.html" %} {% block main %}
+<img src="{{qr_url}}" id="qr" />
+
+<script type="text/javascript">
+    const qr = document.getElementById("qr");
+
+    const ws = new WebSocket("{{ ws_url }}");
+
+    // update the QR code when a new message is received
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.qr_url) {
+            qr.src = data.qr_url;
+        }
+    };
+</script>
+{% endblock %}

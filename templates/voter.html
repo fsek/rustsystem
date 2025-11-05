@@ -1,0 +1,20 @@
+{% extends "base.html" %} {% block main %} {% if let Some(voting) = voting %}
+<h1>{{ voting.title }}</h1>
+<form method="post">
+    <div>
+        {% for (index, option) in voting.options.iter().enumerate() %}
+        <input
+            type="radio"
+            id="option-{{ index }}"
+            name="option"
+            value="{{ index }}"
+        />
+        <label for="option-{{ index }}">{{ option }}</label>
+        {% endfor %}
+    </div>
+    <button type="submit">Rösta</button>
+</form>
+{% else %}
+<h1>Du är med</h1>
+<p>Ingen omröstning :(</p>
+{% endif %} {% endblock %}
