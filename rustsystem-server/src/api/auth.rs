@@ -4,26 +4,26 @@ use serde::{Deserialize, Serialize};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
-use crate::{AppState, AuthUser};
+use crate::{AppState, AuthUser, UUuid};
 
 #[derive(Deserialize)]
 pub struct AuthMeetingRequest {
-    muid: String,
+    muuid: String,
 }
 
 #[derive(Serialize)]
 pub struct AuthResponse {
-    uuid: String,
-    muid: String,
+    uuuid: String,
+    muuid: String,
     is_host: bool,
 }
 
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/api/auth-meeting"))]
 pub enum AuthMeetingError {
-    #[api(code = APIErrorCode::InvalidUUID, status = 400)]
-    InvalidMUID,
-    #[api(code = APIErrorCode::InvalidUUID, status = 400)]
+    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
+    InvalidMUuid,
+    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
     MUIDMismatch,
 }
 
@@ -44,21 +44,21 @@ impl APIHandler for AuthMeeting {
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (
             AuthUser {
-                uuid,
-                muid,
+                uuuid,
+                muuid,
                 is_host,
             },
             Json(body),
         ) = request;
-        let parsed_muid = if let Ok(parsed) = body.muid.parse::<u128>() {
+        let parsed_muid = if let Ok(parsed) = UUuid::parse_str(&body.muuid) {
             parsed
         } else {
-            return Err(AuthMeetingError::InvalidMUID);
+            return Err(AuthMeetingError::InvalidMUuid);
         };
-        if muid == parsed_muid {
+        if muuid == parsed_muid {
             Ok(Json(AuthResponse {
-                uuid: uuid.to_string(),
-                muid: muid.to_string(),
+                uuuid: uuuid.to_string(),
+                muuid: muuid.to_string(),
                 is_host,
             }))
         } else {

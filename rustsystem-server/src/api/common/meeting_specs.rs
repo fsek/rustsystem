@@ -29,7 +29,7 @@ pub struct MeetingSpecsResponse {
 #[derive(APIEndpointError, Debug)]
 #[api(endpoint(method = "GET", path = "api/common/meeting-specs"))]
 pub enum MeetingSpecsError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 impl Display for MeetingSpecsError {
@@ -54,14 +54,14 @@ impl APIHandler for MeetingSpecs {
         let MeetingSpecsRequest {
             auth:
                 AuthUser {
-                    uuid,
-                    muid,
+                    uuuid,
+                    muuid,
                     is_host,
                 },
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
             Ok(Json(MeetingSpecsResponse {
                 title: meeting.title.clone(),
                 participants: meeting.voters.values().filter(|v| v.logged_in).count(),
@@ -87,8 +87,8 @@ impl APIHandler for MeetingSpecsWatch {
         let MeetingSpecsRequest {
             auth:
                 AuthUser {
-                    uuid,
-                    muid,
+                    uuuid,
+                    muuid,
                     is_host,
                 },
             state: State(state),
@@ -107,7 +107,7 @@ impl APIHandler for MeetingSpecsWatch {
             }
         };
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
             let update_rx = meeting.vote_auth.new_update_watcher();
             let stream = WatchStream::new(update_rx).filter_map(upon_event as _);
             Ok(Sse::new(stream))

@@ -20,7 +20,7 @@ pub enum RegisterError {
     #[api(code = APIErrorCode::AlreadyRegistered, status = 409)]
     AlreadyRegistered,
 
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
     VoteInactive,
@@ -38,11 +38,11 @@ impl APIHandler for Register {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthVoter { uuid, muid }, State(state), Json(body)) = request;
+        let (AuthVoter { uuuid, muuid }, State(state), Json(body)) = request;
         info!("Got register request");
 
         let mut meetings = state.meetings.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muid) {
+        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muuid) {
             meeting_ok
         } else {
             return Err(RegisterError::MUIDNotFound);
@@ -52,7 +52,7 @@ impl APIHandler for Register {
 
         let round = ensure_round(vote_auth, RegisterError::VoteInactive)?;
 
-        if round.is_registered(uuid) {
+        if round.is_registered(uuuid) {
             return Err(RegisterError::AlreadyRegistered);
         }
 
@@ -61,7 +61,7 @@ impl APIHandler for Register {
             round.header().clone(),
             round.keys().clone(),
         ) {
-            round.register_user(uuid);
+            round.register_user(uuuid);
             Ok(Json(RegistrationSuccessResponse::new(
                 signature,
                 round.metadata(),
@@ -77,7 +77,7 @@ impl APIHandler for Register {
 pub enum SubmitError {
     #[api(code = APIErrorCode::InvalidMetaData, status = 409)]
     InvalidMetaData,
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
     VotingInactive,
@@ -99,13 +99,13 @@ impl APIHandler for Submit {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthVoter { uuid, muid }, State(state), Json(body)) = request;
+        let (AuthVoter { uuuid, muuid }, State(state), Json(body)) = request;
         let metadata = body.get_metadata();
         let choice = body.get_choice();
         let validation = body.get_validation();
 
         let mut meetings = state.meetings.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muid) {
+        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muuid) {
             meeting_ok
         } else {
             return Err(SubmitError::MUIDNotFound);

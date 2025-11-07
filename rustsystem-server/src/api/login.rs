@@ -20,14 +20,14 @@ pub struct LoginRequest {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/login"))]
 pub enum LoginError {
-    #[api(code = APIErrorCode::InvalidUUID, status=400)]
+    #[api(code = APIErrorCode::InvalidUUuid, status=400)]
     InvalidUUID,
-    #[api(code = APIErrorCode::InvalidMUID, status=400)]
+    #[api(code = APIErrorCode::InvalidMUuid, status=400)]
     InvalidMUID,
 
-    #[api(code = APIErrorCode::UUIDNotFound, status=404)]
+    #[api(code = APIErrorCode::UUuidNotFound, status=404)]
     UUIDNotFound,
-    #[api(code = APIErrorCode::MUIDNotFound, status=404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status=404)]
     MUIDNotFound,
 
     #[api(code = APIErrorCode::UUIDAlreadyClaimed, status=409)]

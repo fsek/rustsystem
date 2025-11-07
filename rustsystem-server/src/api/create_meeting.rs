@@ -18,12 +18,13 @@ use api_core::{APIHandler, APIResult};
 #[derive(Deserialize)]
 pub struct CreateMeetingRequest {
     pub title: String,
+    pub host_name: String,
 }
 
 #[derive(Serialize)]
 pub struct CreateMeetingResponse {
-    pub muid: String,
-    pub uuid: String,
+    pub muuid: String,
+    pub uuuid: String,
 }
 
 #[derive(APIEndpointError)]
@@ -46,25 +47,31 @@ impl APIHandler for CreateMeeting {
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(query)) = request;
 
-        let (uuid, muid, jwt) = new_meeting_jwt(&state.secret);
+        let (uuuid, muuid, jwt) = new_meeting_jwt(&state.secret);
         let new_cookie = Cookie::build(("access_token", jwt))
             .http_only(true)
             .secure(true)
             .same_site(cookie::SameSite::Strict)
             .path("/");
 
-        info!("Creating new meeting with id {muid} and host {uuid}");
+        info!("Creating new meeting with id {muuid} and host {uuuid}");
         let mut meetings = state.meetings.lock().await;
         let mut voters = HashMap::new();
-        voters.insert(uuid, Voter { logged_in: true });
+        voters.insert(
+            uuuid,
+            Voter {
+                name: query.host_name,
+                logged_in: true,
+            },
+        );
 
         let vote_auth = VoteAuthority::new();
         let invite_auth = InviteAuthority::new();
 
         meetings.insert(
-            muid,
+            muuid,
             crate::Meeting {
-                host: uuid,
+                host: uuuid,
                 title: query.title,
                 start_time: SystemTime::now(),
                 voters,
@@ -77,8 +84,8 @@ impl APIHandler for CreateMeeting {
         Ok((
             jar.add(new_cookie),
             Json(CreateMeetingResponse {
-                muid: muid.to_string(),
-                uuid: uuid.to_string(),
+                muuid: muuid.to_string(),
+                uuuid: uuuid.to_string(),
             }),
         ))
     }

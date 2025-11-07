@@ -7,6 +7,7 @@ use invite_auth::InviteAuthority;
 use rand::Rng;
 use rustsystem_proof::BallotMetaData;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
+use tokens::{AuthUser, get_secret};
 use tokio::sync::Mutex;
 use tower_http::{
     services::{ServeDir, ServeFile},
@@ -23,42 +24,38 @@ mod invite_auth;
 pub mod tokens;
 pub mod voting;
 
-use tokens::{AuthUser, get_secret};
+use uuid::Uuid;
+
+type MUuid = Uuid;
+type UUuid = Uuid;
 
 /// NOTE: The API_ENDPOINT environmental variable must be set at compile time!
 const API_ENDPOINT: &str = env!("API_ENDPOINT");
 
-pub fn rand_u128() -> u128 {
-    let mut res = [0u8; 16];
-    rand::rng().fill(&mut res);
-    u128::from_be_bytes(res)
-}
-type UUID = u128;
-pub fn new_uuid() -> UUID {
-    rand_u128()
-}
-type MUID = u128;
-pub fn new_muid() -> MUID {
-    rand_u128()
-}
-
 #[derive(Debug)]
 pub struct Voter {
+    name: String,
     logged_in: bool,
 }
 
 pub struct Meeting {
-    host: UUID,
+    host: Uuid,
     title: String,
     start_time: SystemTime,
-    voters: HashMap<u128, Voter>,
+    voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
     locked: bool,
 }
 impl Meeting {
-    pub fn add_voter(&mut self, uuid: UUID) -> Option<Voter> {
-        self.voters.insert(uuid, Voter { logged_in: false })
+    pub fn add_voter(&mut self, name: String, uuid: UUuid) -> Option<Voter> {
+        self.voters.insert(
+            uuid,
+            Voter {
+                name,
+                logged_in: false,
+            },
+        )
     }
 
     pub fn get_auth(&mut self) -> &mut VoteAuthority {
@@ -80,7 +77,7 @@ impl Meeting {
     }
 }
 
-pub type ActiveMeetings = Arc<Mutex<HashMap<MUID, Meeting>>>;
+pub type ActiveMeetings = Arc<Mutex<HashMap<MUuid, Meeting>>>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -98,11 +95,6 @@ async fn main() {
         secret: get_secret().unwrap(),
         meetings: Arc::new(Mutex::new(HashMap::new())),
     };
-
-    let user_id = u128::from_be_bytes(rand::random());
-    let user = Voter { logged_in: false };
-    let mut users = HashMap::new();
-    users.insert(user_id, user);
 
     let serve_dir = ServeDir::new("../rustsystem-client/static")
         .not_found_service(ServeFile::new("../rustsystem-client/static/index.html"));

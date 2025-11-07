@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 use crate::{Sha256ValidationInfo, ValidationInfo};
 
 pub type VoteRoundID = u128;
-pub type CandidateID = u8;
+pub type CandidateID = u32;
 pub type ProtocolVersion = u8;
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]

@@ -29,7 +29,7 @@ pub struct VoteActiveResponse {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "GET", path = "/api/common/vote-state-watch"))]
 pub enum VoteActiveError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 
@@ -47,14 +47,14 @@ impl APIHandler for VoteActive {
         let VoteActiveRequest {
             auth:
                 AuthUser {
-                    uuid,
-                    muid,
+                    uuuid,
+                    muuid,
                     is_host,
                 },
             state: State(state),
         } = request;
 
-        let res = if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+        let res = if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
             meeting.vote_auth.is_active()
         } else {
             return Err(VoteActiveError::MUIDNotFound);
@@ -73,7 +73,7 @@ pub struct VoteStateWatchRequest {
 #[derive(APIEndpointError, Debug)]
 #[api(endpoint(method = "GET", path = "/api/common/vote-watch"))]
 pub enum VoteStateWatchError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 impl Display for VoteStateWatchError {
@@ -106,8 +106,8 @@ impl APIHandler for VoteStateWatch {
         let VoteStateWatchRequest {
             auth:
                 AuthUser {
-                    uuid,
-                    muid,
+                    uuuid,
+                    muuid,
                     is_host,
                 },
             state: State(state),
@@ -125,7 +125,7 @@ impl APIHandler for VoteStateWatch {
             )),
         };
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
             let state_rx = meeting.vote_auth.new_state_watcher();
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
             Ok(Sse::new(stream))

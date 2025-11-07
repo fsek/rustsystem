@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::Serialize;
+use uuid::Uuid;
 
-use crate::{UUID, new_uuid};
+use crate::UUuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VotingId(u16);
@@ -11,7 +12,7 @@ pub struct VotingId(u16);
 pub struct UserId(String);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Token(UUID);
+pub struct Token(UUuid);
 
 pub struct Ballot {
     /// `None` if the user voted for no option (blank vote).
@@ -109,7 +110,7 @@ impl Voting {
         let ballots = self.state.ballots_mut().ok_or(RegisterVoterError::Closed)?;
 
         if self.voters.insert(user_id) {
-            let token = Token(new_uuid());
+            let token = Token(Uuid::new_v4());
             assert!(
                 ballots.insert(token, None).is_none(),
                 "token should be unique"

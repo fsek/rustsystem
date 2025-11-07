@@ -10,7 +10,7 @@ use zkryptium::{
 use api_core::{APIErrorCode, APIResult};
 use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
 
-use crate::UUID;
+use crate::UUuid;
 
 pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
@@ -52,7 +52,7 @@ pub enum TallyError {
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
     VotingInactive,
 
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 
@@ -98,7 +98,7 @@ pub struct VoteRound {
     metadata: BallotMetaData,
     keys: AuthenticationKeys,
     header: Header,
-    registered_voters: HashSet<UUID>,
+    registered_voters: HashSet<UUuid>,
     expired_signatures: HashSet<[u8; 80]>,
 
     votes: Votes,
@@ -112,12 +112,12 @@ impl VoteRound {
         self.metadata
     }
 
-    pub fn register_user(&mut self, uuid: UUID) {
+    pub fn register_user(&mut self, uuid: UUuid) {
         self.registered_voters.insert(uuid);
     }
 
     /// Checks if a user has already registered for voting
-    pub fn is_registered(&self, uuid: UUID) -> bool {
+    pub fn is_registered(&self, uuid: UUuid) -> bool {
         self.registered_voters.contains(&uuid)
     }
 

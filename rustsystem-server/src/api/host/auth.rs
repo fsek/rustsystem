@@ -2,19 +2,19 @@ use api_core::APIError;
 use axum::{Json, extract::FromRequestParts, http::StatusCode};
 
 use crate::{
-    AppState, MUID, UUID,
+    AppState, MUuid, UUuid,
     tokens::{AuthError, AuthUser},
 };
 
 pub struct AuthHost {
-    pub uuid: UUID,
-    pub muid: MUID,
+    pub uuuid: UUuid,
+    pub muuid: MUuid,
 }
 impl From<AuthUser> for AuthHost {
     fn from(value: AuthUser) -> Self {
         Self {
-            uuid: value.uuid,
-            muid: value.muid,
+            uuuid: value.uuuid,
+            muuid: value.muuid,
         }
     }
 }

@@ -18,26 +18,28 @@ use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::{AppState, MUID, UUID, new_muid, new_uuid};
+use crate::{AppState, MUuid, UUuid};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MeetingClaims {
-    uuid: UUID,
-    muid: MUID,
+    // String representation because Uuid is not Deserialize/Serialize
+    uuuid: String,
+    muuid: String,
     is_host: bool,
     exp: usize,
 }
 
-fn create_meeting_jwt(uuid: UUID, muid: MUID, is_host: bool, secret: &[u8; 32]) -> String {
+fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 32]) -> String {
     let expiration = Utc::now()
         .checked_add_signed(chrono::Duration::minutes(15))
         .expect("valid timestamp")
         .timestamp() as usize;
 
     let claims = MeetingClaims {
-        uuid,
-        muid,
+        uuuid: uuuid.to_string(),
+        muuid: muuid.to_string(),
         is_host,
         exp: expiration,
     };
@@ -50,14 +52,14 @@ fn create_meeting_jwt(uuid: UUID, muid: MUID, is_host: bool, secret: &[u8; 32]) 
     .unwrap()
 }
 
-pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUID, MUID, String) {
-    let uuid = new_uuid();
-    let muid = new_muid();
+pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUuid, MUuid, String) {
+    let uuuid = Uuid::new_v4();
+    let muuid = Uuid::new_v4();
 
-    (uuid, muid, create_meeting_jwt(uuid, muid, true, secret))
+    (uuuid, muuid, create_meeting_jwt(uuuid, muuid, true, secret))
 }
 
-pub fn get_meeting_jwt(uuid: UUID, muid: MUID, is_host: bool, secret: &[u8; 32]) -> String {
+pub fn get_meeting_jwt(uuid: UUuid, muid: MUuid, is_host: bool, secret: &[u8; 32]) -> String {
     create_meeting_jwt(uuid, muid, is_host, secret)
 }
 
@@ -133,8 +135,8 @@ fn generate_secret(mut keeper_file: File) -> io::Result<[u8; 32]> {
 }
 
 pub struct AuthUser {
-    pub uuid: UUID,
-    pub muid: MUID,
+    pub uuuid: UUuid,
+    pub muuid: MUuid,
     pub is_host: bool,
 }
 
@@ -143,6 +145,12 @@ pub struct AuthUser {
 pub enum AuthError {
     #[api(code = APIErrorCode::AuthError, status = 401)]
     AuthError,
+
+    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
+    InvalidUUuid,
+
+    #[api(code = APIErrorCode::InvalidMUuid, status = 400)]
+    InvalidMUuid,
 }
 
 impl FromRequestParts<AppState> for AuthUser {
@@ -182,9 +190,28 @@ impl FromRequestParts<AppState> for AuthUser {
         )
         .map_err(|_| <AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
 
+        let uuuid = if let Ok(id) = Uuid::parse_str(&token_data.claims.uuuid) {
+            id
+        } else {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AuthError::InvalidUUuid.into()),
+            ));
+        };
+
+        let muuid = if let Ok(id) = Uuid::parse_str(&token_data.claims.muuid) {
+            id
+        } else {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(AuthError::InvalidMUuid.into()),
+            ));
+        };
+
         Ok(AuthUser {
-            uuid: token_data.claims.uuid,
-            muid: token_data.claims.muid,
+            // TODO: Error handling
+            uuuid,
+            muuid,
             is_host: token_data.claims.is_host,
         })
     }

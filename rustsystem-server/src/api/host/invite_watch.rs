@@ -23,7 +23,7 @@ pub struct InviteWatchRequest {
 #[derive(APIEndpointError, Debug)]
 #[api(endpoint(method = "GET", path = "/api/host/invite-watch"))]
 pub enum InviteWatchError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 impl Display for InviteWatchError {
@@ -46,10 +46,10 @@ impl APIHandler for InviteWatch {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let InviteWatchRequest {
-            auth: AuthHost { uuid, muid },
+            auth: AuthHost { uuuid, muuid },
             state: State(state),
         } = request;
-        if let Some(meeting) = state.meetings.lock().await.get(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
             let state_rx = meeting.invite_auth.new_watcher();
 
             let upon_event = |new_state| {

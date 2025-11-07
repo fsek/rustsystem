@@ -26,7 +26,7 @@ pub struct StartVoteRequest {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/api/host/start-vote"))]
 pub enum StartVoteError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::MeetingUnlocked, status = 409)]
     MeetingUnlocked,
@@ -43,9 +43,9 @@ impl APIHandler for StartVote {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthHost { uuid, muid }, State(state), Json(body)) = request;
+        let (AuthHost { uuuid, muuid }, State(state), Json(body)) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if !meeting.locked {
                 return Err(StartVoteError::MeetingUnlocked);
             }
@@ -77,11 +77,11 @@ impl APIHandler for Tally {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let TallyRequest {
-            auth: AuthHost { uuid, muid },
+            auth: AuthHost { uuuid, muuid },
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             let vote_auth = meeting.get_auth();
 
             Ok(Json(vote_auth.finalize_round()?))
@@ -100,7 +100,7 @@ pub struct EndVoteRoundRequest {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "DELETE", path = "/api/host/end-vote-round"))]
 pub enum EndVoteRoundError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
 }
 
@@ -117,11 +117,11 @@ impl APIHandler for EndVoteRound {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let EndVoteRoundRequest {
-            auth: AuthHost { uuid, muid },
+            auth: AuthHost { uuuid, muuid },
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             meeting.get_auth().reset();
 
             return Ok(());
@@ -140,7 +140,7 @@ pub struct LockRequest {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/api/host/lock"))]
 pub enum LockError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::MeetingLocked, status = 409)]
     MeetingLocked,
@@ -158,10 +158,10 @@ impl APIHandler for Lock {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let LockRequest {
-            auth: AuthHost { uuid, muid },
+            auth: AuthHost { uuuid, muuid },
             state: State(state),
         } = request;
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if meeting.locked {
                 return Err(LockError::MeetingLocked);
             } else {
@@ -183,7 +183,7 @@ pub struct UnlockRequest {
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/api/host/unlock"))]
 pub enum UnlockError {
-    #[api(code = APIErrorCode::MUIDNotFound, status = 404)]
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::MeetingUnlocked, status = 409)]
     MeetingUnlocked,
@@ -201,10 +201,10 @@ impl APIHandler for Unlock {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let LockRequest {
-            auth: AuthHost { uuid, muid },
+            auth: AuthHost { uuuid, muuid },
             state: State(state),
         } = request;
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if !meeting.locked {
                 return Err(LockError::MeetingLocked);
             } else {
