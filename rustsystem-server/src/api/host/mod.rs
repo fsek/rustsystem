@@ -21,6 +21,8 @@ use state::{StartVote, Tally};
 mod new_voter;
 use new_voter::{NewVoter, StartInvite};
 
+mod user_management;
+
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
     Router::new()

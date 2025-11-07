@@ -2,11 +2,11 @@
 
 ### Server Side (and wasm)
 
-- [ ] member list
-- [ ] delete members
+- [x] member list
+- [x] delete members
 - [ ] Fix warnings...
 - [ ] Doc tests for proof
-- [ ] Fix UUID
+- [x] Fix UUID
 - [ ] Host Universal Auth Token
 - [ ] Meeting agenda update as we go
 

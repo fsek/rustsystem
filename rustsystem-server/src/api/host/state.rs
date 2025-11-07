@@ -141,7 +141,7 @@ pub struct LockRequest {
 #[api(endpoint(method = "POST", path = "/api/host/lock"))]
 pub enum LockError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
+    MUuidNotFound,
     #[api(code = APIErrorCode::MeetingLocked, status = 409)]
     MeetingLocked,
 }
@@ -168,7 +168,7 @@ impl APIHandler for Lock {
                 meeting.lock();
             }
         } else {
-            return Err(LockError::MUIDNotFound);
+            return Err(LockError::MUuidNotFound);
         }
         Ok(())
     }
@@ -184,7 +184,7 @@ pub struct UnlockRequest {
 #[api(endpoint(method = "POST", path = "/api/host/unlock"))]
 pub enum UnlockError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
+    MUuidNotFound,
     #[api(code = APIErrorCode::MeetingUnlocked, status = 409)]
     MeetingUnlocked,
 }
@@ -195,7 +195,7 @@ impl APIHandler for Unlock {
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = ();
-    type ErrorResponse = LockError;
+    type ErrorResponse = UnlockError;
 
     async fn route(
         request: Self::Request,
@@ -206,12 +206,12 @@ impl APIHandler for Unlock {
         } = request;
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if !meeting.locked {
-                return Err(LockError::MeetingLocked);
+                return Err(UnlockError::MeetingUnlocked);
             } else {
                 meeting.unlock();
             }
         } else {
-            return Err(LockError::MUIDNotFound);
+            return Err(UnlockError::MUuidNotFound);
         }
         Ok(())
     }
