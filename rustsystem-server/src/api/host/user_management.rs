@@ -55,35 +55,35 @@ impl APIHandler for VoterList {
 }
 
 #[derive(FromRequest)]
-pub struct GetVoterIdRequest {
+pub struct VoterIdRequest {
     auth: AuthHost,
     state: State<AppState>,
     name: String,
 }
 
 #[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/host/get-voter-id"))]
-pub enum GetVoterIdError {
+#[api(endpoint(method = "GET", path = "/api/host/voter-id"))]
+pub enum VoterIdError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUuidNotFound,
     #[api(code = APIErrorCode::VoterNameNotFound, status = 404)]
     VoterNameNotFound,
 }
 
-pub struct GetVoterId;
-impl APIHandler for GetVoterId {
+pub struct VoterId;
+impl APIHandler for VoterId {
     type State = AppState;
-    type Request = GetVoterIdRequest;
+    type Request = VoterIdRequest;
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
     type SuccessResponse = String;
-    type ErrorResponse = GetVoterIdError;
+    type ErrorResponse = VoterIdError;
 
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let GetVoterIdRequest {
+        let VoterIdRequest {
             auth: AuthHost { uuuid, muuid },
             state,
             name,
@@ -93,10 +93,10 @@ impl APIHandler for GetVoterId {
             if let Some((uuuid, _voter)) = meeting.voters.iter().find(|(_k, v)| v.name == name) {
                 Ok(uuuid.to_string())
             } else {
-                Err(GetVoterIdError::VoterNameNotFound)
+                Err(VoterIdError::VoterNameNotFound)
             }
         } else {
-            Err(GetVoterIdError::MUuidNotFound)
+            Err(VoterIdError::MUuidNotFound)
         }
     }
 }
@@ -109,7 +109,7 @@ pub struct RemoveVoterRequest {
 }
 
 #[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/host/remover-voter"))]
+#[api(endpoint(method = "DELETE", path = "/api/host/remove-voter"))]
 pub enum RemoveVoterError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUuidNotFound,
@@ -153,4 +153,3 @@ impl APIHandler for RemoveVoter {
         }
     }
 }
-

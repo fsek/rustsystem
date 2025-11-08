@@ -7,7 +7,10 @@ use api_core::APIHandler;
 
 use crate::{
     AppState,
-    api::host::state::{EndVoteRound, Lock, Unlock},
+    api::host::{
+        state::{EndVoteRound, Lock, Unlock},
+        user_management::{RemoveVoter, VoterId, VoterList},
+    },
 };
 
 mod invite_watch;
@@ -34,4 +37,7 @@ pub fn host_routes() -> Router<AppState> {
         .route("/new-voter", post(NewVoter::handler))
         .route("/start-invite", post(StartInvite::handler))
         .route("/invite-watch", get(InviteWatch::handler))
+        .route("/voter-list", get(VoterList::handler))
+        .route("/voter-id", get(VoterId::handler))
+        .route("/remove-voter", delete(RemoveVoter::handler))
 }

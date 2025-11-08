@@ -7,7 +7,7 @@
 - [ ] Fix warnings...
 - [ ] Doc tests for proof
 - [x] Fix UUID
-- [ ] Host Universal Auth Token
+- [x] Host Universal Auth Token
 - [ ] Meeting agenda update as we go
 
 ### Client Side
