@@ -16,11 +16,13 @@ pub type APIResponse<T, E> = Result<(StatusCode, T), (StatusCode, E)>;
 
 #[derive(Serialize, Clone, Copy, Debug)]
 pub enum APIErrorCode {
-    InvalidUUID,
-    InvalidMUID,
+    InvalidUUuid,
+    InvalidMUuid,
 
-    UUIDNotFound,
-    MUIDNotFound,
+    UUuidNotFound,
+    MUuidNotFound,
+
+    VoterNameNotFound,
 
     UUIDAlreadyClaimed,
     AlreadyRegistered,
@@ -47,11 +49,15 @@ pub enum APIErrorCode {
 impl APIErrorCode {
     pub fn message(self) -> &'static str {
         match self {
-            Self::InvalidUUID => "The specified UUID could not be processed.",
-            Self::InvalidMUID => "The specified MUID could not be processed.",
+            Self::InvalidUUuid => "The specified UUID could not be processed.",
+            Self::InvalidMUuid => "The specified MUID could not be processed.",
 
-            Self::UUIDNotFound => "The specified UUID could not be found in the meeting registry.",
-            Self::MUIDNotFound => "The specified MUID does not exist in on server.",
+            Self::UUuidNotFound => "The specified UUID could not be found in the meeting registry.",
+            Self::MUuidNotFound => "The specified MUID does not exist in on server.",
+
+            Self::VoterNameNotFound => {
+                "The specified Voter Name could not be found in the meeting registry."
+            }
 
             Self::UUIDAlreadyClaimed => {
                 "The specified UUID has already been claimed. Please reattempt login."
