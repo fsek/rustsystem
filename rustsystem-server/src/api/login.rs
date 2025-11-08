@@ -9,12 +9,13 @@ use tracing::{error, info};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
-use crate::{AppState, tokens::get_meeting_jwt};
+use crate::{AppState, admin_auth::AdminCred, tokens::get_meeting_jwt};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
-    pub uuid: String,
-    pub muid: String,
+    uuuid: String,
+    muuid: String,
+    admin_cred: Option<AdminCred>,
 }
 
 #[derive(APIEndpointError)]
@@ -50,24 +51,24 @@ impl APIHandler for Login {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(body)) = request;
-        let uuid = if let Ok(id) = body.uuid.parse() {
+        let uuuid = if let Ok(id) = body.uuuid.parse() {
             id
         } else {
             return Err(LoginError::InvalidUUID);
         };
 
-        let muid = if let Ok(id) = body.muid.parse() {
+        let muuid = if let Ok(id) = body.muuid.parse() {
             id
         } else {
             return Err(LoginError::InvalidMUID);
         };
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muid) {
-            if let Some(voter) = meeting.voters.get_mut(&uuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+            if let Some(voter) = meeting.voters.get_mut(&uuuid) {
                 if voter.logged_in {
                     // If voter has already logged in, it means that this specific
                     // uuid has already been claimed.
-                    error!("Voter id {uuid} has already been claimed");
+                    error!("Voter id {uuuid} has already been claimed");
                     return Err(LoginError::UUIDAlreadyClaimed);
                 } else {
                     // Claim this uuid
@@ -78,18 +79,24 @@ impl APIHandler for Login {
             } else {
                 return Err(LoginError::UUIDNotFound);
             }
+
+            let is_host = if let Some(admin_cred) = body.admin_cred {
+                meeting.admin_auth.validate_token(admin_cred)
+            } else {
+                false
+            };
+
+            let jwt = get_meeting_jwt(uuuid, muuid, is_host, &state.secret);
+            let new_cookie = Cookie::build(("access_token", jwt))
+                .http_only(true)
+                .secure(true)
+                .same_site(cookie::SameSite::Strict)
+                .path("/");
+
+            info!("Voter with id {uuuid} has been accepted");
+            Ok(jar.add(new_cookie))
         } else {
-            return Err(LoginError::MUIDNotFound);
+            Err(LoginError::MUIDNotFound)
         }
-
-        let jwt = get_meeting_jwt(uuid, muid, false, &state.secret);
-        let new_cookie = Cookie::build(("access_token", jwt))
-            .http_only(true)
-            .secure(true)
-            .same_site(cookie::SameSite::Strict)
-            .path("/");
-
-        info!("Voter with id {uuid} has been accepted");
-        Ok(jar.add(new_cookie))
     }
 }

@@ -14,6 +14,7 @@ use tower_http::{
 use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 
+mod admin_auth;
 pub mod api;
 use api::api_routes;
 mod vote_auth;
@@ -23,6 +24,8 @@ pub mod tokens;
 pub mod voting;
 
 use uuid::Uuid;
+
+use crate::admin_auth::AdminAuthority;
 
 type MUuid = Uuid;
 type UUuid = Uuid;
@@ -37,12 +40,12 @@ pub struct Voter {
 }
 
 pub struct Meeting {
-    host: Uuid,
     title: String,
     start_time: SystemTime,
     voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
+    admin_auth: AdminAuthority,
     locked: bool,
 }
 impl Meeting {

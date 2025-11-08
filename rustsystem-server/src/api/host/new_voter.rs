@@ -1,14 +1,17 @@
 use api_derive::APIEndpointError;
-use axum::extract::FromRequest;
+use axum::Json;
+use axum::extract::{FromRequest, FromRequestParts};
 use axum::http::header;
 use axum::{extract::State, http::StatusCode};
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
+use serde::Deserialize;
 use tracing::info;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 use uuid::Uuid;
 
+use crate::admin_auth::{self, AdminCred};
 use crate::{API_ENDPOINT, AppState, MUuid, UUuid};
 
 use super::auth::AuthHost;
@@ -52,11 +55,18 @@ impl APIHandler for StartInvite {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NewVoterRequestBody {
+    voter_name: String,
+    is_host: bool,
+}
+
 #[derive(FromRequest)]
 pub struct NewVoterRequest {
     auth: AuthHost,
     state: State<AppState>,
-    voter_name: String,
+    body: Json<NewVoterRequestBody>,
 }
 
 #[derive(APIEndpointError)]
@@ -82,7 +92,11 @@ impl APIHandler for NewVoter {
         let NewVoterRequest {
             auth: AuthHost { uuuid, muuid },
             state: State(state),
-            voter_name,
+            body:
+                Json(NewVoterRequestBody {
+                    voter_name,
+                    is_host,
+                }),
         } = request;
 
         let new_uuuid = Uuid::new_v4();
@@ -92,21 +106,32 @@ impl APIHandler for NewVoter {
             }
 
             meeting.invite_auth.set_state(false);
-            // This isn't guaranteed but backed by 128 bits of entropy. Should be okay.
             meeting.add_voter(voter_name, new_uuuid);
+
+            let admin_cred = if is_host {
+                Some(meeting.admin_auth.new_token())
+            } else {
+                None
+            };
+            let qr_svg = gen_qr_code(muuid, new_uuuid, admin_cred);
+
+            Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
         } else {
             return Err(NewVoterError::MUIDNotFound);
         }
-
-        let qr_svg = gen_qr_code(muuid, new_uuuid);
-
-        Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
     }
 }
 
-fn gen_qr_code(muid: MUuid, uuid: UUuid) -> String {
-    info!("Generating new QR for voter id {uuid} in meeting {muid}");
-    let url = format!("{API_ENDPOINT}/login?muid=\"{muid}\"&uuid=\"{uuid}\"");
+fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) -> String {
+    info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
+    let mut url = format!("{API_ENDPOINT}/login?muuid={muuid}&uuuid={uuuid}");
+    if let Some(admin_cred) = admin_cred {
+        url.push_str(&format!(
+            "&admin_msg={:?}&admin_sig={}",
+            admin_cred.get_msg(),
+            admin_cred.get_sig_str()
+        ));
+    }
     info!("{url}");
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H).unwrap();

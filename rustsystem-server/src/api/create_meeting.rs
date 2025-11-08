@@ -9,8 +9,8 @@ use std::{collections::HashMap, time::SystemTime};
 use tracing::info;
 
 use crate::{
-    AppState, Voter, invite_auth::InviteAuthority, tokens::new_meeting_jwt,
-    vote_auth::VoteAuthority,
+    AppState, Voter, admin_auth::AdminAuthority, invite_auth::InviteAuthority,
+    tokens::new_meeting_jwt, vote_auth::VoteAuthority,
 };
 
 use api_core::{APIHandler, APIResult};
@@ -71,12 +71,12 @@ impl APIHandler for CreateMeeting {
         meetings.insert(
             muuid,
             crate::Meeting {
-                host: uuuid,
                 title: query.title,
                 start_time: SystemTime::now(),
                 voters,
                 vote_auth,
                 invite_auth,
+                admin_auth: AdminAuthority::new(),
                 locked: false,
             },
         );
