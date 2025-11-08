@@ -56,15 +56,14 @@ impl AdminAuthority {
     }
 
     pub fn validate_token(&mut self, cred: AdminCred) -> bool {
-        if let Ok(sig) = cred.get_sig() {
-            if !self.expired_msgs.contains(cred.get_msg()) {
+        if let Ok(sig) = cred.get_sig()
+            && !self.expired_msgs.contains(cred.get_msg()) {
                 self.expired_msgs.insert(*cred.get_msg());
                 return self
                     .verifying_key
                     .verify_strict(cred.get_msg(), &sig)
                     .is_ok();
             }
-        }
-        return false;
+        false
     }
 }

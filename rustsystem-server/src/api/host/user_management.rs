@@ -49,7 +49,7 @@ impl APIHandler for VoterList {
                     .collect(),
             ))
         } else {
-            return Err(VoterListError::MUuidNotFound);
+            Err(VoterListError::MUuidNotFound)
         }
     }
 }

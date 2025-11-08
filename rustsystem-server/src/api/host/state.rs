@@ -6,7 +6,6 @@ use axum::{
 };
 use rustsystem_proof::BallotMetaData;
 use serde::Deserialize;
-use tracing::info;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
@@ -51,9 +50,9 @@ impl APIHandler for StartVote {
             }
             meeting.get_auth().start_round(body.metadata, body.name);
 
-            return Ok(());
+            Ok(())
         } else {
-            return Err(StartVoteError::MUIDNotFound);
+            Err(StartVoteError::MUIDNotFound)
         }
     }
 }
@@ -124,9 +123,9 @@ impl APIHandler for EndVoteRound {
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             meeting.get_auth().reset();
 
-            return Ok(());
+            Ok(())
         } else {
-            return Err(EndVoteRoundError::MUIDNotFound);
+            Err(EndVoteRoundError::MUIDNotFound)
         }
     }
 }

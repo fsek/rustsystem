@@ -64,9 +64,9 @@ impl APIHandler for InviteWatch {
 
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
 
-            return Ok(Sse::new(stream));
+            Ok(Sse::new(stream))
         } else {
-            return Err(InviteWatchError::MUIDNotFound);
+            Err(InviteWatchError::MUIDNotFound)
         }
     }
 }

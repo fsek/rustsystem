@@ -1,6 +1,6 @@
 use api_derive::APIEndpointError;
 use axum::Json;
-use axum::extract::{FromRequest, FromRequestParts};
+use axum::extract::FromRequest;
 use axum::http::header;
 use axum::{extract::State, http::StatusCode};
 use qrcode::render::svg;
@@ -11,7 +11,7 @@ use tracing::info;
 use api_core::{APIErrorCode, APIHandler, APIResult};
 use uuid::Uuid;
 
-use crate::admin_auth::{self, AdminCred};
+use crate::admin_auth::AdminCred;
 use crate::{API_ENDPOINT, AppState, MUuid, UUuid};
 
 use super::auth::AuthHost;
@@ -117,7 +117,7 @@ impl APIHandler for NewVoter {
 
             Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
         } else {
-            return Err(NewVoterError::MUIDNotFound);
+            Err(NewVoterError::MUIDNotFound)
         }
     }
 }

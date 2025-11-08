@@ -158,6 +158,12 @@ pub struct VoteAuthority {
     update_tx: Sender<bool>,
     round: Option<VoteRound>,
 }
+impl Default for VoteAuthority {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VoteAuthority {
     /// For new meeting
     pub fn new() -> Self {
@@ -197,7 +203,7 @@ impl VoteAuthority {
         self.state_tx.send(VoteState::Tally);
         self.round
             .take()
-            .ok_or_else(|| TallyError::VotingInactive)?
+            .ok_or(TallyError::VotingInactive)?
             .tally()
     }
 

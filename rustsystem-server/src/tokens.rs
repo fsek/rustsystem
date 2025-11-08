@@ -80,8 +80,7 @@ impl SecretKeeper {
         if let Ok(duration_since) = self.created.elapsed() {
             Ok(duration_since > SECRET_EXPITY_TIMEOUT)
         } else {
-            Err(Error::new(
-                ErrorKind::Other,
+            Err(Error::other(
                 "Failed to get duration since secret creation",
             ))
         }
@@ -93,8 +92,7 @@ impl SecretKeeper {
             res.copy_from_slice(&secret);
             Ok(res)
         } else {
-            Err(Error::new(
-                ErrorKind::Other,
+            Err(Error::other(
                 "Failed to decode preexisting secret",
             ))
         }
@@ -128,7 +126,7 @@ fn generate_secret(mut keeper_file: File) -> io::Result<[u8; 32]> {
     rand::rng().fill(&mut res);
 
     // Encode and write to a keeper file.
-    let encoded = BASE64_STANDARD.encode(&res);
+    let encoded = BASE64_STANDARD.encode(res);
     let keeper = SecretKeeper::new(SystemTime::now(), encoded);
     keeper_file.write_all(serde_json::to_string(&keeper)?.as_bytes())?;
     Ok(res)
@@ -173,13 +171,12 @@ impl FromRequestParts<AppState> for AuthUser {
         let mut cookie_iter = cookie::Cookie::split_parse(cookie_header);
 
         let mut access_token = None;
-        while let Some(c) = cookie_iter.next() {
-            if let Ok(cookie) = c {
-                if cookie.name() == "access_token" {
+        for c in cookie_iter {
+            if let Ok(cookie) = c
+                && cookie.name() == "access_token" {
                     access_token = Some(cookie.value().to_owned());
                     break;
                 }
-            }
         }
 
         let token_data = decode::<MeetingClaims>(

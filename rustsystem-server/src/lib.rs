@@ -2,17 +2,14 @@ use axum::{
     Router,
     http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
 };
-use axum_server::tls_rustls::RustlsConfig;
 use invite_auth::InviteAuthority;
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::SystemTime};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokens::{AuthUser, get_secret};
 use tokio::sync::Mutex;
 use tower_http::{
     services::{ServeDir, ServeFile},
     set_header::SetResponseHeaderLayer,
 };
-use tracing::{info, level_filters::LevelFilter};
-use tracing_subscriber::EnvFilter;
 
 mod admin_auth;
 pub mod api;

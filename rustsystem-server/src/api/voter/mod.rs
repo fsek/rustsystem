@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::post,
 };
 use vote::{Register, Submit};
 

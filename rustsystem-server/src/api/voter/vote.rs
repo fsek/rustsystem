@@ -119,7 +119,7 @@ impl APIHandler for Submit {
             return Err(SubmitError::SignatureExpired);
         }
 
-        validate_metadata(*metadata, &round)?;
+        validate_metadata(*metadata, round)?;
 
         validate_signature(validation, round)?;
 
