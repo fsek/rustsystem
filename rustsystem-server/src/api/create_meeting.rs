@@ -15,13 +15,13 @@ use crate::{
 
 use api_core::{APIHandler, APIResult};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateMeetingRequest {
     pub title: String,
     pub host_name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateMeetingResponse {
     pub muuid: String,
     pub uuuid: String,

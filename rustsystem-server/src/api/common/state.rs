@@ -27,7 +27,7 @@ pub struct VoteActiveResponse {
 }
 
 #[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/common/vote-state-watch"))]
+#[api(endpoint(method = "GET", path = "/api/common/vote-active"))]
 pub enum VoteActiveError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
@@ -71,7 +71,7 @@ pub struct VoteStateWatchRequest {
 }
 
 #[derive(APIEndpointError, Debug)]
-#[api(endpoint(method = "GET", path = "/api/common/vote-watch"))]
+#[api(endpoint(method = "GET", path = "/api/common/vote-state-watch"))]
 pub enum VoteStateWatchError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,

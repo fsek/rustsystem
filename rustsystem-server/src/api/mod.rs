@@ -3,22 +3,22 @@ use axum::{Router, routing::post};
 
 use api_core::APIHandler;
 
-mod create_meeting;
+pub mod create_meeting;
 use create_meeting::CreateMeeting;
 
-mod login;
+pub mod login;
 use login::Login;
 
-mod auth;
+pub mod auth;
 use auth::AuthMeeting;
 
-mod voter;
+pub mod voter;
 use voter::voter_routes;
 
-mod host;
+pub mod host;
 use host::host_routes;
 
-mod common;
+pub mod common;
 use common::common_routes;
 
 // Routes at /api/...

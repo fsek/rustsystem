@@ -4,18 +4,18 @@ use axum_extra::extract::{
     CookieJar,
     cookie::{self, Cookie},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{AppState, admin_auth::AdminCred, tokens::get_meeting_jwt};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct LoginRequest {
-    uuuid: String,
-    muuid: String,
-    admin_cred: Option<AdminCred>,
+    pub uuuid: String,
+    pub muuid: String,
+    pub admin_cred: Option<AdminCred>,
 }
 
 #[derive(APIEndpointError)]

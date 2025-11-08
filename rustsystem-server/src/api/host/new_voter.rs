@@ -5,7 +5,7 @@ use axum::http::header;
 use axum::{extract::State, http::StatusCode};
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
@@ -55,11 +55,11 @@ impl APIHandler for StartInvite {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct NewVoterRequestBody {
-    voter_name: String,
-    is_host: bool,
+pub struct NewVoterRequestBody {
+    pub voter_name: String,
+    pub is_host: bool,
 }
 
 #[derive(FromRequest)]

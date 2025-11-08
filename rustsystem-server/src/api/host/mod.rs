@@ -13,18 +13,18 @@ use crate::{
     },
 };
 
-mod invite_watch;
+pub mod invite_watch;
 use invite_watch::InviteWatch;
 
-mod auth;
+pub mod auth;
 
-mod state;
+pub mod state;
 use state::{StartVote, Tally};
 
-mod new_voter;
+pub mod new_voter;
 use new_voter::{NewVoter, StartInvite};
 
-mod user_management;
+pub mod user_management;
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
