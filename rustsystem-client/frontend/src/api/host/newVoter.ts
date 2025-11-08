@@ -20,21 +20,26 @@ export async function startInvite(
   }
 }
 
-export type newVoterRequest = {};
-type newVoterResponse = {
+export type NewVoterRequest = {
+  voterName: string;
+  isHost: boolean;
+};
+type NewVoterResponse = {
   blob: Blob;
 };
 
 export async function newVoter(
-  _req: newVoterRequest,
-): Promise<Result<newVoterResponse, APIError>> {
+  req: NewVoterRequest,
+): Promise<Result<NewVoterResponse, APIError>> {
   const res = await fetch("api/host/new-voter", {
     method: "POST",
     credentials: "include",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(req),
   });
 
   if (res.ok) {
-    return ok({ blob: await res.blob() } as newVoterResponse);
+    return ok({ blob: await res.blob() } as NewVoterResponse);
   } else {
     const obj = await res.json();
     return err(obj as APIError);

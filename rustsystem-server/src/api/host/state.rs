@@ -157,14 +157,15 @@ impl APIHandler for Lock {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let LockRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth: AuthHost { uuuid: _, muuid },
             state: State(state),
         } = request;
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if meeting.locked {
-                return Err(LockError::MeetingLocked);
-            } else {
+            if !meeting.locked {
                 meeting.lock();
+            } else {
+                // this is what we want, meeting is already locked
+                // just return ok
             }
         } else {
             return Err(LockError::MUuidNotFound);

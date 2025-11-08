@@ -3,17 +3,17 @@ import type { APIError } from "./error";
 
 export type CreateMeetingRequest = {
   title: string;
+  host_name: string;
 };
 
 type CreateMeetingResponse = {
-  muid: any;
-  uuid: any;
+  muuid: string;
+  uuuid: string;
 };
 
 export async function CreateMeeting(
   req: CreateMeetingRequest,
 ): Promise<Result<CreateMeetingResponse, APIError>> {
-  console.log("got title", req.title);
   const res = await fetch("api/create-meeting", {
     method: "POST",
     credentials: "include",

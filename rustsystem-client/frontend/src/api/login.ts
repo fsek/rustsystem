@@ -2,8 +2,8 @@ import { err, ok, type Result } from "@/result";
 import type { APIError } from "./error";
 
 export type LoginRequest = {
-  muid: any;
-  uuid: any;
+  muuid: any;
+  uuuid: any;
 };
 
 type LoginResponse = {};

@@ -22,10 +22,10 @@ function RouteComponent() {
 
   const search = Route.useSearch();
 
-  const muid = search.muid
+  const muuid = search.muid
 
   useEffect(() => {
-    Auth({ muid } as AuthMeetingRequest).then((result) => {
+    Auth({ muuid } as AuthMeetingRequest).then((result) => {
       matchResult(result, {
         Ok: (res) => {
           if (res.is_host) {

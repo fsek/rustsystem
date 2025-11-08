@@ -2,11 +2,11 @@ import { err, ok, type Result } from "@/result";
 import type { APIError } from "./error";
 
 export type AuthMeetingRequest = {
-  muid: any;
+  muuid: string;
 };
 
 type AuthMeetingResponse = {
-  muid: string;
+  muuid: string;
   uuid: string;
   is_host: boolean;
 };

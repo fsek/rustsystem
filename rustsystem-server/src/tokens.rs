@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, Error, ErrorKind, Read, Write},
+    io::{self, Error, Read, Write},
     path::PathBuf,
     time::{Duration, SystemTime},
 };
@@ -12,7 +12,7 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
-use axum_extra::extract::cookie;
+use axum_extra::extract::CookieJar;
 use base64::prelude::*;
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
@@ -24,9 +24,8 @@ use crate::{AppState, MUuid, UUuid};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct MeetingClaims {
-    // String representation because Uuid is not Deserialize/Serialize
-    uuuid: String,
-    muuid: String,
+    uuuid: Uuid,
+    muuid: Uuid,
     is_host: bool,
     exp: usize,
 }
@@ -38,8 +37,8 @@ fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 3
         .timestamp() as usize;
 
     let claims = MeetingClaims {
-        uuuid: uuuid.to_string(),
-        muuid: muuid.to_string(),
+        uuuid,
+        muuid,
         is_host,
         exp: expiration,
     };
@@ -80,9 +79,7 @@ impl SecretKeeper {
         if let Ok(duration_since) = self.created.elapsed() {
             Ok(duration_since > SECRET_EXPITY_TIMEOUT)
         } else {
-            Err(Error::other(
-                "Failed to get duration since secret creation",
-            ))
+            Err(Error::other("Failed to get duration since secret creation"))
         }
     }
 
@@ -92,9 +89,7 @@ impl SecretKeeper {
             res.copy_from_slice(&secret);
             Ok(res)
         } else {
-            Err(Error::other(
-                "Failed to decode preexisting secret",
-            ))
+            Err(Error::other("Failed to decode preexisting secret"))
         }
     }
 }
@@ -158,57 +153,26 @@ impl FromRequestParts<AppState> for AuthUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let cookie_header = parts
-            .headers
-            .get(axum::http::header::COOKIE)
+        let jar = CookieJar::from_request_parts(parts, state)
+            .await
+            .expect("infallible");
+
+        let access_token = jar
+            .get("access_token")
             .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?
-            .to_str()
-            .or(Err(<AuthError as Into<APIError>>::into(
-                AuthError::AuthError,
-            )
-            .finalize()))?;
-
-        let mut cookie_iter = cookie::Cookie::split_parse(cookie_header);
-
-        let mut access_token = None;
-        for c in cookie_iter {
-            if let Ok(cookie) = c
-                && cookie.name() == "access_token" {
-                    access_token = Some(cookie.value().to_owned());
-                    break;
-                }
-        }
+            .value();
 
         let token_data = decode::<MeetingClaims>(
-            &access_token
-                .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?,
+            &access_token,
             &DecodingKey::from_secret(state.secret.as_ref()),
             &Validation::default(),
         )
         .map_err(|_| <AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
 
-        let uuuid = if let Ok(id) = Uuid::parse_str(&token_data.claims.uuuid) {
-            id
-        } else {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(AuthError::InvalidUUuid.into()),
-            ));
-        };
-
-        let muuid = if let Ok(id) = Uuid::parse_str(&token_data.claims.muuid) {
-            id
-        } else {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(AuthError::InvalidMUuid.into()),
-            ));
-        };
-
         Ok(AuthUser {
             // TODO: Error handling
-            uuuid,
-            muuid,
+            uuuid: token_data.claims.uuuid,
+            muuid: token_data.claims.muuid,
             is_host: token_data.claims.is_host,
         })
     }
