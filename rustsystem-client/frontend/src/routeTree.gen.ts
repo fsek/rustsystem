@@ -11,21 +11,12 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as NewMeetingImport } from './routes/new-meeting'
 import { Route as MeetingImport } from './routes/meeting'
 import { Route as LoginImport } from './routes/login'
 import { Route as InviteImport } from './routes/invite'
-import { Route as ContactImport } from './routes/contact'
-import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
-
-const NewMeetingRoute = NewMeetingImport.update({
-  id: '/new-meeting',
-  path: '/new-meeting',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const MeetingRoute = MeetingImport.update({
   id: '/meeting',
@@ -45,18 +36,6 @@ const InviteRoute = InviteImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const ContactRoute = ContactImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const AboutRoute = AboutImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRoute,
-} as any)
-
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
@@ -72,20 +51,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutImport
-      parentRoute: typeof rootRoute
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactImport
       parentRoute: typeof rootRoute
     }
     '/invite': {
@@ -109,13 +74,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeetingImport
       parentRoute: typeof rootRoute
     }
-    '/new-meeting': {
-      id: '/new-meeting'
-      path: '/new-meeting'
-      fullPath: '/new-meeting'
-      preLoaderRoute: typeof NewMeetingImport
-      parentRoute: typeof rootRoute
-    }
   }
 }
 
@@ -123,84 +81,47 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
-  '/new-meeting': typeof NewMeetingRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
-  '/new-meeting': typeof NewMeetingRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/contact': typeof ContactRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
-  '/new-meeting': typeof NewMeetingRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/about'
-    | '/contact'
-    | '/invite'
-    | '/login'
-    | '/meeting'
-    | '/new-meeting'
+  fullPaths: '/' | '/invite' | '/login' | '/meeting'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/about'
-    | '/contact'
-    | '/invite'
-    | '/login'
-    | '/meeting'
-    | '/new-meeting'
-  id:
-    | '__root__'
-    | '/'
-    | '/about'
-    | '/contact'
-    | '/invite'
-    | '/login'
-    | '/meeting'
-    | '/new-meeting'
+  to: '/' | '/invite' | '/login' | '/meeting'
+  id: '__root__' | '/' | '/invite' | '/login' | '/meeting'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  ContactRoute: typeof ContactRoute
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
   MeetingRoute: typeof MeetingRoute
-  NewMeetingRoute: typeof NewMeetingRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  ContactRoute: ContactRoute,
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
   MeetingRoute: MeetingRoute,
-  NewMeetingRoute: NewMeetingRoute,
 }
 
 export const routeTree = rootRoute
@@ -214,22 +135,13 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/about",
-        "/contact",
         "/invite",
         "/login",
-        "/meeting",
-        "/new-meeting"
+        "/meeting"
       ]
     },
     "/": {
       "filePath": "index.tsx"
-    },
-    "/about": {
-      "filePath": "about.tsx"
-    },
-    "/contact": {
-      "filePath": "contact.tsx"
     },
     "/invite": {
       "filePath": "invite.tsx"
@@ -239,9 +151,6 @@ export const routeTree = rootRoute
     },
     "/meeting": {
       "filePath": "meeting.tsx"
-    },
-    "/new-meeting": {
-      "filePath": "new-meeting.tsx"
     }
   }
 }

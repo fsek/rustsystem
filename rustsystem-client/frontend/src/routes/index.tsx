@@ -1,39 +1,117 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import Header from '@/components/defaults/header';
-import Footer from '@/components/defaults/footer';
-import MainSection from "@/components/templates/main";
-import TilingCardSection from "@/components/templates/tiling_cards";
-import '@/colors.css';
+import { useState } from "react";
+import Header from "@/components/defaults/header";
+import Footer from "@/components/defaults/footer";
+import { CreateMeeting, type CreateMeetingRequest } from "@/api/createMeeting";
+import { matchResult } from "@/result";
+import type { APIError } from "@/api/error";
+import ErrorHandler from "@/components/error";
+import "@/colors.css";
 
 export const Route = createFileRoute("/")({
-	component: App,
+  component: App,
 });
 
 function App() {
-	const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [error, setError] = useState<APIError | null>(null);
+  const [formData, setFormData] = useState({
+    host_name: "",
+    title: "",
+  });
 
-	function redirectNewMeeting() {
-		navigate({ to: "/new-meeting" });
-	}
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
 
-	return (
-		<div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
-			<Header />
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    CreateMeeting(formData as CreateMeetingRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          navigate({
+            to: "/meeting",
+            search: { muuid: res.muuid, uuuid: res.uuuid },
+          });
+        },
+        Err: (err) => {
+          setError(err);
+        },
+      });
+    });
+  };
 
-			<MainSection title="Rustsystem" description=<div>
-				<p className="text-lg mb-6 opacity-80">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-				<button className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-[var(--color-background)] py-3 px-6 rounded-full shadow-lg transform hover:-translate-y-1 transition-all duration-300" onClick={redirectNewMeeting}>
-					Create Meeting
-				</button>
-			</div> />
+  if (error) {
+    return <ErrorHandler error={error} />;
+  }
 
-			<TilingCardSection cards={[
-				{ title: "Lorem Ipsum", content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit." },
-				{ title: "Dolor Sit", content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit." },
-				{ title: "Amet Consectetur", content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit." },
-			]} />
+  return (
+    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans flex flex-col">
+      <Header />
 
-			<Footer />
-		</div>
-	);
+      <main className="flex-1 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-5xl font-bold text-[var(--color-main)] mb-4 tracking-tight">
+              Rustsystem
+            </h1>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              Simple, secure meeting management
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm space-y-6"
+          >
+            <div>
+              <label
+                className="block text-sm mb-2 text-gray-700 font-medium"
+                htmlFor="host_name"
+              >
+                Your Name
+              </label>
+              <input
+                id="host_name"
+                type="text"
+                required
+                value={formData.host_name}
+                onChange={handleChange}
+                className="w-full p-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
+                placeholder="Enter your name"
+              />
+            </div>
+
+            <div>
+              <label
+                className="block text-sm mb-2 text-gray-700 font-medium"
+                htmlFor="title"
+              >
+                Meeting Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                className="w-full p-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
+                placeholder="Enter meeting title"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white py-3 px-6 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 font-semibold"
+            >
+              Create Meeting
+            </button>
+          </form>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
 }

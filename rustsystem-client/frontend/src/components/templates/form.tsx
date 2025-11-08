@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import '@/colors.css';
+import "@/colors.css";
 import Button from "@/components/templates/button";
 
 interface Field {
@@ -9,13 +9,13 @@ interface Field {
 }
 
 interface Submit {
-  label: string,
+  label: string;
   data: (data: Record<string, string>) => void;
 }
 
 interface FormSectionProps {
   fields: Field[];
-  submit: Submit
+  submit: Submit;
 }
 
 const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
@@ -39,12 +39,12 @@ const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
     <section className="container mx-auto px-4 mt-12 max-w-3xl">
       <form
         onSubmit={handleSubmit}
-        className="bg-[rgba(255,255,255,0.05)] backdrop-blur-sm border border-[var(--color-contours)] rounded-lg p-8 shadow-lg space-y-6"
+        className="bg-white border border-gray-200 rounded-lg p-8 shadow-sm space-y-6"
       >
         {fields.map((field) => (
           <div key={field.id}>
             <label
-              className="block text-sm mb-2 opacity-80"
+              className="block text-sm mb-2 text-gray-700 font-medium"
               htmlFor={field.id}
             >
               {field.label}
@@ -55,7 +55,7 @@ const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
               required
               value={formData[field.id]}
               onChange={handleChange}
-              className="w-full p-3 rounded-lg bg-transparent border border-[var(--color-contours)] focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] transition"
+              className="w-full p-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
             />
           </div>
         ))}
@@ -66,4 +66,3 @@ const FormSection: React.FC<FormSectionProps> = ({ fields, submit }) => {
 };
 
 export default FormSection;
-

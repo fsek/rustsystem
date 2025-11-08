@@ -7,6 +7,7 @@ use axum::{
 };
 use uuid::Uuid;
 
+use super::new_voter::gen_qr_code;
 use crate::{AppState, api::host::auth::AuthHost};
 
 #[derive(FromRequest)]

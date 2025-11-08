@@ -1,12 +1,12 @@
-import React from 'react';
-import '@/colors.css';
+import React from "react";
+import "@/colors.css";
 
 const Footer: React.FC = () => {
   return (
-    <footer className="border-t-2 border-[var(--color-contours)] mt-12 py-6 text-center text-sm opacity-80">
-      &copy; {new Date().getFullYear()} F-sektionen at LTH. All rights reserved.
+    <footer className="py-4 text-center text-sm text-gray-500">
+      &copy; {new Date().getFullYear()} F-sektionen at LTH
     </footer>
   );
-}
+};
 
 export default Footer;

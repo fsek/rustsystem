@@ -212,10 +212,13 @@ impl APIHandler for Unlock {
             state: State(state),
         } = request;
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if !meeting.locked || !meeting.get_auth().is_inactive() {
+            if !meeting.get_auth().is_inactive() {
                 return Err(UnlockError::InvalidState);
-            } else {
+            } else if meeting.locked {
                 meeting.unlock();
+            } else {
+                // this is what we want, meeting is already unlocked
+                // just return ok
             }
         } else {
             return Err(UnlockError::MUuidNotFound);

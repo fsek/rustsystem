@@ -1,5 +1,5 @@
 import React from "react";
-import '@/colors.css';
+import "@/colors.css";
 
 interface Card {
   title: string;
@@ -26,8 +26,9 @@ const TilingCardSection: React.FC<TilingCardSectionProps> = ({ cards }) => {
       {/* Overflow Row (1 or 2 cards centered) */}
       {hasRemainder && (
         <div
-          className={`flex justify-center gap-8 ${remainder === 1 ? "justify-center" : "justify-center"
-            }`}
+          className={`flex justify-center gap-8 ${
+            remainder === 1 ? "justify-center" : "justify-center"
+          }`}
         >
           {cards.slice(-remainder).map((card, idx) => (
             <div key={idx} className="w-full max-w-sm">
@@ -41,9 +42,11 @@ const TilingCardSection: React.FC<TilingCardSectionProps> = ({ cards }) => {
 };
 
 const CardItem: React.FC<Card> = ({ title, content }) => (
-  <div className="border border-[var(--color-contours)] rounded-lg p-6 text-left backdrop-blur-sm bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition-all duration-300">
-    <h3 className="text-2xl font-bold text-[var(--color-main)] mb-2">{title}</h3>
-    <p className="opacity-80">{content}</p>
+  <div className="border border-gray-200 rounded-lg p-6 text-left bg-white hover:bg-gray-50 shadow-sm hover:shadow-md transition-all duration-300">
+    <h3 className="text-2xl font-bold text-[var(--color-main)] mb-2">
+      {title}
+    </h3>
+    <p className="text-gray-600">{content}</p>
   </div>
 );
 
