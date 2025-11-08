@@ -12,8 +12,6 @@ use crate::{
     AppState, api::common::common_responses::ensure_round, tokens::AuthUser, vote_auth::VoteRound,
 };
 
-use super::auth::AuthVoter;
-
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/api/voter/register"))]
 pub enum RegisterError {

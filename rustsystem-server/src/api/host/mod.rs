@@ -33,7 +33,7 @@ pub fn host_routes() -> Router<AppState> {
         .route("/unlock", post(Unlock::handler))
         .route("/start-vote", post(StartVote::handler))
         .route("/end-vote-round", delete(EndVoteRound::handler))
-        .route("/tally", get(Tally::handler))
+        .route("/tally", post(Tally::handler))
         .route("/new-voter", post(NewVoter::handler))
         .route("/start-invite", post(StartInvite::handler))
         .route("/invite-watch", get(InviteWatch::handler))

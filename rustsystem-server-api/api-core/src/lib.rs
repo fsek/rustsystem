@@ -25,6 +25,7 @@ pub enum APIErrorCode {
     VoterNameNotFound,
 
     UUIDAlreadyClaimed,
+    NameTaken,
     AlreadyRegistered,
 
     MUIDMismatch,
@@ -38,8 +39,7 @@ pub enum APIErrorCode {
     SignatureExpired,
     SignatureFailure,
 
-    MeetingUnlocked,
-    MeetingLocked,
+    InvalidState,
 
     // TODO: AuthError should be expanded to be more specific as to what exactly failed during
     // authentication
@@ -63,7 +63,7 @@ impl APIErrorCode {
             Self::UUIDAlreadyClaimed => {
                 "The specified UUID has already been claimed. Please reattempt login."
             }
-
+            Self::NameTaken => "The name provided already exists.",
             Self::AlreadyRegistered => "User has already registered for this voting round.",
 
             Self::MUIDMismatch => "The MUID doesn't match validation through JWT.",
@@ -83,8 +83,7 @@ impl APIErrorCode {
             }
             Self::SignatureFailure => "Failed to create blindsignature from token.",
 
-            Self::MeetingUnlocked => "Action requires the meeting be locked",
-            Self::MeetingLocked => "Action requires tha meeting be unlocked",
+            Self::InvalidState => "Action cannot be executed while in the current state.",
 
             Self::AuthError => "Authentication Failed",
 

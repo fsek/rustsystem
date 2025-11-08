@@ -74,8 +74,10 @@ pub struct NewVoterRequest {
 pub enum NewVoterError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
-    #[api(code = APIErrorCode::MeetingLocked, status = 409)]
-    MeetingLocked,
+    #[api(code = APIErrorCode::NameTaken, status = 409)]
+    NameTaken,
+    #[api(code = APIErrorCode::InvalidState, status = 409)]
+    InvalidState,
 }
 
 pub struct NewVoter;
@@ -102,11 +104,15 @@ impl APIHandler for NewVoter {
         let new_uuuid = Uuid::new_v4();
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if meeting.locked {
-                return Err(NewVoterError::MeetingLocked);
+                return Err(NewVoterError::InvalidState);
             }
 
             meeting.invite_auth.set_state(false);
-            meeting.add_voter(voter_name, new_uuuid);
+            if meeting.has_voter_with_name(&voter_name) {
+                return Err(NewVoterError::NameTaken);
+            } else {
+                meeting.add_voter(voter_name, new_uuuid);
+            }
 
             let admin_cred = if is_host {
                 Some(meeting.admin_auth.new_token())

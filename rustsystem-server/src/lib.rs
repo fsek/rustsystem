@@ -56,6 +56,13 @@ impl Meeting {
         )
     }
 
+    pub fn has_voter_with_name(&self, name: &String) -> bool {
+        self.voters
+            .iter()
+            .find(|(_id, v)| &v.name == name)
+            .is_some()
+    }
+
     pub fn get_auth(&mut self) -> &mut VoteAuthority {
         &mut self.vote_auth
     }

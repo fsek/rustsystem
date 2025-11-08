@@ -129,7 +129,7 @@ impl VoteRound {
     }
 }
 
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd, Debug)]
 pub enum VoteState {
     Creation,
     Voting,
@@ -138,6 +138,7 @@ pub enum VoteState {
 
 pub struct VoteAuthority {
     state_tx: Sender<VoteState>,
+    state_rx: Receiver<VoteState>,
     update_tx: Sender<bool>,
     round: Option<VoteRound>,
 }
@@ -150,8 +151,12 @@ impl Default for VoteAuthority {
 impl VoteAuthority {
     /// For new meeting
     pub fn new() -> Self {
+        let state_tx = Sender::new(VoteState::Creation);
+
         Self {
-            state_tx: Sender::new(VoteState::Creation),
+            // This is to make sure that there is at least one subscriber to state_tx
+            state_rx: state_tx.subscribe(),
+            state_tx,
             update_tx: Sender::new(true),
             round: None,
         }
@@ -159,6 +164,14 @@ impl VoteAuthority {
 
     pub fn is_active(&self) -> bool {
         *self.state_tx.borrow() == VoteState::Voting
+    }
+
+    pub fn is_tally(&self) -> bool {
+        *self.state_tx.borrow() == VoteState::Tally
+    }
+
+    pub fn is_inactive(&self) -> bool {
+        *self.state_tx.borrow() == VoteState::Creation
     }
 
     pub fn start_round(&mut self, mut metadata: BallotMetaData, shuffle: bool, header: String) {
@@ -189,8 +202,9 @@ impl VoteAuthority {
 
     // This is the function that should later handle the tallying of votes
     pub fn finalize_round(&mut self) -> TallyResult<Tally> {
+        let res = self.round.take().ok_or(TallyError::VotingInactive)?.tally();
         self.state_tx.send(VoteState::Tally);
-        self.round.take().ok_or(TallyError::VotingInactive)?.tally()
+        res
     }
 
     // Set everything back to default
