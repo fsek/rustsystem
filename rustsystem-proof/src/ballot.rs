@@ -1,10 +1,6 @@
-use std::{
-    collections::HashMap,
-    io::{self, Error, ErrorKind},
-};
+use std::io::{self, Error, ErrorKind};
 
 use serde::{Deserialize, Serialize};
-use web_sys::console::info_1;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 use wasm_bindgen::prelude::*;
@@ -12,102 +8,12 @@ use wasm_bindgen::prelude::*;
 use crate::{Sha256ValidationInfo, ValidationInfo};
 
 pub type VoteRoundID = u128;
-pub type CandidateID = u32;
+pub type CandidateID = usize;
 pub type ProtocolVersion = u8;
 
-#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
-#[wasm_bindgen]
-pub enum VoteMethod {
-    Dichotomous,
-    Plurality,
-    RankedChoice,
-    Approval,
-    Score,
-    STAR,
-}
+pub type Candidates = Vec<String>;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum Choice {
-    // true for "Yes", false for "No"
-    Dichotomous(bool),
-
-    // Aka: First Past the Post (FPTP). Contains the ID of the chosen candidate.
-    Plurality(CandidateID),
-
-    // Aka: Instant Runoff. Contains (in order) the IDs of the candidates.
-    RankedChoice(Vec<CandidateID>),
-
-    // Contains the IDs of candidates approved by voter.
-    Approval(Vec<CandidateID>),
-
-    // Contains the IDs of the candidates alongside their respective scores.
-    Score(HashMap<CandidateID, usize>),
-
-    // Contains the IDs of the candidates alongside their respective scores.
-    STAR(HashMap<CandidateID, usize>),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[wasm_bindgen]
-pub struct WASMChoice {
-    dichotomous: Option<bool>,
-    plurality: Option<CandidateID>,
-    ranked_choice: Option<Vec<CandidateID>>,
-    approval: Option<Vec<CandidateID>>,
-    score: Option<HashMap<CandidateID, usize>>,
-    star: Option<HashMap<CandidateID, usize>>,
-}
-#[wasm_bindgen]
-impl WASMChoice {
-    #[wasm_bindgen(constructor)]
-    pub fn new_empty() -> Self {
-        Self {
-            dichotomous: None,
-            plurality: None,
-            ranked_choice: None,
-            approval: None,
-            score: None,
-            star: None,
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn debug(&self) -> String {
-        format!("{self:?}")
-    }
-
-    // Dichotomous
-    #[wasm_bindgen]
-    pub fn set_dichotomous(&mut self, choice: Option<bool>) {
-        info_1(&JsValue::from_str(&format!("Choice is {choice:?}")));
-        self.dichotomous = choice;
-    }
-
-    #[wasm_bindgen]
-    pub fn into_js(self) -> JsValue {
-        JsValue::from_str(&serde_json::to_string(&self).unwrap())
-    }
-}
-impl WASMChoice {
-    /// Note: the None result is considered a blank vote
-    pub fn into_choice(self) -> Option<Choice> {
-        if let Some(dichotomous) = self.dichotomous {
-            return Some(Choice::Dichotomous(dichotomous));
-        } else if let Some(plurality) = self.plurality {
-            return Some(Choice::Plurality(plurality));
-        } else if let Some(ranked_choice) = self.ranked_choice {
-            return Some(Choice::RankedChoice(ranked_choice));
-        } else if let Some(approval) = self.approval {
-            return Some(Choice::Approval(approval));
-        } else if let Some(score) = self.score {
-            return Some(Choice::Score(score));
-        } else if let Some(star) = self.star {
-            return Some(Choice::STAR(star));
-        } else {
-            None
-        }
-    }
-}
+pub type Choice = Vec<CandidateID>;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 // All fields are private since they should not change once set
@@ -164,19 +70,25 @@ impl From<BallotValidation> for Sha256ValidationInfo {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 // All fields are private since they should not change once set
 #[wasm_bindgen]
 pub struct BallotMetaData {
-    method: VoteMethod,
+    candidates: Candidates,
+    max_choices: usize,
     protocol_version: ProtocolVersion,
 }
 #[wasm_bindgen]
 impl BallotMetaData {
     #[wasm_bindgen(constructor)]
-    pub fn new(method: VoteMethod, protocol_version: ProtocolVersion) -> Self {
+    pub fn new(
+        candidates: Candidates,
+        protocol_version: ProtocolVersion,
+        max_choices: usize,
+    ) -> Self {
         Self {
-            method,
+            candidates,
+            max_choices,
             protocol_version,
         }
     }
@@ -198,11 +110,18 @@ impl BallotMetaData {
 }
 impl BallotMetaData {
     // Getter functions for private fields
-    pub fn get_method(&self) -> VoteMethod {
-        self.method
+    pub fn get_candidates(&self) -> Candidates {
+        self.candidates.clone()
     }
     pub fn get_protocol_version(&self) -> ProtocolVersion {
         self.protocol_version
+    }
+    pub fn get_max_choices(&self) -> usize {
+        self.max_choices
+    }
+
+    pub fn set_candidates(&mut self, new_candidates: Candidates) {
+        self.candidates = new_candidates;
     }
 }
 

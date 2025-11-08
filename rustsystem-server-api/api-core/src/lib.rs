@@ -31,6 +31,7 @@ pub enum APIErrorCode {
 
     InvalidMetaData,
     InvalidVoteMethod,
+    InvalidVoteLength,
     VotingInactive,
 
     SignatureInvalid,
@@ -71,6 +72,7 @@ impl APIErrorCode {
             Self::InvalidVoteMethod => {
                 "Vote method specified doesn't match what is set for this voting round"
             }
+            Self::InvalidVoteLength => "Too many candidates were provided.",
             Self::VotingInactive => "Vote has already been closed, or it was never opened.",
 
             Self::SignatureInvalid => {

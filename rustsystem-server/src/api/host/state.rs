@@ -19,6 +19,7 @@ use super::auth::AuthHost;
 #[derive(Deserialize)]
 pub struct StartVoteRequest {
     name: String,
+    shuffle: bool,
     metadata: BallotMetaData,
 }
 
@@ -48,7 +49,9 @@ impl APIHandler for StartVote {
             if !meeting.locked {
                 return Err(StartVoteError::MeetingUnlocked);
             }
-            meeting.get_auth().start_round(body.metadata, body.name);
+            meeting
+                .get_auth()
+                .start_round(body.metadata, body.shuffle, body.name);
 
             Ok(())
         } else {

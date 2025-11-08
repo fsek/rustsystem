@@ -1,14 +1,16 @@
 use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
 use rustsystem_proof::{
-    Ballot, BallotMetaData, BallotValidation, Provider, RegistrationSuccessResponse,
+    Ballot, BallotMetaData, BallotValidation, Choice, Provider, RegistrationSuccessResponse,
     Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo, ValidationInfo,
 };
 use tracing::{error, info};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
-use crate::{AppState, api::common::common_responses::ensure_round, vote_auth::VoteRound};
+use crate::{
+    AppState, api::common::common_responses::ensure_round, tokens::AuthUser, vote_auth::VoteRound,
+};
 
 use super::auth::AuthVoter;
 
@@ -29,7 +31,7 @@ pub enum RegisterError {
 pub struct Register;
 impl APIHandler for Register {
     type State = AppState;
-    type Request = (AuthVoter, State<AppState>, Json<Sha256RegistrationInfo>);
+    type Request = (AuthUser, State<AppState>, Json<Sha256RegistrationInfo>);
 
     const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
     type SuccessResponse = Json<RegistrationSuccessResponse>;
@@ -38,7 +40,15 @@ impl APIHandler for Register {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthVoter { uuuid, muuid }, State(state), Json(body)) = request;
+        let (
+            AuthUser {
+                uuuid,
+                muuid,
+                is_host,
+            },
+            State(state),
+            Json(body),
+        ) = request;
         info!("Got register request");
 
         let mut meetings = state.meetings.lock().await;
@@ -77,6 +87,8 @@ impl APIHandler for Register {
 pub enum SubmitError {
     #[api(code = APIErrorCode::InvalidMetaData, status = 409)]
     InvalidMetaData,
+    #[api(code = APIErrorCode::InvalidVoteLength, status = 409)]
+    InvalidVoteLength,
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
@@ -91,7 +103,7 @@ pub enum SubmitError {
 pub struct Submit;
 impl APIHandler for Submit {
     type State = AppState;
-    type Request = (AuthVoter, State<AppState>, Json<Ballot>);
+    type Request = (AuthUser, State<AppState>, Json<Ballot>);
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = ();
@@ -99,7 +111,15 @@ impl APIHandler for Submit {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthVoter { uuuid, muuid }, State(state), Json(body)) = request;
+        let (
+            AuthUser {
+                uuuid,
+                muuid,
+                is_host,
+            },
+            State(state),
+            Json(body),
+        ) = request;
         let metadata = body.get_metadata();
         let choice = body.get_choice();
         let validation = body.get_validation();
@@ -119,12 +139,14 @@ impl APIHandler for Submit {
             return Err(SubmitError::SignatureExpired);
         }
 
-        validate_metadata(*metadata, round)?;
+        validate_metadata(metadata.clone(), round)?;
+
+        validate_num_choices(choice.clone(), round)?;
 
         validate_signature(validation, round)?;
 
-        // Only with valid metadata and a valid signature (unused!) will the vote be counted
-        round.add_vote(choice.clone());
+        // Only with valid metadata, valid length, and a valid signature (unused!) will the vote be counted
+        round.add_vote(choice.to_owned());
 
         Ok(())
     }
@@ -136,6 +158,16 @@ fn validate_metadata(received: BallotMetaData, round: &VoteRound) -> APIResult<(
     } else {
         Err(SubmitError::InvalidMetaData)
     }
+}
+
+fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> APIResult<(), SubmitError> {
+    if let Some(choices) = choice.as_ref() {
+        if choices.len() > round.metadata().get_max_choices() {
+            return Err(SubmitError::InvalidVoteLength);
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_signature(

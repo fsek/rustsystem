@@ -2,13 +2,16 @@ use api_derive::APIEndpointError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch::{Receiver, Sender};
+use tracing::warn;
 use zkryptium::{
     keys::pair::KeyPair,
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
+use rand::{Rng, rng, seq::SliceRandom};
+
 use api_core::{APIErrorCode, APIResult};
-use rustsystem_proof::{BallotMetaData, CandidateID, Choice, Provider, Sha256Provider, VoteMethod};
+use rustsystem_proof::{BallotMetaData, CandidateID, Candidates, Choice, Provider, Sha256Provider};
 
 use crate::UUuid;
 
@@ -20,25 +23,7 @@ type Votes = Vec<Option<Choice>>;
 
 // The structure of the Tally depends on the voting method
 #[derive(Serialize, Deserialize, Debug)]
-pub enum TallyScore {
-    // Votes for "Yes" - Votes for "No"
-    Dichotomous(usize, usize),
-
-    // Votes for each candidate
-    Plurality(HashMap<CandidateID, usize>),
-
-    // Score for each candidate
-    RankedChoice(HashMap<CandidateID, usize>),
-
-    // Number of approvals for each candidate
-    Approval(HashMap<CandidateID, usize>),
-
-    // Total score for each candidate
-    Score(HashMap<CandidateID, usize>),
-
-    // Total score for each candidate
-    STAR(HashMap<CandidateID, usize>),
-}
+pub struct TallyScore(HashMap<String, usize>);
 
 pub type TallyResult<T> = APIResult<T, TallyError>;
 
@@ -62,33 +47,35 @@ pub struct Tally {
     pub blank: usize,
 }
 impl Tally {
-    fn tally_dichotomous(votes: Votes) -> TallyResult<Self> {
-        let mut yes_votes = 0;
-        let mut no_votes = 0;
+    fn tally(votes: Votes, candidates: &Vec<String>) -> TallyResult<Self> {
         let mut blank_votes = 0;
 
+        let mut score = HashMap::new();
+        for candidate in candidates {
+            score.insert(candidate.to_owned(), 0);
+        }
+
         for vote in votes {
-            match vote {
-                Some(choice) => match choice {
-                    Choice::Dichotomous(v) => {
-                        if v {
-                            yes_votes += 1;
+            if let Some(choice) = vote {
+                for candidate_id in choice {
+                    if let Some(candidate) = candidates.get(candidate_id) {
+                        if let Some(current_votes) = score.get_mut(candidate) {
+                            *current_votes += 1;
                         } else {
-                            no_votes += 1;
+                            // This should never fail!
+                            warn!("Valid candidate missing in scoring map!");
                         }
+                    } else {
+                        warn!("Vote contains invalid candidate id: {candidate_id}");
                     }
-                    _ => {
-                        return Err(TallyError::InvalidVoteMethod);
-                    }
-                },
-                None => {
-                    blank_votes += 1;
                 }
+            } else {
+                blank_votes += 1;
             }
         }
 
         Ok(Self {
-            score: TallyScore::Dichotomous(yes_votes, no_votes),
+            score: TallyScore(score),
             blank: blank_votes,
         })
     }
@@ -100,7 +87,6 @@ pub struct VoteRound {
     header: Header,
     registered_voters: HashSet<UUuid>,
     expired_signatures: HashSet<[u8; 80]>,
-
     votes: Votes,
 }
 impl VoteRound {
@@ -109,7 +95,7 @@ impl VoteRound {
     }
 
     pub fn metadata(&self) -> BallotMetaData {
-        self.metadata
+        self.metadata.clone()
     }
 
     pub fn register_user(&mut self, uuid: UUuid) {
@@ -139,10 +125,7 @@ impl VoteRound {
 
     pub fn tally(self) -> TallyResult<Tally> {
         let votes = self.votes.clone();
-        match self.metadata.get_method() {
-            VoteMethod::Dichotomous => Tally::tally_dichotomous(votes),
-            _ => unimplemented!(),
-        }
+        Tally::tally(votes, &self.metadata.get_candidates())
     }
 }
 
@@ -178,7 +161,13 @@ impl VoteAuthority {
         *self.state_tx.borrow() == VoteState::Voting
     }
 
-    pub fn start_round(&mut self, metadata: BallotMetaData, header: String) {
+    pub fn start_round(&mut self, mut metadata: BallotMetaData, shuffle: bool, header: String) {
+        if shuffle {
+            let mut candidates = metadata.get_candidates();
+            candidates.shuffle(&mut rng());
+            metadata.set_candidates(candidates);
+        }
+
         let keys = Sha256Provider::generate_authentication_keys();
         let header = header.as_bytes().to_vec();
         let registered_voters = HashSet::new();
@@ -201,10 +190,7 @@ impl VoteAuthority {
     // This is the function that should later handle the tallying of votes
     pub fn finalize_round(&mut self) -> TallyResult<Tally> {
         self.state_tx.send(VoteState::Tally);
-        self.round
-            .take()
-            .ok_or(TallyError::VotingInactive)?
-            .tally()
+        self.round.take().ok_or(TallyError::VotingInactive)?.tally()
     }
 
     // Set everything back to default
