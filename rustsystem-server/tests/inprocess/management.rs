@@ -152,4 +152,9 @@ async fn test_reset_login() {
     let reset_login_res = reset_login(&app, cookie, id).await;
     let re_login_res = voter_login(&app, reset_login_res).await;
     assert_eq!(re_login_res.status(), StatusCode::ACCEPTED);
+
+    let new_id_res = voter_id(&app, cookie, String::from("Voter")).await;
+    let new_id = parse_response_body::<Uuid>(new_id_res).await;
+
+    assert_ne!(id, new_id);
 }

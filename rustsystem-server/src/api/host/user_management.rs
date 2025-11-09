@@ -177,7 +177,7 @@ impl APIHandler for ResetLogin {
             request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if let Some(user) = meeting.voters.get_mut(&user_uuuid) {
+            if let Some(mut user) = meeting.voters.remove(&user_uuuid) {
                 user.logged_in = false;
 
                 let admin_cred = if user.is_host {
@@ -185,7 +185,11 @@ impl APIHandler for ResetLogin {
                 } else {
                     None
                 };
-                let qr_svg = gen_qr_code(muuid, user_uuuid, admin_cred);
+
+                let new_uuuid = UUuid::new_v4();
+                meeting.voters.insert(new_uuuid, user);
+
+                let qr_svg = gen_qr_code(muuid, new_uuuid, admin_cred);
                 Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
             } else {
                 Err(ResetLoginError::UUuidNotFound)
