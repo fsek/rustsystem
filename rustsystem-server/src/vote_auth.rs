@@ -21,9 +21,7 @@ pub type Header = Vec<u8>;
 
 type Votes = Vec<Option<Choice>>;
 
-// The structure of the Tally depends on the voting method
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TallyScore(HashMap<String, usize>);
+pub type TallyScore = HashMap<String, usize>;
 
 pub type TallyResult<T> = APIResult<T, TallyError>;
 
@@ -75,7 +73,7 @@ impl Tally {
         }
 
         Ok(Self {
-            score: TallyScore(score),
+            score,
             blank: blank_votes,
         })
     }

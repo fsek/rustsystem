@@ -45,7 +45,7 @@ impl Display for RegistrationReject {
 }
 impl error::Error for RegistrationReject {}
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RegistrationSuccessResponse {
     signature: BlindSignature<BbsBls12381Sha256>,
     metadata: BallotMetaData,

@@ -14,7 +14,7 @@ use tower_http::{
 mod admin_auth;
 pub mod api;
 use api::api_routes;
-mod vote_auth;
+pub mod vote_auth;
 use vote_auth::VoteAuthority;
 mod invite_auth;
 pub mod tokens;
