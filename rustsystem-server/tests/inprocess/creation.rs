@@ -2,10 +2,7 @@ use axum::http::{Method, StatusCode};
 
 use crate::{
     common::{MockApp, json_request},
-    inprocess::{
-        add_voter, clone_response, create_meeting, extract_cookie, lock, start_vote, unlock,
-        voter_login,
-    },
+    inprocess::{add_voter, clone_response, create_meeting, extract_cookie, voter_login},
 };
 
 use rustsystem_server::api::create_meeting::CreateMeetingRequest;

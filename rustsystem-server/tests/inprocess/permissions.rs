@@ -2,18 +2,11 @@ use axum::http::StatusCode;
 
 use crate::{
     common::MockApp,
-    inprocess::{add_voter, create_meeting, extract_cookie, lock, start_vote, unlock, voter_login},
+    inprocess::{
+        add_voter, create_meeting, end_vote_round, extract_cookie, start_vote, tally, voter_login,
+    },
 };
 
-/// create-meeting -> 201
-/// new-voter -> 201
-/// login -> 202
-/// lock -> 401
-/// lock -> 200
-/// start-vote -> 401
-/// start-vote -> 200
-/// unlock -> 401
-/// unlock -> 200
 #[tokio::test]
 async fn test_state_permissions() {
     let app = MockApp::new_inprocess();
@@ -27,21 +20,18 @@ async fn test_state_permissions() {
 
     let voter_cookie = extract_cookie(&login_res).1;
 
-    let lock_res_unauthorized = lock(&app, voter_cookie).await;
-    assert_eq!(lock_res_unauthorized.status(), StatusCode::UNAUTHORIZED);
-    let lock_res_authorized = lock(&app, host_cookie).await;
-    assert_eq!(lock_res_authorized.status(), StatusCode::OK);
+    let start_res_unauthorized = start_vote(&app, voter_cookie, vec![], 0).await;
+    assert_eq!(start_res_unauthorized.status(), StatusCode::UNAUTHORIZED);
+    let start_res_authorized = start_vote(&app, host_cookie, vec![], 0).await;
+    assert_eq!(start_res_authorized.status(), StatusCode::OK);
 
-    let start_vote_res_unathorized = start_vote(&app, voter_cookie).await;
-    assert_eq!(
-        start_vote_res_unathorized.status(),
-        StatusCode::UNAUTHORIZED
-    );
-    let start_vote_res_athorized = start_vote(&app, host_cookie).await;
-    assert_eq!(start_vote_res_athorized.status(), StatusCode::OK);
+    let tally_res_unauthorized = tally(&app, voter_cookie).await;
+    assert_eq!(tally_res_unauthorized.status(), StatusCode::UNAUTHORIZED);
+    let tally_res_authorized = tally(&app, host_cookie).await;
+    assert_eq!(tally_res_authorized.status(), StatusCode::OK);
 
-    let unlock_res_unauthorized = unlock(&app, voter_cookie).await;
-    assert_eq!(unlock_res_unauthorized.status(), StatusCode::UNAUTHORIZED);
-    let unlock_res_authorized = unlock(&app, host_cookie).await;
-    assert_eq!(unlock_res_authorized.status(), StatusCode::OK);
+    let reset_res_unauthorized = end_vote_round(&app, voter_cookie).await;
+    assert_eq!(reset_res_unauthorized.status(), StatusCode::UNAUTHORIZED);
+    let reset_res_authorized = end_vote_round(&app, host_cookie).await;
+    assert_eq!(reset_res_authorized.status(), StatusCode::OK);
 }

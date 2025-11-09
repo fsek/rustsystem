@@ -3,7 +3,7 @@ use axum::{
     http::{HeaderName, HeaderValue, Method},
     response::Response,
 };
-use rustsystem_proof::BallotMetaData;
+use rustsystem_proof::{BallotMetaData, Candidates};
 
 use crate::{
     common::{MockApp, json_request},
@@ -84,22 +84,19 @@ async fn voter_login(app: &MockApp, res: Response) -> Response {
     .await
 }
 
-async fn start_vote(app: &MockApp, cookie: &HeaderValue) -> Response {
+async fn start_vote(
+    app: &MockApp,
+    cookie: &HeaderValue,
+    candidates: Candidates,
+    max_votes: usize,
+) -> Response {
     app.oneshot(json_request(
         Method::POST,
         "/api/host/start-vote",
         serde_json::to_value(StartVoteRequest {
             name: String::from("Some Vote Round"),
             shuffle: false,
-            metadata: BallotMetaData::new(
-                vec![
-                    "Candidate1".into(),
-                    "Candidate2".into(),
-                    "Candidate3".into(),
-                ],
-                1,
-                3,
-            ),
+            metadata: BallotMetaData::new(candidates, 1, max_votes),
         })
         .unwrap(),
         Some(cookie.clone()),
@@ -126,26 +123,25 @@ async fn end_vote_round(app: &MockApp, cookie: &HeaderValue) -> Response {
     ))
     .await
 }
-
-async fn lock(app: &MockApp, cookie: &HeaderValue) -> Response {
-    app.oneshot(json_request(
-        Method::POST,
-        "/api/host/lock",
-        serde_json::to_value(()).unwrap(),
-        Some(cookie.clone()),
-    ))
-    .await
-}
-
-async fn unlock(app: &MockApp, cookie: &HeaderValue) -> Response {
-    app.oneshot(json_request(
-        Method::POST,
-        "/api/host/unlock",
-        serde_json::to_value(()).unwrap(),
-        Some(cookie.clone()),
-    ))
-    .await
-}
+//
+// async fn lock(app: &MockApp, cookie: &HeaderValue) -> Response {
+//     app.oneshot(json_request(
+//         Method::POST,
+//         "/api/host/lock",
+//         serde_json::to_value(()).unwrap(),
+//         Some(cookie.clone()),
+//     ))
+//     .await
+// }
+// async fn unlock(app: &MockApp, cookie: &HeaderValue) -> Response {
+//     app.oneshot(json_request(
+//         Method::POST,
+//         "/api/host/unlock",
+//         serde_json::to_value(()).unwrap(),
+//         Some(cookie.clone()),
+//     ))
+//     .await
+// }
 
 // This is a really awkward and somewhat inefficient way of getting clones of the response.
 // In production, this would be terrible, but for testing it's fine.

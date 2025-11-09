@@ -5,13 +5,7 @@ use axum::{
 
 use api_core::APIHandler;
 
-use crate::{
-    AppState,
-    api::host::{
-        state::{EndVoteRound, Lock, Unlock},
-        user_management::{RemoveVoter, VoterId, VoterList},
-    },
-};
+use crate::AppState;
 
 pub mod invite_watch;
 use invite_watch::InviteWatch;
@@ -19,18 +13,17 @@ use invite_watch::InviteWatch;
 pub mod auth;
 
 pub mod state;
-use state::{StartVote, Tally};
+use state::{EndVoteRound, StartVote, Tally};
 
 pub mod new_voter;
 use new_voter::{NewVoter, StartInvite};
 
 pub mod user_management;
+use user_management::{RemoveVoter, VoterId, VoterList};
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
     Router::new()
-        .route("/lock", post(Lock::handler))
-        .route("/unlock", post(Unlock::handler))
         .route("/start-vote", post(StartVote::handler))
         .route("/end-vote-round", delete(EndVoteRound::handler))
         .route("/tally", post(Tally::handler))

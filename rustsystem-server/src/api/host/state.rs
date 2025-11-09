@@ -46,13 +46,11 @@ impl APIHandler for StartVote {
         let (AuthHost { uuuid, muuid }, State(state), Json(body)) = request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if !meeting.locked {
-                return Err(StartVoteError::InvalidState);
-            }
-
-            let vote_auth = meeting.get_auth();
-            if vote_auth.is_inactive() {
-                vote_auth.start_round(body.metadata, body.shuffle, body.name);
+            if meeting.get_auth().is_inactive() {
+                meeting.lock();
+                meeting
+                    .get_auth()
+                    .start_round(body.metadata, body.shuffle, body.name);
             } else {
                 return Err(StartVoteError::InvalidState);
             }
@@ -129,100 +127,10 @@ impl APIHandler for EndVoteRound {
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             meeting.get_auth().reset();
-
+            meeting.unlock();
             Ok(())
         } else {
             Err(EndVoteRoundError::MUIDNotFound)
         }
-    }
-}
-
-#[derive(FromRequest)]
-pub struct LockRequest {
-    auth: AuthHost,
-    state: State<AppState>,
-}
-
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/host/lock"))]
-pub enum LockError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::InvalidState, status = 409)]
-    InvalidState,
-}
-pub struct Lock;
-impl APIHandler for Lock {
-    type State = AppState;
-    type Request = LockRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
-    type SuccessResponse = ();
-    type ErrorResponse = LockError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let LockRequest {
-            auth: AuthHost { uuuid: _, muuid },
-            state: State(state),
-        } = request;
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if !meeting.locked {
-                meeting.lock();
-            } else {
-                return Err(LockError::InvalidState);
-            }
-        } else {
-            return Err(LockError::MUuidNotFound);
-        }
-        Ok(())
-    }
-}
-
-#[derive(FromRequest)]
-pub struct UnlockRequest {
-    auth: AuthHost,
-    state: State<AppState>,
-}
-
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/host/unlock"))]
-pub enum UnlockError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::InvalidState , status = 409)]
-    InvalidState,
-}
-
-pub struct Unlock;
-impl APIHandler for Unlock {
-    type State = AppState;
-    type Request = UnlockRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
-    type SuccessResponse = ();
-    type ErrorResponse = UnlockError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let UnlockRequest {
-            auth: AuthHost { uuuid, muuid },
-            state: State(state),
-        } = request;
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if !meeting.get_auth().is_inactive() {
-                return Err(UnlockError::InvalidState);
-            } else if meeting.locked {
-                meeting.unlock();
-            } else {
-                // this is what we want, meeting is already unlocked
-                // just return ok
-            }
-        } else {
-            return Err(UnlockError::MUuidNotFound);
-        }
-        Ok(())
     }
 }
