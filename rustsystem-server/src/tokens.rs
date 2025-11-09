@@ -30,9 +30,11 @@ struct MeetingClaims {
     exp: usize,
 }
 
+// TODO: Improve security by refreshing JWT or switching to server based sessions.
+// The 12 hours is fine for now. Realistically, stealing JWTs over TLS is very difficult.
 fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 32]) -> String {
     let expiration = Utc::now()
-        .checked_add_signed(chrono::Duration::minutes(15))
+        .checked_add_signed(chrono::Duration::hours(12))
         .expect("valid timestamp")
         .timestamp() as usize;
 
