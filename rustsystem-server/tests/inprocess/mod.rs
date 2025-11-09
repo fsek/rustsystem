@@ -3,7 +3,13 @@ use axum::{
     http::{HeaderName, HeaderValue, Method},
     response::Response,
 };
-use rustsystem_proof::{BallotMetaData, Candidates};
+use rustsystem_proof::{
+    Ballot, BallotMetaData, BallotValidation, Candidates, Choice, ProofContext, Provider,
+    RegistrationSuccessResponse, Sha256Provider, Sha256RegistrationInfo,
+};
+use serde::{Deserialize, de::DeserializeOwned};
+use uuid::Uuid;
+use zkryptium::bbsplus::commitment::BlindFactor;
 
 use crate::{
     common::{MockApp, json_request},
@@ -13,14 +19,20 @@ use crate::{
 use http_body_util::BodyExt;
 use rustsystem_server::api::{
     create_meeting::CreateMeetingRequest,
-    host::{new_voter::NewVoterRequestBody, state::StartVoteRequest},
+    host::{
+        new_voter::NewVoterRequestBody,
+        state::StartVoteRequest,
+        user_management::{RemoveVoterRequest, VoterIdRequest},
+    },
     login::LoginRequest,
 };
 
 mod creation;
+mod management;
 mod permissions;
 mod qr_reader;
 mod sequence;
+mod voting;
 
 async fn create_meeting(app: &MockApp) -> Response {
     let title = String::from("Test Meeting");
@@ -123,25 +135,89 @@ async fn end_vote_round(app: &MockApp, cookie: &HeaderValue) -> Response {
     ))
     .await
 }
-//
-// async fn lock(app: &MockApp, cookie: &HeaderValue) -> Response {
-//     app.oneshot(json_request(
-//         Method::POST,
-//         "/api/host/lock",
-//         serde_json::to_value(()).unwrap(),
-//         Some(cookie.clone()),
-//     ))
-//     .await
-// }
-// async fn unlock(app: &MockApp, cookie: &HeaderValue) -> Response {
-//     app.oneshot(json_request(
-//         Method::POST,
-//         "/api/host/unlock",
-//         serde_json::to_value(()).unwrap(),
-//         Some(cookie.clone()),
-//     ))
-//     .await
-// }
+
+async fn voter_list(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/host/voter-list",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn voter_id(app: &MockApp, cookie: &HeaderValue, name: String) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/host/voter-id",
+        serde_json::to_value(VoterIdRequest { name }).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn remove_voter(app: &MockApp, cookie: &HeaderValue, uuuid: Uuid) -> Response {
+    app.oneshot(json_request(
+        Method::DELETE,
+        "/api/host/remove-voter",
+        serde_json::to_value(RemoveVoterRequest { voter_uuuid: uuuid }).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn register(
+    app: &MockApp,
+    cookie: &HeaderValue,
+    voter_id: Uuid,
+    meeting_id: Uuid,
+) -> (Vec<u8>, BlindFactor, Response) {
+    let (context, token, commitment, proof) = Sha256Provider::generate_token(
+        voter_id.into_bytes().to_vec(),
+        meeting_id.into_bytes().to_vec(),
+    )
+    .unwrap();
+    let reginfo = Sha256Provider::new_reg_info(context, commitment);
+
+    (
+        token,
+        proof,
+        app.oneshot(json_request(
+            Method::POST,
+            "/api/voter/register",
+            serde_json::to_value(reginfo).unwrap(),
+            Some(cookie.clone()),
+        ))
+        .await,
+    )
+}
+
+async fn vote(
+    app: &MockApp,
+    cookie: &HeaderValue,
+    choice: Option<Choice>,
+    regres: RegistrationSuccessResponse,
+    token: Vec<u8>,
+    proof: Vec<u8>,
+) -> Response {
+    let validation = BallotValidation::new(proof, token, regres.get_signature().clone());
+    let ballot = Ballot::new(regres.get_metadata().clone(), choice, validation);
+    app.oneshot(json_request(
+        Method::POST,
+        "/api/voter/submit",
+        serde_json::to_value(ballot).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+// ---------- helper functions ----------
+
+async fn parse_response_body<T: DeserializeOwned>(res: Response) -> T {
+    let body = res.into_body();
+    let bytes = body.collect().await.unwrap().to_bytes();
+    return serde_json::from_slice(&bytes).unwrap();
+}
 
 // This is a really awkward and somewhat inefficient way of getting clones of the response.
 // In production, this would be terrible, but for testing it's fine.

@@ -5,9 +5,10 @@ use axum::{
     extract::{FromRequest, State},
     http::StatusCode,
 };
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppState, api::host::auth::AuthHost};
+use crate::{AppState, UUuid, api::host::auth::AuthHost};
 
 #[derive(FromRequest)]
 pub struct VoterListRequest {
@@ -54,11 +55,9 @@ impl APIHandler for VoterList {
     }
 }
 
-#[derive(FromRequest)]
+#[derive(Deserialize, Serialize)]
 pub struct VoterIdRequest {
-    auth: AuthHost,
-    state: State<AppState>,
-    name: String,
+    pub name: String,
 }
 
 #[derive(APIEndpointError)]
@@ -73,25 +72,21 @@ pub enum VoterIdError {
 pub struct VoterId;
 impl APIHandler for VoterId {
     type State = AppState;
-    type Request = VoterIdRequest;
+    type Request = (AuthHost, State<AppState>, Json<VoterIdRequest>);
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = String;
+    type SuccessResponse = Json<UUuid>;
     type ErrorResponse = VoterIdError;
 
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let VoterIdRequest {
-            auth: AuthHost { uuuid, muuid },
-            state,
-            name,
-        } = request;
+        let (AuthHost { uuuid, muuid }, State(state), Json(VoterIdRequest { name })) = request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
             if let Some((uuuid, _voter)) = meeting.voters.iter().find(|(_k, v)| v.name == name) {
-                Ok(uuuid.to_string())
+                Ok(Json(*uuuid))
             } else {
                 Err(VoterIdError::VoterNameNotFound)
             }
@@ -101,11 +96,9 @@ impl APIHandler for VoterId {
     }
 }
 
-#[derive(FromRequest)]
+#[derive(Deserialize, Serialize)]
 pub struct RemoveVoterRequest {
-    auth: AuthHost,
-    state: State<AppState>,
-    voter_uuuid: String,
+    pub voter_uuuid: UUuid,
 }
 
 #[derive(APIEndpointError)]
@@ -122,7 +115,7 @@ pub enum RemoveVoterError {
 pub struct RemoveVoter;
 impl APIHandler for RemoveVoter {
     type State = AppState;
-    type Request = RemoveVoterRequest;
+    type Request = (AuthHost, State<AppState>, Json<RemoveVoterRequest>);
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
@@ -132,22 +125,15 @@ impl APIHandler for RemoveVoter {
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let RemoveVoterRequest {
-            auth: AuthHost { uuuid, muuid },
-            state,
-            voter_uuuid,
-        } = request;
+        let (AuthHost { uuuid, muuid }, State(state), Json(RemoveVoterRequest { voter_uuuid })) =
+            request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
-            if let Ok(voter_uuuid) = Uuid::parse_str(&voter_uuuid) {
-                meeting
-                    .voters
-                    .remove(&voter_uuuid)
-                    .ok_or(RemoveVoterError::UUuidNotFound)?;
-                Ok(())
-            } else {
-                Err(RemoveVoterError::InvalidUUuid)
-            }
+            meeting
+                .voters
+                .remove(&voter_uuuid)
+                .ok_or(RemoveVoterError::UUuidNotFound)?;
+            Ok(())
         } else {
             Err(RemoveVoterError::MUuidNotFound)
         }

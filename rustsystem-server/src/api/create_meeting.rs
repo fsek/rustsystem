@@ -9,7 +9,7 @@ use std::{collections::HashMap, time::SystemTime};
 use tracing::info;
 
 use crate::{
-    AppState, Voter, admin_auth::AdminAuthority, invite_auth::InviteAuthority,
+    AppState, MUuid, UUuid, Voter, admin_auth::AdminAuthority, invite_auth::InviteAuthority,
     tokens::new_meeting_jwt, vote_auth::VoteAuthority,
 };
 
@@ -23,8 +23,8 @@ pub struct CreateMeetingRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateMeetingResponse {
-    pub muuid: String,
-    pub uuuid: String,
+    pub muuid: UUuid,
+    pub uuuid: MUuid,
 }
 
 #[derive(APIEndpointError)]
@@ -83,10 +83,7 @@ impl APIHandler for CreateMeeting {
 
         Ok((
             jar.add(new_cookie),
-            Json(CreateMeetingResponse {
-                muuid: muuid.to_string(),
-                uuuid: uuuid.to_string(),
-            }),
+            Json(CreateMeetingResponse { muuid, uuuid }),
         ))
     }
 }
