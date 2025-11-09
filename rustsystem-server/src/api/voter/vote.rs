@@ -92,7 +92,7 @@ pub enum SubmitError {
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
     VotingInactive,
 
-    #[api(code = APIErrorCode::SignatureInvalid, status = 422)]
+    #[api(code = APIErrorCode::SignatureInvalid, status = 401)]
     SignatureInvalid,
     #[api(code = APIErrorCode::SignatureExpired, status = 409)]
     SignatureExpired,

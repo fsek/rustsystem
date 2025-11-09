@@ -62,6 +62,11 @@ impl RegistrationSuccessResponse {
         &self.signature
     }
 
+    // Used for testing invalid signatures
+    pub fn set_signature(&mut self, signature: BlindSignature<BbsBls12381Sha256>) {
+        self.signature = signature;
+    }
+
     pub fn get_metadata(&self) -> &BallotMetaData {
         &self.metadata
     }
