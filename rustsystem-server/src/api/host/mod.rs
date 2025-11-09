@@ -5,7 +5,7 @@ use axum::{
 
 use api_core::APIHandler;
 
-use crate::AppState;
+use crate::{AppState, api::host::user_management::ResetLogin};
 
 pub mod invite_watch;
 use invite_watch::InviteWatch;
@@ -33,4 +33,5 @@ pub fn host_routes() -> Router<AppState> {
         .route("/voter-list", get(VoterList::handler))
         .route("/voter-id", get(VoterId::handler))
         .route("/remove-voter", delete(RemoveVoter::handler))
+        .route("/reset-login", post(ResetLogin::handler))
 }

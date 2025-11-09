@@ -34,6 +34,7 @@ const API_ENDPOINT: &str = env!("API_ENDPOINT");
 pub struct Voter {
     name: String,
     logged_in: bool,
+    is_host: bool,
 }
 
 pub struct Meeting {
@@ -46,12 +47,13 @@ pub struct Meeting {
     locked: bool,
 }
 impl Meeting {
-    pub fn add_voter(&mut self, name: String, uuid: UUuid) -> Option<Voter> {
+    pub fn add_voter(&mut self, name: String, uuid: UUuid, is_host: bool) -> Option<Voter> {
         self.voters.insert(
             uuid,
             Voter {
                 name,
                 logged_in: false,
+                is_host,
             },
         )
     }

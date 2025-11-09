@@ -22,7 +22,7 @@ use rustsystem_server::api::{
     host::{
         new_voter::NewVoterRequestBody,
         state::StartVoteRequest,
-        user_management::{RemoveVoterRequest, VoterIdRequest},
+        user_management::{RemoveVoterRequest, ResetLoginRequest, VoterIdRequest},
     },
     login::LoginRequest,
 };
@@ -161,6 +161,16 @@ async fn remove_voter(app: &MockApp, cookie: &HeaderValue, uuuid: Uuid) -> Respo
         Method::DELETE,
         "/api/host/remove-voter",
         serde_json::to_value(RemoveVoterRequest { voter_uuuid: uuuid }).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn reset_login(app: &MockApp, cookie: &HeaderValue, uuuid: Uuid) -> Response {
+    app.oneshot(json_request(
+        Method::POST,
+        "/api/host/reset-login",
+        serde_json::to_value(ResetLoginRequest { user_uuuid: uuuid }).unwrap(),
         Some(cookie.clone()),
     ))
     .await

@@ -62,6 +62,7 @@ impl APIHandler for CreateMeeting {
             Voter {
                 name: query.host_name,
                 logged_in: true,
+                is_host: true,
             },
         );
 

@@ -111,7 +111,7 @@ impl APIHandler for NewVoter {
             if meeting.has_voter_with_name(&voter_name) {
                 return Err(NewVoterError::NameTaken);
             } else {
-                meeting.add_voter(voter_name, new_uuuid);
+                meeting.add_voter(voter_name, new_uuuid, is_host);
             }
 
             let admin_cred = if is_host {
@@ -128,7 +128,7 @@ impl APIHandler for NewVoter {
     }
 }
 
-fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) -> String {
+pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) -> String {
     info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
     let mut url = format!("{API_ENDPOINT}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {

@@ -4,8 +4,8 @@ use uuid::Uuid;
 use crate::{
     common::MockApp,
     inprocess::{
-        add_voter, create_meeting, extract_cookie, parse_response_body, remove_voter, voter_id,
-        voter_list, voter_login,
+        add_voter, create_meeting, extract_cookie, parse_response_body, remove_voter, reset_login,
+        voter_id, voter_list, voter_login,
     },
 };
 
@@ -135,4 +135,21 @@ async fn test_add_remove_many() {
         let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
         assert_eq!(voters.len(), 10 - i);
     }
+}
+
+#[tokio::test]
+async fn test_reset_login() {
+    let app = MockApp::new_inprocess();
+    let creation_res = create_meeting(&app).await;
+    let cookie = extract_cookie(&creation_res).1;
+
+    let add_res = add_voter(&app, cookie, format!("Voter"), false).await;
+    voter_login(&app, add_res).await;
+
+    let id_res = voter_id(&app, cookie, String::from("Voter")).await;
+    let id = parse_response_body::<Uuid>(id_res).await;
+
+    let reset_login_res = reset_login(&app, cookie, id).await;
+    let re_login_res = voter_login(&app, reset_login_res).await;
+    assert_eq!(re_login_res.status(), StatusCode::ACCEPTED);
 }

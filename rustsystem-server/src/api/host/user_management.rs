@@ -3,12 +3,16 @@ use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
-    http::StatusCode,
+    http::{StatusCode, header},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppState, UUuid, api::host::auth::AuthHost};
+use crate::{
+    AppState, UUuid,
+    admin_auth::AdminCred,
+    api::host::{auth::AuthHost, new_voter::gen_qr_code},
+};
 
 #[derive(FromRequest)]
 pub struct VoterListRequest {
@@ -136,6 +140,58 @@ impl APIHandler for RemoveVoter {
             Ok(())
         } else {
             Err(RemoveVoterError::MUuidNotFound)
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ResetLoginRequest {
+    pub user_uuuid: UUuid,
+}
+
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "POST", path = "/api/host/reset-login"))]
+pub enum ResetLoginError {
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
+    MUuidNotFound,
+    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
+    InvalidUUuid,
+    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
+    UUuidNotFound,
+}
+
+pub struct ResetLogin;
+impl APIHandler for ResetLogin {
+    type State = AppState;
+    type Request = (AuthHost, State<AppState>, Json<ResetLoginRequest>);
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    type SuccessResponse = ([(header::HeaderName, &'static str); 1], String);
+    type ErrorResponse = ResetLoginError;
+
+    async fn route(
+        request: Self::Request,
+    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let (AuthHost { uuuid, muuid }, State(state), Json(ResetLoginRequest { user_uuuid })) =
+            request;
+
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+            if let Some(user) = meeting.voters.get_mut(&user_uuuid) {
+                user.logged_in = false;
+
+                let admin_cred = if user.is_host {
+                    Some(meeting.admin_auth.new_token())
+                } else {
+                    None
+                };
+                let qr_svg = gen_qr_code(muuid, user_uuuid, admin_cred);
+                Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
+            } else {
+                Err(ResetLoginError::UUuidNotFound)
+            }
+        } else {
+            Err(ResetLoginError::MUuidNotFound)
         }
     }
 }
