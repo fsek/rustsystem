@@ -1,3 +1,5 @@
+#![allow(async_fn_in_trait)]
+
 use std::{fmt::Display, time::SystemTime};
 
 use axum::{Json, extract::FromRequest, http::StatusCode, response::IntoResponse};
@@ -7,6 +9,8 @@ use serde::Serialize;
 /// The response may be a failure type which is equally valid as it pertains to the API structure.
 /// Helper functions may use the APIResult type as a return type such that the "?" operator can be
 /// used to send the error all the way to the response
+/// NOTE: This may be worth removing because the alias bounds aren't enforced...
+#[allow(type_alias_bounds)]
 pub type APIResult<T, E: APIEndpointError> = Result<T, E>;
 
 /// Similar to APIResult, but also requires that the success type includes a [`StatusCode`].
@@ -138,7 +142,7 @@ impl APIError {
             Err(_err) => APIError::invalid_status_code(self.endpoint),
         };
 
-        if res.message == None {
+        if res.message.is_none() {
             res.message = Some(res.code.message());
         }
 

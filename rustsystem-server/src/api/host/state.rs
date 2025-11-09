@@ -43,9 +43,9 @@ impl APIHandler for StartVote {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthHost { uuuid, muuid }, State(state), Json(body)) = request;
+        let (auth, State(state), Json(body)) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             if meeting.get_auth().is_inactive() {
                 meeting.lock();
                 meeting
@@ -81,11 +81,11 @@ impl APIHandler for Tally {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let TallyRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             let vote_auth = meeting.get_auth();
 
             Ok(Json(vote_auth.finalize_round()?))
@@ -121,11 +121,11 @@ impl APIHandler for EndVoteRound {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let EndVoteRoundRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             meeting.get_auth().reset();
             meeting.unlock();
             Ok(())

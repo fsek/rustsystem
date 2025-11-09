@@ -5,7 +5,7 @@ use axum_extra::extract::{
     cookie::{self, Cookie},
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, time::SystemTime};
+use std::collections::HashMap;
 use tracing::info;
 
 use crate::{
@@ -73,7 +73,6 @@ impl APIHandler for CreateMeeting {
             muuid,
             crate::Meeting {
                 title: query.title,
-                start_time: SystemTime::now(),
                 voters,
                 vote_auth,
                 invite_auth,

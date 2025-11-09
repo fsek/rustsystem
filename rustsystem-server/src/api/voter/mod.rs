@@ -1,14 +1,10 @@
-use axum::{
-    Router,
-    routing::post,
-};
+use axum::{Router, routing::post};
 use vote::{Register, Submit};
 
 use api_core::APIHandler;
 
 use crate::AppState;
 
-mod auth;
 mod vote;
 
 // Routes at /api/voter/...

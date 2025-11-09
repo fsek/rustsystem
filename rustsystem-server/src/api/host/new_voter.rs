@@ -42,11 +42,11 @@ impl APIHandler for StartInvite {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let StartInviteRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             meeting.invite_auth.set_state(true);
             Ok(())
         } else {
@@ -92,7 +92,7 @@ impl APIHandler for NewVoter {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let NewVoterRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth,
             state: State(state),
             body:
                 Json(NewVoterRequestBody {
@@ -102,7 +102,7 @@ impl APIHandler for NewVoter {
         } = request;
 
         let new_uuuid = Uuid::new_v4();
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             if meeting.locked {
                 return Err(NewVoterError::InvalidState);
             }
@@ -119,7 +119,7 @@ impl APIHandler for NewVoter {
             } else {
                 None
             };
-            let qr_svg = gen_qr_code(muuid, new_uuuid, admin_cred);
+            let qr_svg = gen_qr_code(auth.muuid, new_uuuid, admin_cred);
 
             Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
         } else {

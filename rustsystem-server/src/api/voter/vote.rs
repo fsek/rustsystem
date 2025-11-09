@@ -38,19 +38,11 @@ impl APIHandler for Register {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (
-            AuthUser {
-                uuuid,
-                muuid,
-                is_host,
-            },
-            State(state),
-            Json(body),
-        ) = request;
+        let (auth, State(state), Json(body)) = request;
         info!("Got register request");
 
         let mut meetings = state.meetings.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muuid) {
+        let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
             meeting_ok
         } else {
             return Err(RegisterError::MUIDNotFound);
@@ -60,7 +52,7 @@ impl APIHandler for Register {
 
         let round = ensure_round(vote_auth, RegisterError::VoteInactive)?;
 
-        if round.is_registered(uuuid) {
+        if round.is_registered(auth.uuuid) {
             return Err(RegisterError::AlreadyRegistered);
         }
 
@@ -69,7 +61,7 @@ impl APIHandler for Register {
             round.header().clone(),
             round.keys().clone(),
         ) {
-            round.register_user(uuuid);
+            round.register_user(auth.uuuid);
             Ok(Json(RegistrationSuccessResponse::new(
                 signature,
                 round.metadata(),
@@ -109,21 +101,13 @@ impl APIHandler for Submit {
     async fn route(
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (
-            AuthUser {
-                uuuid,
-                muuid,
-                is_host,
-            },
-            State(state),
-            Json(body),
-        ) = request;
+        let (auth, State(state), Json(body)) = request;
         let metadata = body.get_metadata();
         let choice = body.get_choice();
         let validation = body.get_validation();
 
         let mut meetings = state.meetings.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&muuid) {
+        let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
             meeting_ok
         } else {
             return Err(SubmitError::MUIDNotFound);
@@ -159,10 +143,10 @@ fn validate_metadata(received: BallotMetaData, round: &VoteRound) -> APIResult<(
 }
 
 fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> APIResult<(), SubmitError> {
-    if let Some(choices) = choice.as_ref() {
-        if choices.len() > round.metadata().get_max_choices() {
-            return Err(SubmitError::InvalidVoteLength);
-        }
+    if let Some(choices) = choice.as_ref()
+        && choices.len() > round.metadata().get_max_choices()
+    {
+        return Err(SubmitError::InvalidVoteLength);
     }
 
     Ok(())
@@ -174,13 +158,15 @@ fn validate_signature(
 ) -> APIResult<(), SubmitError> {
     let info = Sha256ValidationInfo::from(validation.clone());
 
-    if let Ok(_) = Sha256Provider::validate_token(
+    if Sha256Provider::validate_token(
         info.get_proof(),
         round.header().clone(),
         info.token,
         round.keys().public_key().clone(),
         info.signature.clone(),
-    ) {
+    )
+    .is_ok()
+    {
         info!("Validation Successful");
         round.set_signature_expired(&info.signature);
         Ok(())

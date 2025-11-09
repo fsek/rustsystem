@@ -45,16 +45,11 @@ impl APIHandler for VoteActive {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let VoteActiveRequest {
-            auth:
-                AuthUser {
-                    uuuid,
-                    muuid,
-                    is_host,
-                },
+            auth,
             state: State(state),
         } = request;
 
-        let res = if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
+        let res = if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             meeting.vote_auth.is_active()
         } else {
             return Err(VoteActiveError::MUIDNotFound);
@@ -104,12 +99,7 @@ impl APIHandler for VoteStateWatch {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let VoteStateWatchRequest {
-            auth:
-                AuthUser {
-                    uuuid,
-                    muuid,
-                    is_host,
-                },
+            auth,
             state: State(state),
         } = request;
 
@@ -125,7 +115,7 @@ impl APIHandler for VoteStateWatch {
             )),
         };
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             let state_rx = meeting.vote_auth.new_state_watcher();
             let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
             Ok(Sse::new(stream))

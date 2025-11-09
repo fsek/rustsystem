@@ -165,7 +165,7 @@ impl FromRequestParts<AppState> for AuthUser {
             .value();
 
         let token_data = decode::<MeetingClaims>(
-            &access_token,
+            access_token,
             &DecodingKey::from_secret(state.secret.as_ref()),
             &Validation::default(),
         )

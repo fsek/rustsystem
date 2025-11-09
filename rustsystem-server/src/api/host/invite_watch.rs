@@ -46,10 +46,10 @@ impl APIHandler for InviteWatch {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let InviteWatchRequest {
-            auth: AuthHost { uuuid, muuid },
+            auth,
             state: State(state),
         } = request;
-        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             let state_rx = meeting.invite_auth.new_watcher();
 
             let upon_event = |new_state| {

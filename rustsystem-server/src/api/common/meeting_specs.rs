@@ -52,16 +52,11 @@ impl APIHandler for MeetingSpecs {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let MeetingSpecsRequest {
-            auth:
-                AuthUser {
-                    uuuid,
-                    muuid,
-                    is_host,
-                },
+            auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             Ok(Json(MeetingSpecsResponse {
                 title: meeting.title.clone(),
                 participants: meeting.voters.values().filter(|v| v.logged_in).count(),
@@ -85,12 +80,7 @@ impl APIHandler for MeetingSpecsWatch {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let MeetingSpecsRequest {
-            auth:
-                AuthUser {
-                    uuuid,
-                    muuid,
-                    is_host,
-                },
+            auth,
             state: State(state),
         } = request;
 
@@ -107,7 +97,7 @@ impl APIHandler for MeetingSpecsWatch {
             }
         };
 
-        if let Some(meeting) = state.meetings.lock().await.get(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             let update_rx = meeting.vote_auth.new_update_watcher();
             let stream = WatchStream::new(update_rx).filter_map(upon_event as _);
             Ok(Sse::new(stream))

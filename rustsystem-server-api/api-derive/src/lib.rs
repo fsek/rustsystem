@@ -1,14 +1,9 @@
-use std::time::SystemTime;
-
-use chrono::{DateTime, Utc};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{
-    Attribute, Data, DeriveInput, Error, Expr, Fields, Ident, Lit, Meta, parse_macro_input,
+    Attribute, Data, DeriveInput, Expr, Fields, Ident, Lit, Meta, parse_macro_input,
     spanned::Spanned,
 };
-
-use api_core::APIEndpointError;
 
 ///
 /// ```rust

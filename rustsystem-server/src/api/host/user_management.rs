@@ -6,11 +6,9 @@ use axum::{
     http::{StatusCode, header},
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     AppState, UUuid,
-    admin_auth::AdminCred,
     api::host::{auth::AuthHost, new_voter::gen_qr_code},
 };
 
@@ -40,12 +38,9 @@ impl APIHandler for VoterList {
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let VoterListRequest {
-            auth: AuthHost { uuuid, muuid },
-            state,
-        } = request;
+        let VoterListRequest { auth, state } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             Ok(Json(
                 meeting
                     .voters
@@ -86,9 +81,9 @@ impl APIHandler for VoterId {
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthHost { uuuid, muuid }, State(state), Json(VoterIdRequest { name })) = request;
+        let (auth, State(state), Json(VoterIdRequest { name })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             if let Some((uuuid, _voter)) = meeting.voters.iter().find(|(_k, v)| v.name == name) {
                 Ok(Json(*uuuid))
             } else {
@@ -129,10 +124,9 @@ impl APIHandler for RemoveVoter {
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthHost { uuuid, muuid }, State(state), Json(RemoveVoterRequest { voter_uuuid })) =
-            request;
+        let (auth, State(state), Json(RemoveVoterRequest { voter_uuuid })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             meeting
                 .voters
                 .remove(&voter_uuuid)
@@ -173,10 +167,9 @@ impl APIHandler for ResetLogin {
     async fn route(
         request: Self::Request,
     ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (AuthHost { uuuid, muuid }, State(state), Json(ResetLoginRequest { user_uuuid })) =
-            request;
+        let (auth, State(state), Json(ResetLoginRequest { user_uuuid })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&muuid) {
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             if let Some(mut user) = meeting.voters.remove(&user_uuuid) {
                 user.logged_in = false;
 
@@ -189,7 +182,7 @@ impl APIHandler for ResetLogin {
                 let new_uuuid = UUuid::new_v4();
                 meeting.voters.insert(new_uuuid, user);
 
-                let qr_svg = gen_qr_code(muuid, new_uuuid, admin_cred);
+                let qr_svg = gen_qr_code(auth.muuid, new_uuuid, admin_cred);
                 Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
             } else {
                 Err(ResetLoginError::UUuidNotFound)

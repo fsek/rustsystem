@@ -2,16 +2,17 @@ use api_derive::APIEndpointError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch::{Receiver, Sender};
+use tracing::error;
 use tracing::warn;
 use zkryptium::{
     keys::pair::KeyPair,
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
-use rand::{Rng, rng, seq::SliceRandom};
+use rand::{rng, seq::SliceRandom};
 
 use api_core::{APIErrorCode, APIResult};
-use rustsystem_proof::{BallotMetaData, CandidateID, Candidates, Choice, Provider, Sha256Provider};
+use rustsystem_proof::{BallotMetaData, Choice, Provider, Sha256Provider};
 
 use crate::UUuid;
 
@@ -136,7 +137,7 @@ pub enum VoteState {
 
 pub struct VoteAuthority {
     state_tx: Sender<VoteState>,
-    state_rx: Receiver<VoteState>,
+    _state_rx: Receiver<VoteState>,
     update_tx: Sender<bool>,
     round: Option<VoteRound>,
 }
@@ -153,7 +154,7 @@ impl VoteAuthority {
 
         Self {
             // This is to make sure that there is at least one subscriber to state_tx
-            state_rx: state_tx.subscribe(),
+            _state_rx: state_tx.subscribe(),
             state_tx,
             update_tx: Sender::new(true),
             round: None,
@@ -183,7 +184,9 @@ impl VoteAuthority {
         let header = header.as_bytes().to_vec();
         let registered_voters = HashSet::new();
         let expired_signatures = HashSet::new();
-        self.state_tx.send(VoteState::Voting);
+        if let Err(e) = self.state_tx.send(VoteState::Voting) {
+            error!("{e}");
+        }
         self.round = Some(VoteRound {
             keys,
             header,
@@ -201,13 +204,17 @@ impl VoteAuthority {
     // This is the function that should later handle the tallying of votes
     pub fn finalize_round(&mut self) -> TallyResult<Tally> {
         let res = self.round.take().ok_or(TallyError::VotingInactive)?.tally();
-        self.state_tx.send(VoteState::Tally);
+        if let Err(e) = self.state_tx.send(VoteState::Tally) {
+            error!("{e}");
+        }
         res
     }
 
     // Set everything back to default
     pub fn reset(&mut self) {
-        self.state_tx.send(VoteState::Creation);
+        if let Err(e) = self.state_tx.send(VoteState::Creation) {
+            error!("{e}");
+        }
         self.round = None;
     }
 

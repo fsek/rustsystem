@@ -1,4 +1,5 @@
 use tokio::sync::watch::{Receiver, Sender};
+use tracing::error;
 
 pub struct InviteAuthority {
     state_tx: Sender<bool>,
@@ -11,7 +12,9 @@ impl InviteAuthority {
     }
 
     pub fn set_state(&mut self, new_state: bool) {
-        self.state_tx.send(new_state);
+        if let Err(e) = self.state_tx.send(new_state) {
+            error!("{e}");
+        }
     }
 
     pub fn new_watcher(&self) -> Receiver<bool> {

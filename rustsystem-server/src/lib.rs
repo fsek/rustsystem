@@ -3,7 +3,7 @@ use axum::{
     http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
 };
 use invite_auth::InviteAuthority;
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
+use std::{collections::HashMap, sync::Arc};
 use tokens::{AuthUser, get_secret};
 use tokio::sync::Mutex;
 use tower_http::{
@@ -39,7 +39,6 @@ pub struct Voter {
 
 pub struct Meeting {
     title: String,
-    start_time: SystemTime,
     voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
@@ -59,10 +58,7 @@ impl Meeting {
     }
 
     pub fn has_voter_with_name(&self, name: &String) -> bool {
-        self.voters
-            .iter()
-            .find(|(_id, v)| &v.name == name)
-            .is_some()
+        self.voters.iter().any(|(_id, v)| &v.name == name)
     }
 
     pub fn get_auth(&mut self) -> &mut VoteAuthority {
