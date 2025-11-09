@@ -1,3 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use std::{
     error::{self, Error},
     fmt::{Debug, Display},
@@ -53,6 +56,14 @@ impl RegistrationSuccessResponse {
             signature,
             metadata,
         }
+    }
+
+    pub fn get_signature(&self) -> &BlindSignature<BbsBls12381Sha256> {
+        &self.signature
+    }
+
+    pub fn get_metadata(&self) -> &BallotMetaData {
+        &self.metadata
     }
 }
 
@@ -140,10 +151,20 @@ pub struct ProofContext {
 }
 impl ProofContext {
     pub fn new(voter_id: Vec<u8>, meeting_id: Vec<u8>) -> Self {
+        #[cfg(target_arch = "wasm32")]
         let registration_timestamp = Duration::from_millis(js_sys::Date::now() as u64)
             .as_secs()
             .to_be_bytes()
             .to_vec();
+        #[cfg(not(target_arch = "wasm32"))]
+        let registration_timestamp = Duration::from_millis(
+            SystemTime::elapsed(&UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        )
+        .as_secs()
+        .to_be_bytes()
+        .to_vec();
         let checksum = Self::calculate_checksum(&voter_id, &meeting_id, &registration_timestamp)
             .as_bytes()
             .to_vec();
