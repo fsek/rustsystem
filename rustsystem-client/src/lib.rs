@@ -2,7 +2,7 @@ use wasm_bindgen::prelude::*;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 // Required on the frontend (already wasm_bindgen)
-pub use rustsystem_proof::{BallotMetaData, BallotValidation, WASMChoice};
+pub use rustsystem_proof::{BallotMetaData, BallotValidation};
 
 mod utils;
 

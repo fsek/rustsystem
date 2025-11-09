@@ -4,7 +4,6 @@ import Header from '@/components/defaults/header';
 import Footer from '@/components/defaults/footer';
 import MainSection from '@/components/templates/main';
 import { VoteActive, voteStateWatch, type VoteActiveRequest } from '@/api/common/state';
-import DichotomousPage from './vote-page/dichotomous';
 import { matchResult } from '@/result';
 import type { APIError } from '@/api/error';
 import ErrorHandler from '../error';
@@ -26,8 +25,6 @@ export const VotePageDisplay = {
   // Main functional pages
   Wait: 5,
   Register: 6,
-  // Vote method pages
-  Dichotomous: 7,
 } as const;
 export type VotePageDisplay = (typeof VotePageDisplay)[keyof typeof VotePageDisplay];
 
@@ -71,8 +68,6 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
       return WaitPage();
     case VotePageDisplay.Register:
       return <RegisterPage muid={muid} uuid={uuid} setVotePageDisplay={setVotePageDisplay} />;
-    case VotePageDisplay.Dichotomous:
-      return <DichotomousPage setVotePageDisplay={setVotePageDisplay} />
     default:
       setVotePageDisplay(VotePageDisplay.Wait);
   }

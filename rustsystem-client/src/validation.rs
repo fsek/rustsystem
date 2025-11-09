@@ -1,4 +1,4 @@
-use rustsystem_proof::{Ballot, WASMChoice};
+use rustsystem_proof::{Ballot, CandidateID};
 use wasm_bindgen::prelude::*;
 use web_sys::console::info_1;
 
@@ -11,11 +11,11 @@ pub async fn send_vote(
     validation_parsed: JsValue,
 ) -> Result<(), JsError> {
     let metadata = serde_wasm_bindgen::from_value(metadata_parsed).map_err(JsError::from)?;
-    let choice =
-        serde_wasm_bindgen::from_value::<WASMChoice>(choice_parsed).map_err(JsError::from)?;
+    let choice = serde_wasm_bindgen::from_value::<Option<Vec<CandidateID>>>(choice_parsed)
+        .map_err(JsError::from)?;
     let validation = serde_wasm_bindgen::from_value(validation_parsed).map_err(JsError::from)?;
 
-    let ballot = Ballot::new(metadata, choice.into_choice(), validation);
+    let ballot = Ballot::new(metadata, choice, validation);
     let body = serde_json::to_string(&ballot).map_err(JsError::from)?;
 
     match send_post(&body, "api/voter/submit").await {

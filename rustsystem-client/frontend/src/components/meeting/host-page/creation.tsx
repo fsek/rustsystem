@@ -3,7 +3,7 @@ import type { APIError } from "@/api/error";
 import { StartVote, type StartVoteRequest } from "@/api/host/state";
 import FormSection from "@/components/templates/form";
 import MainSection from "@/components/templates/main";
-import init, { BallotMetaData, VoteMethod } from "@/pkg/rustsystem_client";
+import init, { BallotMetaData } from "@/pkg/rustsystem_client";
 import { matchResult } from "@/result";
 import { useLocation } from "@tanstack/react-router";
 import type React from "react";
@@ -24,10 +24,10 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
   function startVote(data: Record<string, string>) {
     StartVote({
       name: data.name,
-      metadata: new BallotMetaData(VoteMethod.Dichotomous, 1),
+      metadata: new BallotMetaData(["candidate1", "candidate2", "candidate3"], 1, 3), // TODO: Switch this to real arguments
     } as StartVoteRequest).then((result) => {
       matchResult(result, {
-        Ok: (_res) => {},
+        Ok: (_res) => { },
         Err: (err) => {
           setError(err);
         },

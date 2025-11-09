@@ -24,7 +24,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ muid, uuid, setVotePageDisp
       console.log(validation.toValue());
       sessionStorage.setItem("validation", JSON.stringify(validation.toValue()));
       sessionStorage.setItem("metadata", JSON.stringify(res.metadata()!.toValue()))
-      setVotePageDisplay(VotePageDisplay.Dichotomous);
+      setVotePageDisplay(VotePageDisplay.Wait); // TODO: Switch to active voting page
     } else {
       // TODO: This should be handled such that the user knows that the registration failed
       console.error("Registration was unsuccessful");
