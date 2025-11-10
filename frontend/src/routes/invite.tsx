@@ -12,6 +12,7 @@ import {
   startInvite,
   type startInviteRequest,
 } from "@/api/host/newVoter";
+import { removeAll, type RemoveAllRequest } from "@/api/host/removeAll";
 import { type ResetLoginRequest, resetLogin } from "@/api/host/resetLogin";
 import { VoterList, type VoterListRequest } from "@/api/host/voterList";
 import ErrorHandler from "@/components/error";
@@ -333,6 +334,31 @@ function RouteComponent() {
     });
   };
 
+  const handleRemoveAll = async () => {
+    if (
+      !confirm(
+        "Är du säker på att du vill ta bort alla deltagare? Detta kommer att sparka ut alla icke-administratörer från mötet.",
+      )
+    ) {
+      return;
+    }
+
+    setIsGenerating(true);
+
+    const result = await removeAll({} as RemoveAllRequest);
+
+    matchResult(result, {
+      Ok: (_res) => {
+        setIsGenerating(false);
+        fetchVoters();
+      },
+      Err: (err) => {
+        setError(err);
+        setIsGenerating(false);
+      },
+    });
+  };
+
   // Fuzzy filter function
   const fuzzyFilter = (
     row: any,
@@ -608,6 +634,17 @@ function RouteComponent() {
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base"
               >
                 Tillbaka till mötet
+              </button>
+              <button
+                onClick={handleRemoveAll}
+                disabled={isGenerating || isVotingActive}
+                className={`px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base ${
+                  isGenerating || isVotingActive
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                {isGenerating ? "Tar bort..." : "Ta bort alla deltagare"}
               </button>
             </div>
           </div>
