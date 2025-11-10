@@ -3,6 +3,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::SystemTime;
 use tracing::{error, info};
 
 use crate::{
@@ -79,6 +80,7 @@ impl APIHandler for CreateMeeting {
             muuid,
             crate::Meeting {
                 title: query.title,
+                start_time: SystemTime::now(),
                 agenda: String::new(),
                 voters,
                 vote_auth,
@@ -87,6 +89,17 @@ impl APIHandler for CreateMeeting {
                 locked: false,
             },
         );
+
+        // Remove dead meetings
+        let mut dead_muuids = Vec::new();
+        for (muuid, meeting) in meetings.iter() {
+            if meeting.start_time.elapsed().unwrap().as_secs() > 60 * 60 * 12 {
+                dead_muuids.push(*muuid);
+            }
+        }
+        for muuid in dead_muuids {
+            meetings.remove(&muuid);
+        }
 
         Ok((
             jar.add(new_cookie),

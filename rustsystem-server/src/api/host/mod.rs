@@ -5,7 +5,7 @@ use axum::{
 
 use api_core::APIHandler;
 
-use crate::{AppState, api::host::user_management::ResetLogin};
+use crate::AppState;
 
 pub mod invite_watch;
 use invite_watch::InviteWatch;
@@ -19,7 +19,7 @@ pub mod new_voter;
 use new_voter::{NewVoter, StartInvite};
 
 pub mod user_management;
-use user_management::{RemoveVoter, VoterId, VoterList};
+use user_management::{RemoveAll, RemoveVoter, ResetLogin, VoterId, VoterList};
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
@@ -32,6 +32,7 @@ pub fn host_routes() -> Router<AppState> {
         .route("/invite-watch", get(InviteWatch::handler))
         .route("/voter-list", get(VoterList::handler))
         .route("/voter-id", get(VoterId::handler))
+        .route("/remove-all", delete(RemoveAll::handler))
         .route("/remove-voter", delete(RemoveVoter::handler))
         .route("/reset-login", post(ResetLogin::handler))
 }

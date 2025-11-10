@@ -157,6 +157,50 @@ impl APIHandler for RemoveVoter {
     }
 }
 
+#[derive(FromRequest)]
+pub struct RemoveAllRequest {
+    auth: AuthHost,
+    state: State<AppState>,
+}
+
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "DELETE", path = "/api/host/remove-all"))]
+pub enum RemoveAllError {
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
+    MUuidNotFound,
+    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
+    InvalidUUuid,
+    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
+    UUuidNotFound,
+}
+
+pub struct RemoveAll;
+impl APIHandler for RemoveAll {
+    type State = AppState;
+    type Request = RemoveAllRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    type SuccessResponse = ();
+    type ErrorResponse = RemoveAllError;
+
+    async fn route(
+        request: Self::Request,
+    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let RemoveAllRequest {
+            auth,
+            state: State(state),
+        } = request;
+
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+            meeting.voters.retain(|_uuuid, v| v.is_host);
+            Ok(())
+        } else {
+            Err(RemoveAllError::MUuidNotFound)
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct ResetLoginRequest {
     pub user_uuuid: UUuid,

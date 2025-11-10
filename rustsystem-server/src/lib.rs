@@ -3,7 +3,7 @@ use axum::{
     http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
 };
 use invite_auth::InviteAuthority;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokens::{AuthUser, get_secret};
 use tokio::sync::Mutex;
 use tower_http::{
@@ -41,6 +41,7 @@ pub struct Voter {
 
 pub struct Meeting {
     title: String,
+    start_time: SystemTime,
     agenda: String,
     voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
@@ -67,6 +68,10 @@ impl Meeting {
 
     pub fn get_auth(&mut self) -> &mut VoteAuthority {
         &mut self.vote_auth
+    }
+
+    pub fn get_start_time(&self) -> SystemTime {
+        self.start_time
     }
 
     pub fn remove_unclaimed_voters(&mut self) {
@@ -103,8 +108,8 @@ pub fn app() -> Router {
         is_secure,
     };
 
-    let serve_dir = ServeDir::new("frontend/dist")
-        .not_found_service(ServeFile::new("frontend/dist/index.html"));
+    let serve_dir = ServeDir::new("../frontend/dist")
+        .not_found_service(ServeFile::new("../frontend/dist/index.html"));
 
     Router::new()
         .fallback_service(serve_dir)
