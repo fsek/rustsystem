@@ -57,7 +57,7 @@ function App() {
               Rustsystem
             </h1>
             <p className="text-lg text-gray-600 leading-relaxed">
-              Simple, secure meeting management
+              Enkel, säker möteshantering
             </p>
           </div>
 
@@ -70,7 +70,7 @@ function App() {
                 className="block text-sm mb-2 text-gray-700 font-medium"
                 htmlFor="host_name"
               >
-                Your Name
+                Ditt namn
               </label>
               <input
                 id="host_name"
@@ -79,7 +79,7 @@ function App() {
                 value={formData.host_name}
                 onChange={handleChange}
                 className="w-full p-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
-                placeholder="Enter your name"
+                placeholder="Ange ditt namn"
               />
             </div>
 
@@ -88,7 +88,7 @@ function App() {
                 className="block text-sm mb-2 text-gray-700 font-medium"
                 htmlFor="title"
               >
-                Meeting Title
+                Mötestitel
               </label>
               <input
                 id="title"
@@ -97,7 +97,7 @@ function App() {
                 value={formData.title}
                 onChange={handleChange}
                 className="w-full p-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
-                placeholder="Enter meeting title"
+                placeholder="Ange mötestitel"
               />
             </div>
 
@@ -105,7 +105,7 @@ function App() {
               type="submit"
               className="w-full bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white py-3 px-6 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 font-semibold"
             >
-              Create Meeting
+              Skapa möte
             </button>
           </form>
         </div>

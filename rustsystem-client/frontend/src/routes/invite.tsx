@@ -19,10 +19,17 @@ import {
   type startInviteRequest,
 } from "@/api/host/newVoter";
 import { startInviteWait } from "@/api/host/inviteEvent";
+import { resetLogin, type ResetLoginRequest } from "@/api/host/resetLogin";
 import { matchResult } from "@/result";
 import type { APIError } from "@/api/error";
 import ErrorHandler from "@/components/error";
 import { VoterList, type VoterListRequest } from "@/api/host/voterList";
+import {
+  VoteActive,
+  voteStateWatch,
+  type VoteActiveRequest,
+} from "@/api/common/state";
+import { Auth, type AuthMeetingRequest } from "@/api/auth";
 import "@/colors.css";
 
 type SearchParams = {
@@ -42,7 +49,8 @@ interface Voter {
   uuid: string;
   name: string;
   registeredAt: string;
-  status: "active" | "pending";
+  loggedIn: boolean;
+  isHost: boolean;
 }
 
 const columnHelper = createColumnHelper<Voter>();
@@ -53,8 +61,10 @@ function RouteComponent() {
   const muid = search.muid;
 
   const [voters, setVoters] = useState<Voter[]>([]);
+  const [isVotingActive, setIsVotingActive] = useState(false);
 
   const [newVoterName, setNewVoterName] = useState("");
+  const [isNewVoterAdmin, setIsNewVoterAdmin] = useState(false);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,6 +74,54 @@ function RouteComponent() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [currentUserUuid, setCurrentUserUuid] = useState<string | null>(null);
+
+  const checkVoteState = async () => {
+    try {
+      const result = await VoteActive({} as VoteActiveRequest);
+      matchResult(result, {
+        Ok: (res) => {
+          setIsVotingActive(res.isActive);
+        },
+        Err: (err) => {
+          console.error("Failed to check vote state:", err);
+        },
+      });
+    } catch (error) {
+      console.error("Error checking vote state:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Initial check of vote state
+    checkVoteState();
+
+    // Get current user's UUID
+    Auth({ muuid: muid } as AuthMeetingRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          setCurrentUserUuid(res.uuid);
+        },
+        Err: (err) => {
+          console.error("Failed to get current user:", err);
+        },
+      });
+    });
+
+    // Watch for vote state changes
+    const voteStateWatcher = voteStateWatch();
+    voteStateWatcher.onmessage = (event) => {
+      if (event.data === "Voting") {
+        setIsVotingActive(true);
+      } else if (event.data === "Creation" || event.data === "Tally") {
+        setIsVotingActive(false);
+      }
+    };
+
+    return () => {
+      voteStateWatcher.close();
+    };
+  }, []);
 
   const fetchVoters = async () => {
     const result = await VoterList({} as VoterListRequest);
@@ -72,8 +130,9 @@ function RouteComponent() {
         const votersWithStatus = response.voters.map((voter) => ({
           uuid: voter.uuid,
           name: voter.name,
-          registeredAt: new Date().toLocaleString(),
-          status: "active" as const,
+          registeredAt: voter.registeredAt,
+          loggedIn: voter.loggedIn,
+          isHost: voter.isHost,
         }));
         setVoters(votersWithStatus);
       },
@@ -106,7 +165,10 @@ function RouteComponent() {
     };
   }, []);
 
-  const generateQrCode = async (voterName: string) => {
+  const generateQrCodeForNewVoter = async (
+    voterName: string,
+    isAdmin: boolean = false,
+  ) => {
     if (!inviteReady) {
       setError({
         code: "InviteNotReady",
@@ -123,7 +185,7 @@ function RouteComponent() {
 
     const result = await newVoter({
       voterName: voterName,
-      isHost: false,
+      isHost: isAdmin,
     } as NewVoterRequest);
 
     matchResult(result, {
@@ -131,6 +193,73 @@ function RouteComponent() {
         const url = URL.createObjectURL(res.blob);
         setQrCodeUrl(url);
         setIsGenerating(false);
+        // Refresh voter list after adding and update selectedVoter with real data
+        VoterList({} as VoterListRequest).then((updatedVoters) => {
+          matchResult(updatedVoters, {
+            Ok: (response) => {
+              const votersWithStatus = response.voters.map((voter) => ({
+                uuid: voter.uuid,
+                name: voter.name,
+                registeredAt: voter.registeredAt,
+                loggedIn: voter.loggedIn,
+                isHost: voter.isHost,
+              }));
+              setVoters(votersWithStatus);
+              // Update selectedVoter with the real voter data from backend
+              const newlyCreatedVoter = votersWithStatus.find(
+                (v) => v.name === voterName,
+              );
+              if (newlyCreatedVoter) {
+                setSelectedVoter(newlyCreatedVoter);
+              }
+            },
+            Err: (err) => setError(err),
+          });
+        });
+      },
+      Err: (err) => {
+        setError(err);
+        setIsGenerating(false);
+      },
+    });
+  };
+
+  const regenerateQrCode = async (voter: Voter) => {
+    setIsGenerating(true);
+    setQrCodeUrl(null);
+
+    const result = await resetLogin({
+      user_uuuid: voter.uuid,
+    } as ResetLoginRequest);
+
+    matchResult(result, {
+      Ok: (res) => {
+        const url = URL.createObjectURL(res.blob);
+        setQrCodeUrl(url);
+        setIsGenerating(false);
+        // Refresh voter list after reset and update selectedVoter with new UUID
+        VoterList({} as VoterListRequest).then((updatedVoters) => {
+          matchResult(updatedVoters, {
+            Ok: (response) => {
+              const votersWithStatus = response.voters.map((voterData) => ({
+                uuid: voterData.uuid,
+                name: voterData.name,
+                registeredAt: voterData.registeredAt,
+                loggedIn: voterData.loggedIn,
+                isHost: voterData.isHost,
+              }));
+              setVoters(votersWithStatus);
+              // Update selectedVoter with the new UUID from backend
+              const updatedVoter = votersWithStatus.find(
+                (voter) => voter.name === selectedVoter?.name,
+              );
+              if (updatedVoter) {
+                setSelectedVoter(updatedVoter);
+              }
+            },
+            Err: (err) => setError(err),
+          });
+        });
       },
       Err: (err) => {
         setError(err);
@@ -141,7 +270,31 @@ function RouteComponent() {
 
   const handleShowQrCode = (voter: Voter) => {
     setSelectedVoter(voter);
-    generateQrCode(voter.name);
+    regenerateQrCode(voter);
+  };
+
+  const handleKickOut = async (voter: Voter) => {
+    if (!confirm(`Är du säker på att du vill sparka ut ${voter.name}?`)) {
+      return;
+    }
+
+    setIsGenerating(true);
+
+    const result = await resetLogin({
+      user_uuuid: voter.uuid,
+    } as ResetLoginRequest);
+
+    matchResult(result, {
+      Ok: (_res) => {
+        // Don't display QR code for kick out - just refresh the list
+        setIsGenerating(false);
+        fetchVoters();
+      },
+      Err: (err) => {
+        setError(err);
+        setIsGenerating(false);
+      },
+    });
   };
 
   // Fuzzy filter function
@@ -163,7 +316,7 @@ function RouteComponent() {
           className="flex items-center gap-1 hover:text-[var(--color-main)] transition-colors"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Voter Name
+          Deltagarnamn
           {{
             asc: " 🔼",
             desc: " 🔽",
@@ -171,12 +324,19 @@ function RouteComponent() {
         </button>
       ),
       cell: (info) => (
-        <div className="font-medium text-gray-900">{info.getValue()}</div>
+        <div className="flex items-center gap-2">
+          <div className="font-medium text-gray-900">{info.getValue()}</div>
+          {info.row.original.isHost && (
+            <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+              🔐 Admin
+            </span>
+          )}
+        </div>
       ),
       filterFn: fuzzyFilter,
       enableSorting: true,
     }),
-    columnHelper.accessor("status", {
+    columnHelper.accessor("loggedIn", {
       header: ({ column }) => (
         <button
           className="flex items-center gap-1 hover:text-[var(--color-main)] transition-colors"
@@ -192,12 +352,12 @@ function RouteComponent() {
       cell: (info) => (
         <span
           className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-            info.getValue() === "active"
+            info.getValue()
               ? "bg-green-100 text-green-800"
-              : "bg-yellow-100 text-yellow-800"
+              : "bg-gray-100 text-gray-600"
           }`}
         >
-          {info.getValue()}
+          {info.getValue() ? "Incheckad" : "Inte incheckad"}
         </span>
       ),
       enableSorting: true,
@@ -208,7 +368,7 @@ function RouteComponent() {
           className="flex items-center gap-1 hover:text-[var(--color-main)] transition-colors"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Registered At
+          Registrerad
           {{
             asc: " 🔼",
             desc: " 🔽",
@@ -222,15 +382,52 @@ function RouteComponent() {
     }),
     columnHelper.display({
       id: "actions",
-      header: "Actions",
-      cell: (props) => (
-        <button
-          onClick={() => handleShowQrCode(props.row.original)}
-          className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white px-4 py-2 rounded text-sm font-medium shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
-        >
-          Generate QR
-        </button>
-      ),
+      header: "Åtgärder",
+      cell: (props) => {
+        const isCurrentUser = currentUserUuid === props.row.original.uuid;
+        return (
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleShowQrCode(props.row.original)}
+              disabled={isGenerating || isVotingActive || isCurrentUser}
+              className={`px-3 py-1.5 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                isGenerating || isVotingActive || isCurrentUser
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+              }`}
+              title={
+                isCurrentUser ? "Kan inte generera QR-kod för dig själv" : ""
+              }
+            >
+              {isCurrentUser
+                ? "Ditt konto"
+                : isVotingActive
+                  ? "Omröstning aktiv"
+                  : isGenerating
+                    ? "..."
+                    : "Generera QR"}
+            </button>
+            <button
+              onClick={() => handleKickOut(props.row.original)}
+              disabled={isGenerating || isVotingActive || isCurrentUser}
+              className={`px-3 py-1.5 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                isGenerating || isVotingActive || isCurrentUser
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-red-500 hover:bg-red-600 text-white hover:shadow-md active:shadow-none active:translate-y-px"
+              }`}
+              title={isCurrentUser ? "Kan inte sparka ut dig själv" : ""}
+            >
+              {isCurrentUser
+                ? "Du"
+                : isVotingActive
+                  ? "Omröstning aktiv"
+                  : isGenerating
+                    ? "..."
+                    : "Sparka ut"}
+            </button>
+          </div>
+        );
+      },
     }),
   ];
 
@@ -261,20 +458,16 @@ function RouteComponent() {
     e.preventDefault();
     if (!newVoterName.trim()) return;
 
-    const newVoter: Voter = {
-      uuid: Date.now().toString(),
+    setSelectedVoter({
+      uuid: "",
       name: newVoterName.trim(),
-      registeredAt: new Date().toLocaleString(),
-      status: "pending",
-    };
-
-    setVoters((prev) => [...prev, newVoter]);
-    setSelectedVoter(newVoter);
-    generateQrCode(newVoter.name);
+      registeredAt: "",
+      loggedIn: false,
+      isHost: isNewVoterAdmin,
+    });
+    generateQrCodeForNewVoter(newVoterName.trim(), isNewVoterAdmin);
     setNewVoterName("");
-
-    // Refresh voter list after adding
-    setTimeout(() => fetchVoters(), 1000);
+    setIsNewVoterAdmin(false);
   };
 
   const handleBack = () => {
@@ -286,60 +479,125 @@ function RouteComponent() {
   }
 
   return (
-    <div className="h-screen bg-[var(--color-background)] flex">
+    <div className="min-h-screen bg-[var(--color-background)] flex flex-col lg:flex-row">
       {/* Left Pane - Voter Table */}
-      <div className="flex-1 border-r border-gray-200 flex flex-col">
+      <div className="flex-1 lg:border-r border-gray-200 flex flex-col order-2 lg:order-1">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between mb-4">
+        <div className="p-4 lg:p-6 border-b border-gray-200 bg-white">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--color-contours)] mb-2">
-                Voter Management
+              <h1 className="text-xl lg:text-2xl font-bold text-[var(--color-contours)] mb-2">
+                Deltagarhantering
               </h1>
               <p className="text-sm text-gray-600">
-                Manage registered voters for the meeting
+                Hantera registrerade deltagare för mötet
               </p>
             </div>
-            <div className="flex gap-2">
+            {isVotingActive && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 lg:p-4 mb-4 lg:mb-6">
+                <div className="flex items-start gap-2">
+                  <span className="text-orange-600 flex-shrink-0">⚠️</span>
+                  <div>
+                    <h3 className="font-medium text-orange-900 text-sm lg:text-base">
+                      Omröstning pågår
+                    </h3>
+                    <p className="text-xs lg:text-sm text-orange-800">
+                      Nya deltagare kan inte bjudas in medan omröstning pågår.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Admin Privileges Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 lg:p-4 mb-4 lg:mb-6 lg:block hidden">
+              <div className="flex items-start gap-2">
+                <span className="text-blue-600 flex-shrink-0">ℹ️</span>
+                <div>
+                  <h3 className="font-medium text-blue-900">
+                    Administratörsbehörigheter
+                  </h3>
+                  <p className="text-sm text-blue-800">
+                    Administratörer kan skapa omröstningar, hantera deltagare,
+                    visa resultat och komma åt alla möteskontroller. Vanliga
+                    deltagare kan endast rösta.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:gap-4 mb-4 lg:mb-6">
               <button
                 onClick={fetchVoters}
-                className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
+                className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base"
               >
-                Refresh
+                Uppdatera lista
               </button>
               <button
                 onClick={handleBack}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base"
               >
-                ← Back
+                Tillbaka till mötet
               </button>
             </div>
           </div>
 
           {/* Add New Voter Form */}
-          <form onSubmit={handleAddVoter} className="flex gap-3 items-end">
+          <form
+            onSubmit={handleAddVoter}
+            className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-end"
+          >
             <div className="flex-1">
               <label
                 htmlFor="voterName"
                 className="block text-sm font-medium text-gray-700 mb-2"
               >
-                Add New Voter
+                Lägg till ny deltagare
               </label>
               <input
                 id="voterName"
                 type="text"
                 value={newVoterName}
                 onChange={(e) => setNewVoterName(e.target.value)}
-                placeholder="Enter voter's full name"
-                className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
+                placeholder="Ange deltagarens fullständiga namn"
+                className="w-full p-2 lg:p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100 text-sm lg:text-base"
                 required
               />
+              <div className="flex items-center mt-2 lg:mt-3">
+                <input
+                  id="isAdmin"
+                  type="checkbox"
+                  checked={isNewVoterAdmin}
+                  onChange={(e) => setIsNewVoterAdmin(e.target.checked)}
+                  className="h-4 w-4 text-[var(--color-main)] focus:ring-[var(--color-main)] border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="isAdmin"
+                  className="ml-2 text-xs lg:text-sm text-gray-700"
+                >
+                  <span className="font-medium">Gör till admin</span>{" "}
+                  <span className="text-gray-500 hidden lg:inline">
+                    (full mötesåtkomst)
+                  </span>
+                </label>
+              </div>
             </div>
             <button
               type="submit"
-              className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white py-3 px-6 rounded font-medium shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
+              disabled={isGenerating || isVotingActive}
+              className={`py-2 lg:py-3 px-4 lg:px-6 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base whitespace-nowrap ${
+                isGenerating || isVotingActive
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+              }`}
             >
-              Add & Generate QR
+              {isVotingActive
+                ? "Omröstning aktiv"
+                : isGenerating
+                  ? "Genererar..."
+                  : isNewVoterAdmin
+                    ? "🔐 Lägg till admin"
+                    : "👤 Lägg till deltagare"}
             </button>
           </form>
         </div>
@@ -347,11 +605,11 @@ function RouteComponent() {
         {/* Table */}
         <div className="flex-1 bg-white overflow-hidden">
           <div className="h-full flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Registered Voters ({table.getFilteredRowModel().rows.length}{" "}
-                  of {voters.length})
+            <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-3 lg:mb-4 gap-2">
+                <h2 className="text-base lg:text-lg font-semibold text-gray-900">
+                  Registrerade deltagare (
+                  {table.getFilteredRowModel().rows.length} av {voters.length})
                 </h2>
               </div>
 
@@ -361,121 +619,247 @@ function RouteComponent() {
                   <input
                     value={globalFilter ?? ""}
                     onChange={(e) => setGlobalFilter(String(e.target.value))}
-                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100"
-                    placeholder="Search voters by name..."
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100 text-sm lg:text-base"
+                    placeholder="Sök deltagare efter namn..."
                   />
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-xs lg:text-sm text-gray-600 hidden lg:block">
                   {table.getFilteredRowModel().rows.length === 0 && globalFilter
-                    ? "No voters found"
+                    ? "Inga deltagare hittades"
                     : ""}
                 </div>
               </div>
             </div>
             <div className="flex-1 overflow-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0 border-b border-gray-200">
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <th
-                          key={header.id}
-                          className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"
-                        >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext(),
-                              )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {table.getRowModel().rows.map((row) => (
-                    <tr
-                      key={row.original.uuid}
-                      className="hover:bg-gray-50 transition-colors"
+              {/* Desktop Table View */}
+              <div className="hidden lg:block">
+                <table className="w-full min-w-[600px]">
+                  <thead className="bg-gray-50 sticky top-0 border-b border-gray-200">
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <th
+                            key={header.id}
+                            className="px-3 lg:px-6 py-3 lg:py-4 text-left text-xs lg:text-sm font-semibold text-gray-700 uppercase tracking-wider"
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {table.getRowModel().rows.map((row) => (
+                      <tr
+                        key={row.original.uuid}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <td
+                            key={cell.id}
+                            className="px-3 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm lg:text-base"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-3 p-3">
+                {table.getRowModel().rows.map((row) => {
+                  const voter = row.original;
+                  const isCurrentUser = currentUserUuid === voter.uuid;
+                  return (
+                    <div
+                      key={voter.uuid}
+                      className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                     >
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          className="px-6 py-4 whitespace-nowrap"
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-gray-900 text-sm">
+                              {voter.name}
+                            </h3>
+                            {voter.isHost && (
+                              <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                🔐 Admin
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <span
+                              className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                                voter.loggedIn
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {voter.loggedIn ? "Incheckad" : "Inte incheckad"}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Registrerad: {voter.registeredAt}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleShowQrCode(voter)}
+                          disabled={
+                            isGenerating || isVotingActive || isCurrentUser
+                          }
+                          className={`flex-1 py-2 px-3 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                            isGenerating || isVotingActive || isCurrentUser
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                          }`}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          {isCurrentUser
+                            ? "Ditt konto"
+                            : isVotingActive
+                              ? "Omröstning aktiv"
+                              : isGenerating
+                                ? "..."
+                                : "Generera QR"}
+                        </button>
+                        <button
+                          onClick={() => handleKickOut(voter)}
+                          disabled={
+                            isGenerating || isVotingActive || isCurrentUser
+                          }
+                          className={`py-2 px-3 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                            isGenerating || isVotingActive || isCurrentUser
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-red-500 hover:bg-red-600 text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                          }`}
+                        >
+                          {isCurrentUser
+                            ? "Du"
+                            : isVotingActive
+                              ? "Omröstning aktiv"
+                              : isGenerating
+                                ? "..."
+                                : "Sparka"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {table.getRowModel().rows.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Inga deltagare hittades</p>
+                    {globalFilter && (
+                      <p className="text-sm mt-1">
+                        Prova att justera dina söktermer
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Pane - QR Code */}
-      <div className="w-80 flex flex-col bg-white">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            QR Code Generator
+      <div className="w-full lg:w-80 flex flex-col bg-white border-b lg:border-b-0 lg:border-l border-gray-200 order-1 lg:order-2">
+        <div className="p-4 lg:p-6 border-b border-gray-200">
+          <h2 className="text-lg lg:text-xl font-semibold text-gray-900">
+            QR-kodsgenerator
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Generate access codes for voters
+            Generera åtkomstkoder för deltagare
           </p>
         </div>
 
-        <div className="flex-1 p-6 flex items-center justify-center">
+        <div className="flex-1 p-4 lg:p-6 flex items-center justify-center min-h-[300px] lg:min-h-0 overflow-y-auto">
           {selectedVoter ? (
-            <div className="text-center space-y-6 max-w-md w-full">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">QR Code for:</p>
-                <p className="font-semibold text-lg text-gray-900">
+            <div className="text-center space-y-4 lg:space-y-6 max-w-sm lg:max-w-md w-full">
+              <div className="p-3 lg:p-4 bg-gray-50 rounded-lg">
+                <p className="text-xs lg:text-sm text-gray-600 mb-1 lg:mb-2">
+                  QR-kod för:
+                </p>
+                <p className="font-semibold text-base lg:text-lg text-gray-900 break-words">
                   {selectedVoter.name}
                 </p>
               </div>
 
               {isGenerating ? (
-                <div className="flex items-center justify-center py-16">
+                <div className="flex items-center justify-center py-8 lg:py-16">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-main)] mx-auto mb-4"></div>
-                    <p className="text-gray-600">Generating QR code...</p>
+                    <div className="animate-spin rounded-full h-8 lg:h-12 w-8 lg:w-12 border-b-2 border-[var(--color-main)] mx-auto mb-3 lg:mb-4"></div>
+                    <p className="text-sm lg:text-base text-gray-600">
+                      Genererar QR-kod...
+                    </p>
                   </div>
                 </div>
               ) : qrCodeUrl ? (
-                <div className="space-y-6">
+                <div className="space-y-4 lg:space-y-6">
                   <div className="flex justify-center">
                     <img
                       src={qrCodeUrl}
                       alt={`QR Code for ${selectedVoter.name}`}
-                      className="w-64 h-64 border border-gray-200 rounded-lg shadow-sm"
+                      className="w-48 h-48 lg:w-64 lg:h-64 border border-gray-200 rounded-lg shadow-sm"
                     />
                   </div>
-                  <div className="space-y-3">
-                    <p className="text-gray-600">
-                      Scan this QR code to join the meeting as{" "}
-                      <span className="font-medium">{selectedVoter.name}</span>
+                  <div className="space-y-2 lg:space-y-3">
+                    <p className="text-sm lg:text-base text-gray-600 px-2">
+                      Skanna denna QR-kod för att gå med i mötet som{" "}
+                      <span className="font-medium break-words">
+                        {selectedVoter.name}
+                      </span>
                     </p>
                     <button
-                      onClick={() => generateQrCode(selectedVoter.name)}
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
+                      onClick={() => regenerateQrCode(selectedVoter)}
+                      disabled={
+                        isGenerating ||
+                        isVotingActive ||
+                        currentUserUuid === selectedVoter.uuid
+                      }
+                      className={`w-full lg:w-auto px-3 lg:px-4 py-2 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base ${
+                        isGenerating ||
+                        isVotingActive ||
+                        currentUserUuid === selectedVoter.uuid
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-md active:shadow-none active:translate-y-px"
+                      }`}
+                      title={
+                        currentUserUuid === selectedVoter.uuid
+                          ? "Kan inte regenerera din egen QR-kod"
+                          : ""
+                      }
                     >
-                      Regenerate QR Code
+                      {currentUserUuid === selectedVoter.uuid
+                        ? "Din QR-kod"
+                        : isVotingActive
+                          ? "Omröstning aktiv"
+                          : isGenerating
+                            ? "Genererar..."
+                            : "Regenerera QR-kod"}
                     </button>
                   </div>
                 </div>
               ) : null}
             </div>
           ) : (
-            <div className="text-center text-gray-500 max-w-sm">
-              <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 rounded-lg flex items-center justify-center">
+            <div className="text-center text-gray-500 max-w-xs lg:max-w-sm mx-auto px-4">
+              <div className="w-16 lg:w-20 h-16 lg:h-20 mx-auto mb-4 lg:mb-6 bg-gray-100 rounded-lg flex items-center justify-center">
                 <svg
-                  className="w-10 h-10 text-gray-400"
+                  className="w-8 lg:w-10 h-8 lg:h-10 text-gray-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -488,12 +872,12 @@ function RouteComponent() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No voter selected
+              <h3 className="text-base lg:text-lg font-medium text-gray-900 mb-2">
+                Ingen deltagare vald
               </h3>
-              <p className="text-gray-600">
-                Click "Generate QR" for any voter in the table to create their
-                access code
+              <p className="text-sm lg:text-base text-gray-600 leading-relaxed">
+                Klicka "Generera QR" för valfri deltagare för att skapa deras
+                åtkomstkod
               </p>
             </div>
           )}

@@ -7,7 +7,7 @@ use axum::{
     http::StatusCode,
     response::{Sse, sse::Event},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
@@ -24,6 +24,7 @@ pub struct MeetingSpecsRequest {
 pub struct MeetingSpecsResponse {
     title: String,
     participants: usize,
+    agenda: String,
 }
 
 #[derive(APIEndpointError, Debug)]
@@ -60,6 +61,7 @@ impl APIHandler for MeetingSpecs {
             Ok(Json(MeetingSpecsResponse {
                 title: meeting.title.clone(),
                 participants: meeting.voters.values().filter(|v| v.logged_in).count(),
+                agenda: meeting.agenda.clone(),
             }))
         } else {
             Err(MeetingSpecsError::MUIDNotFound)
@@ -103,6 +105,60 @@ impl APIHandler for MeetingSpecsWatch {
             Ok(Sse::new(stream))
         } else {
             Err(MeetingSpecsError::MUIDNotFound)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct UpdateAgendaRequest {
+    agenda: String,
+}
+
+#[derive(FromRequest)]
+pub struct UpdateAgendaRequestWrapper {
+    auth: AuthUser,
+    state: State<AppState>,
+    body: Json<UpdateAgendaRequest>,
+}
+
+#[derive(APIEndpointError, Debug)]
+#[api(endpoint(method = "POST", path = "api/common/update-agenda"))]
+pub enum UpdateAgendaError {
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
+    MUIDNotFound,
+}
+impl Display for UpdateAgendaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl Error for UpdateAgendaError {}
+
+pub struct UpdateAgenda;
+impl APIHandler for UpdateAgenda {
+    type State = AppState;
+    type Request = UpdateAgendaRequestWrapper;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse = ();
+    type ErrorResponse = UpdateAgendaError;
+
+    async fn route(
+        request: Self::Request,
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let UpdateAgendaRequestWrapper {
+            auth,
+            state: State(state),
+            body: Json(req),
+        } = request;
+
+        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+            meeting.agenda = req.agenda;
+            // Trigger meeting specs update
+            let _ = meeting.vote_auth.send_update();
+            Ok(())
+        } else {
+            Err(UpdateAgendaError::MUIDNotFound)
         }
     }
 }

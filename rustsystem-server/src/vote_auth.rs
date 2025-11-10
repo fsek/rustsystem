@@ -225,4 +225,8 @@ impl VoteAuthority {
     pub fn new_update_watcher(&self) -> Receiver<bool> {
         self.update_tx.subscribe()
     }
+
+    pub fn send_update(&self) {
+        self.update_tx.send(true).ok();
+    }
 }

@@ -81,11 +81,20 @@ impl APIHandler for Login {
             }
 
             let is_host = if let Some(admin_cred) = body.admin_cred {
-                meeting.admin_auth.validate_token(admin_cred)
+                info!(
+                    "Received admin credentials - msg length: {}, sig: {}",
+                    admin_cred.get_msg().len(),
+                    admin_cred.get_sig_str()
+                );
+                let is_valid = meeting.admin_auth.validate_token(admin_cred);
+                info!("Admin credential validation result: {}", is_valid);
+                is_valid
             } else {
+                info!("No admin credentials provided");
                 false
             };
 
+            info!("Creating JWT with is_host: {}", is_host);
             let jwt = get_meeting_jwt(uuuid, muuid, is_host, &state.secret);
             let new_cookie = Cookie::build(("access_token", jwt))
                 .http_only(true)

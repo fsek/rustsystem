@@ -70,9 +70,9 @@ async fn test_invite_lock() {
 
     tally(&app, cookie).await;
 
-    // This is still not fine. Voter can't be added until the round is reset
+    // Now this is fine. Voter can be added during tally phase
     let add_res = add_voter(&app, cookie, format!("Voter3"), false).await;
-    assert_eq!(add_res.status(), StatusCode::CONFLICT);
+    assert_eq!(add_res.status(), StatusCode::CREATED);
 
     end_vote_round(&app, cookie).await;
 

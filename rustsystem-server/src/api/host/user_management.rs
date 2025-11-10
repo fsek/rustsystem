@@ -12,6 +12,15 @@ use crate::{
     api::host::{auth::AuthHost, new_voter::gen_qr_code},
 };
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct VoterInfo {
+    pub name: String,
+    pub uuid: String,
+    pub registered_at: u64,
+    pub logged_in: bool,
+    pub is_host: bool,
+}
+
 #[derive(FromRequest)]
 pub struct VoterListRequest {
     auth: AuthHost,
@@ -31,8 +40,8 @@ impl APIHandler for VoterList {
     type Request = VoterListRequest;
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
-    // List of voters' names and corresponding uuuids.
-    type SuccessResponse = Json<Vec<(String, String)>>;
+    // List of voters' information.
+    type SuccessResponse = Json<Vec<VoterInfo>>;
     type ErrorResponse = VoterListError;
 
     async fn route(
@@ -45,7 +54,17 @@ impl APIHandler for VoterList {
                 meeting
                     .voters
                     .iter()
-                    .map(|(k, v)| (v.name.clone(), k.to_string()))
+                    .map(|(k, v)| VoterInfo {
+                        name: v.name.clone(),
+                        uuid: k.to_string(),
+                        registered_at: v
+                            .registered_at
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                        logged_in: v.logged_in,
+                        is_host: v.is_host,
+                    })
                     .collect(),
             ))
         } else {

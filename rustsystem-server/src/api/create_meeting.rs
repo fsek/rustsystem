@@ -63,6 +63,7 @@ impl APIHandler for CreateMeeting {
                 name: query.host_name,
                 logged_in: true,
                 is_host: true,
+                registered_at: std::time::SystemTime::now(),
             },
         );
 
@@ -73,6 +74,7 @@ impl APIHandler for CreateMeeting {
             muuid,
             crate::Meeting {
                 title: query.title,
+                agenda: String::new(),
                 voters,
                 vote_auth,
                 invite_auth,

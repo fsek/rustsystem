@@ -133,8 +133,8 @@ pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) ->
     let mut url = format!("{API_ENDPOINT}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {
         url.push_str(&format!(
-            "&admin_msg={:?}&admin_sig={}",
-            admin_cred.get_msg(),
+            "&admin_msg={}&admin_sig={}",
+            hex::encode(admin_cred.get_msg()),
             admin_cred.get_sig_str()
         ));
     }

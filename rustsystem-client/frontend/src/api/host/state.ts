@@ -37,7 +37,7 @@ export async function Tally(
   _req: TallyRequest,
 ): Promise<Result<TallyResponse, APIError>> {
   const res = await fetch("api/host/tally", {
-    method: "GET",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
   });
 
@@ -61,42 +61,6 @@ export async function EndVoteRound(
 
   if (res.ok) {
     return ok({} as TallyResponse);
-  } else {
-    const obj = await res.json();
-    return err(obj as APIError);
-  }
-}
-
-export type LockRequest = {};
-type LockResponse = {};
-
-export async function Lock(
-  _req: LockRequest,
-): Promise<Result<LockResponse, APIError>> {
-  const res = await fetch("api/host/lock", {
-    method: "POST",
-  });
-
-  if (res.ok) {
-    return ok({} as LockResponse);
-  } else {
-    const obj = await res.json();
-    return err(obj as APIError);
-  }
-}
-
-export type UnlockRequest = {};
-type UnlockResponse = {};
-
-export async function Unlock(
-  _req: LockRequest,
-): Promise<Result<UnlockResponse, APIError>> {
-  const res = await fetch("api/host/unlock", {
-    method: "POST",
-  });
-
-  if (res.ok) {
-    return ok({} as UnlockResponse);
   } else {
     const obj = await res.json();
     return err(obj as APIError);

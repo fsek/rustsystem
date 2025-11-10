@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Auth, AuthStatus, type AuthMeetingRequest } from "@/api/auth";
 import Unauthorized from "@/components/error-pages/unauthorized.tsx";
@@ -8,6 +8,12 @@ import { matchResult } from "@/result";
 import type { APIError } from "@/api/error";
 import ErrorHandler from "@/components/error";
 import FloatingControls from "@/components/meeting/host-widget/floating-controls";
+import {
+  MeetingSpecs,
+  updateAgenda,
+  type MeetingSpecsRequest,
+  type UpdateAgendaRequest,
+} from "@/api/common/meetingSpecs";
 import "@/colors.css";
 
 type SearchParams = {
@@ -30,6 +36,8 @@ function RouteComponent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
   const [error, setError] = useState<APIError | null>(null);
   const [agenda, setAgenda] = useState<string>("");
+  const [isUpdatingAgenda, setIsUpdatingAgenda] = useState(false);
+  const debounceTimerRef = useRef<number | null>(null);
   const search = Route.useSearch();
   const muuid = search.muuid;
   const uuid = search.uuuid;
@@ -38,11 +46,28 @@ function RouteComponent() {
     Auth({ muuid } satisfies AuthMeetingRequest).then((result) => {
       matchResult(result, {
         Ok: (res) => {
+          console.log("Auth response:", res);
+          console.log("Is host:", res.is_host);
           if (res.is_host) {
+            console.log("Setting auth status to VerifiedHost");
             setAuthStatus(AuthStatus.VerifiedHost);
           } else {
+            console.log("Setting auth status to VerifiedNonHost");
             setAuthStatus(AuthStatus.VerifiedNonHost);
           }
+        },
+        Err: (err) => {
+          console.error("Auth error:", err);
+          setError(err);
+        },
+      });
+    });
+
+    // Fetch meeting specs to get agenda
+    MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+      matchResult(result, {
+        Ok: (specsData) => {
+          setAgenda(specsData.agenda);
         },
         Err: (err) => {
           setError(err);
@@ -51,8 +76,44 @@ function RouteComponent() {
     });
   }, []);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  const debouncedSaveAgenda = useCallback(async (agendaText: string) => {
+    setIsUpdatingAgenda(true);
+    const result = await updateAgenda({
+      agenda: agendaText,
+    } as UpdateAgendaRequest);
+    matchResult(result, {
+      Ok: () => {
+        // Success - agenda saved
+      },
+      Err: (err) => {
+        setError(err);
+      },
+    });
+    setIsUpdatingAgenda(false);
+  }, []);
+
   const handleAgendaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setAgenda(e.target.value);
+    const newAgenda = e.target.value;
+    setAgenda(newAgenda);
+
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set new timer
+    debounceTimerRef.current = setTimeout(() => {
+      debouncedSaveAgenda(newAgenda);
+    }, 500);
   };
 
   if (error) {
@@ -64,7 +125,7 @@ function RouteComponent() {
   if (authStatus === AuthStatus.Loading) {
     rightPaneContent = (
       <div className="flex items-center justify-center h-full">
-        <div className="text-lg text-gray-600">Authenticating...</div>
+        <div className="text-lg text-gray-600">Autentiserar...</div>
       </div>
     );
   } else if (authStatus === AuthStatus.VerifiedHost) {
@@ -83,23 +144,29 @@ function RouteComponent() {
         <div className="w-1/2 border-r border-gray-200 flex flex-col">
           <div className="p-6 border-b border-gray-200 bg-white">
             <h2 className="text-xl font-semibold text-[var(--color-contours)] mb-2">
-              Meeting Agenda
+              Mötesagenda
             </h2>
             <p className="text-sm text-gray-600">
-              Use this space to track agenda items and notes
+              Använd detta utrymme för att spåra dagordningspunkter och
+              anteckningar
             </p>
           </div>
           <div className="flex-1 p-6 bg-white">
             <textarea
               value={agenda}
               onChange={handleAgendaChange}
-              placeholder="Add agenda items, notes, and discussion points here..."
+              placeholder="Lägg till dagordningspunkter, anteckningar och diskussionspunkter här..."
               className="w-full h-full resize-none border-0 focus:outline-none focus:ring-0 text-gray-700 placeholder-gray-400 text-base leading-relaxed"
               style={{
                 fontFamily:
                   'ui-monospace, "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
               }}
             />
+            {isUpdatingAgenda && (
+              <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                Sparar...
+              </div>
+            )}
           </div>
         </div>
 

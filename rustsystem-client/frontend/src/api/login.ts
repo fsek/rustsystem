@@ -1,9 +1,15 @@
 import { err, ok, type Result } from "@/result";
 import type { APIError } from "./error";
 
+export type AdminCred = {
+  msg: number[];
+  sig: string;
+};
+
 export type LoginRequest = {
   muuid: any;
   uuuid: any;
+  admin_cred?: AdminCred;
 };
 
 type LoginResponse = {};

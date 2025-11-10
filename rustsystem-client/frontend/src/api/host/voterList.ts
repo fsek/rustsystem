@@ -3,10 +3,21 @@ import type { APIError } from "../error";
 
 export type VoterListRequest = {};
 
+export type VoterInfo = {
+  name: string;
+  uuid: string;
+  registered_at: number;
+  logged_in: boolean;
+  is_host: boolean;
+};
+
 export type VoterListResponse = {
   voters: Array<{
     name: string;
     uuid: string;
+    registeredAt: string;
+    loggedIn: boolean;
+    isHost: boolean;
   }>;
 };
 
@@ -19,11 +30,14 @@ export async function VoterList(
   });
 
   if (res.ok) {
-    const data = await res.json();
-    // Backend returns Vec<(String, String)> - convert to our format
-    const voters = data.map(([name, uuid]: [string, string]) => ({
-      name,
-      uuid,
+    const data: VoterInfo[] = await res.json();
+    // Backend returns Vec<VoterInfo> - convert to our format
+    const voters = data.map((voterInfo) => ({
+      name: voterInfo.name,
+      uuid: voterInfo.uuid,
+      registeredAt: new Date(voterInfo.registered_at * 1000).toLocaleString(),
+      loggedIn: voterInfo.logged_in,
+      isHost: voterInfo.is_host,
     }));
     return ok({ voters });
   } else {

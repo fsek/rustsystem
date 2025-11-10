@@ -14,16 +14,8 @@ pub async fn try_register(
 ) -> Result<RegistrationResult, JsError> {
     log("Trying to register");
 
-    let uuid = voter_id
-        .parse::<u128>()
-        .map_err(JsError::from)?
-        .to_be_bytes()
-        .to_vec();
-    let muid = meeting_id
-        .parse::<u128>()
-        .map_err(JsError::from)?
-        .to_be_bytes()
-        .to_vec();
+    let uuid = voter_id.into_bytes();
+    let muid = meeting_id.into_bytes();
 
     let (context, token, commitment, proof) = Sha256Provider::generate_token(uuid, muid).unwrap();
     let info = Sha256Provider::new_reg_info(context, commitment);

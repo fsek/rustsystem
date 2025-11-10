@@ -1,4 +1,7 @@
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 use api_core::APIHandler;
 
@@ -8,7 +11,7 @@ mod state;
 use state::{VoteActive, VoteStateWatch};
 
 mod meeting_specs;
-use meeting_specs::{MeetingSpecs, MeetingSpecsWatch};
+use meeting_specs::{MeetingSpecs, MeetingSpecsWatch, UpdateAgenda};
 
 pub mod common_responses;
 
@@ -19,4 +22,5 @@ pub fn common_routes() -> Router<AppState> {
         .route("/vote-active", get(VoteActive::handler))
         .route("/meeting-specs", get(MeetingSpecs::handler))
         .route("/meeting-specs-watch", get(MeetingSpecsWatch::handler))
+        .route("/update-agenda", post(UpdateAgenda::handler))
 }

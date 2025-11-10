@@ -1,8 +1,16 @@
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 // Required on the frontend (already wasm_bindgen)
 pub use rustsystem_proof::{BallotMetaData, BallotValidation};
+
+#[derive(Serialize)]
+struct StartVoteRequest {
+    name: String,
+    shuffle: bool,
+    metadata: BallotMetaData,
+}
 
 mod utils;
 
@@ -25,5 +33,10 @@ pub fn new_ballot_validation(
 
 #[wasm_bindgen]
 pub fn start_vote_json_req(name: String, metadata: BallotMetaData) -> Result<JsValue, JsError> {
-    serde_wasm_bindgen::to_value(&(name, metadata)).map_err(JsError::from)
+    let request = StartVoteRequest {
+        name,
+        shuffle: false,
+        metadata,
+    };
+    serde_wasm_bindgen::to_value(&request).map_err(JsError::from)
 }

@@ -8,6 +8,7 @@ use crate::{
         voter_id, voter_list, voter_login,
     },
 };
+use rustsystem_server::api::host::user_management::VoterInfo;
 
 #[tokio::test]
 async fn simple_list() {
@@ -17,9 +18,9 @@ async fn simple_list() {
 
     let list_res = voter_list(&app, cookie).await;
     assert_eq!(list_res.status(), StatusCode::OK);
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 1);
-    assert_eq!(voters[0].0, "Creator");
+    assert_eq!(voters[0].name, "Creator");
 }
 
 #[tokio::test]
@@ -47,7 +48,7 @@ async fn test_remove_one() {
 
     // check list of users
     let list_res = voter_list(&app, cookie).await;
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 0);
 }
 
@@ -73,7 +74,7 @@ async fn test_add_remove_one() {
 
     // check list of users
     let list_res = voter_list(&app, cookie).await;
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 2);
 
     let id_res = voter_id(&app, cookie, String::from("Voter")).await;
@@ -84,7 +85,7 @@ async fn test_add_remove_one() {
 
     // check list of users
     let list_res = voter_list(&app, cookie).await;
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 1);
 }
 
@@ -98,7 +99,7 @@ async fn test_remove_pending() {
 
     // check list of users
     let list_res = voter_list(&app, cookie).await;
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 2);
 
     let id_res = voter_id(&app, cookie, String::from("Voter")).await;
@@ -109,7 +110,7 @@ async fn test_remove_pending() {
 
     // check list of users
     let list_res = voter_list(&app, cookie).await;
-    let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+    let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
     assert_eq!(voters.len(), 1);
 }
 
@@ -132,7 +133,7 @@ async fn test_add_remove_many() {
 
         // check list of users
         let list_res = voter_list(&app, cookie).await;
-        let voters = parse_response_body::<Vec<(String, String)>>(list_res).await;
+        let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
         assert_eq!(voters.len(), 10 - i);
     }
 }

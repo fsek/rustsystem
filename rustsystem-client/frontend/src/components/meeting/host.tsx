@@ -1,80 +1,129 @@
 import React, { useEffect, useState } from "react";
-import { MeetingSpecs, meetingSpecsWatch, type MeetingSpecsRequest, type MeetingSpecsResponse } from '@/api/common/meetingSpecs';
-import { matchResult } from '@/result';
-import type { APIError } from '@/api/error';
-import ErrorHandler from '../error';
-import CreationPage from './host-page/creation';
+import {
+  MeetingSpecs,
+  meetingSpecsWatch,
+  type MeetingSpecsRequest,
+  type MeetingSpecsResponse,
+} from "@/api/common/meetingSpecs";
+import { matchResult } from "@/result";
+import type { APIError } from "@/api/error";
+import ErrorHandler from "../error";
+import CreationPage from "./host-page/creation";
 import VotingPage from "./host-page/voting";
 import { voteStateWatch } from "@/api/common/state";
 import TallyPage from "./host-page/tally";
 import type { TallyResponse } from "@/api/host/state";
 
 interface HostPageProps {
-  muid: any,
+  muid: string;
 }
 
-export const HostPageDisplay = {
-  // Stages of the voting process (from the host side)
-  Creation: 1,
-  Voting: 2,
-  Tally: 3,
-} as const;
-export type HostPageDisplay = (typeof HostPageDisplay)[keyof typeof HostPageDisplay];
+export enum VoteState {
+  Creation = "Creation",
+  Voting = "Voting",
+  Tally = "Tally",
+}
 
 const HostPage: React.FC<HostPageProps> = ({ muid }) => {
-  const voteStateEvent = voteStateWatch();
-  const specsEvent = meetingSpecsWatch();
-  const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(undefined);
-  const [currentHostPageDisplay, setHostPageDisplay] = useState<HostPageDisplay>(HostPageDisplay.Creation)
+  const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(
+    undefined,
+  );
+  const [currentState, setCurrentState] = useState<VoteState>(
+    VoteState.Creation,
+  );
   const [error, setError] = useState<APIError | null>(null);
   const [tally, setTally] = useState<TallyResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  voteStateEvent.onmessage = function (event) {
-    if (currentHostPageDisplay === HostPageDisplay.Creation) {
-      if (event.data === "Creation") {
-        setHostPageDisplay(HostPageDisplay.Creation)
-      } else if (event.data === "Voting") {
-        setHostPageDisplay(HostPageDisplay.Voting)
-      } else if (event.data === "Tally") {
-        setHostPageDisplay(HostPageDisplay.Tally)
-      }
-    }
-  }
-
-  function fetchSpecs() {
-    useEffect(() => {
-      MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
-        matchResult(result, {
-          Ok: (s) => { setSpecs(s) },
-          Err: (err) => { setError(err) }
-        })
+  // Fetch meeting specs
+  useEffect(() => {
+    const fetchSpecs = async () => {
+      const result = await MeetingSpecs({} as MeetingSpecsRequest);
+      matchResult(result, {
+        Ok: (s) => {
+          setSpecs(s);
+          setIsLoading(false);
+        },
+        Err: (err) => {
+          setError(err);
+          setIsLoading(false);
+        },
       });
-    }, []);
-  }
+    };
 
-  // Get specs on load/reload
-  fetchSpecs();
+    fetchSpecs();
+  }, []);
 
-  // Watch for updates
-  specsEvent.onmessage = function (event) {
-    if (event.data === "NewData") {
-      fetchSpecs();
-    }
-  }
+  // Watch for vote state changes
+  useEffect(() => {
+    const voteStateEvent = voteStateWatch();
+
+    voteStateEvent.onmessage = function (event) {
+      const newState = event.data as string;
+      if (Object.values(VoteState).includes(newState as VoteState)) {
+        setCurrentState(newState as VoteState);
+      }
+    };
+
+    return () => {
+      voteStateEvent.close();
+    };
+  }, []);
+
+  // Watch for meeting specs updates
+  useEffect(() => {
+    const specsEvent = meetingSpecsWatch();
+
+    specsEvent.onmessage = function (event) {
+      if (event.data === "NewData") {
+        MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+          matchResult(result, {
+            Ok: (s) => setSpecs(s),
+            Err: (err) => setError(err),
+          });
+        });
+      }
+    };
+
+    return () => {
+      specsEvent.close();
+    };
+  }, []);
 
   if (error) {
-    return <ErrorHandler error={error} />
+    return <ErrorHandler error={error} />;
   }
-  switch (currentHostPageDisplay) {
-    case HostPageDisplay.Creation:
-      return <CreationPage specs={specs} muid={muid} setHostPageDisplay={setHostPageDisplay} setError={setError} />;
-    case HostPageDisplay.Voting:
-      return <VotingPage specs={specs} setHostPageDisplay={setHostPageDisplay} setError={setError} setTally={setTally} />
-    case HostPageDisplay.Tally:
-      return <TallyPage setHostPageDisplay={setHostPageDisplay} setError={setError} tally={tally}></TallyPage>
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading meeting...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const commonProps = {
+    specs,
+    muid,
+    setError,
+    setTally,
+    currentState,
+    setCurrentState,
+  };
+
+  switch (currentState) {
+    case VoteState.Creation:
+      return <CreationPage {...commonProps} />;
+    case VoteState.Voting:
+      return <VotingPage {...commonProps} />;
+    case VoteState.Tally:
+      return <TallyPage {...commonProps} tally={tally} />;
     default:
-      setHostPageDisplay(HostPageDisplay.Creation);
+      return <CreationPage {...commonProps} />;
   }
-}
+};
 
 export default HostPage;

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr};
+use std::collections::HashSet;
 
 use ed25519_dalek::{
     Signature, SignatureError, SigningKey, VerifyingKey, ed25519::signature::SignerMut,
@@ -29,7 +29,13 @@ impl AdminCred {
     }
 
     pub fn get_sig(&self) -> Result<Signature, SignatureError> {
-        Signature::from_str(&self.sig)
+        let bytes = hex::decode(&self.sig).map_err(|_| SignatureError::new())?;
+        if bytes.len() != 64 {
+            return Err(SignatureError::new());
+        }
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes.copy_from_slice(&bytes);
+        Ok(Signature::from_bytes(&sig_bytes))
     }
 
     pub fn get_sig_str(&self) -> &str {
@@ -52,18 +58,20 @@ impl AdminAuthority {
     pub fn new_token(&mut self) -> AdminCred {
         let mut msg = [0u8; 32];
         OsRng.fill_bytes(&mut msg);
-        AdminCred::new(msg, self.signing_key.sign(&msg).to_string())
+        let signature = self.signing_key.sign(&msg);
+        AdminCred::new(msg, hex::encode(signature.to_bytes()))
     }
 
     pub fn validate_token(&mut self, cred: AdminCred) -> bool {
         if let Ok(sig) = cred.get_sig()
-            && !self.expired_msgs.contains(cred.get_msg()) {
-                self.expired_msgs.insert(*cred.get_msg());
-                return self
-                    .verifying_key
-                    .verify_strict(cred.get_msg(), &sig)
-                    .is_ok();
-            }
+            && !self.expired_msgs.contains(cred.get_msg())
+        {
+            self.expired_msgs.insert(*cred.get_msg());
+            return self
+                .verifying_key
+                .verify_strict(cred.get_msg(), &sig)
+                .is_ok();
+        }
         false
     }
 }

@@ -88,7 +88,15 @@ impl APIHandler for Tally {
         if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             let vote_auth = meeting.get_auth();
 
-            Ok(Json(vote_auth.finalize_round()?))
+            let tally_result = vote_auth.finalize_round()?;
+
+            // Unlock the meeting during tally phase to allow invitations between voting sessions.
+            // This enables hosts to invite new participants while results are being displayed,
+            // before starting the next vote round. The meeting will remain unlocked until
+            // a new vote starts (which locks it again).
+            meeting.unlock();
+
+            Ok(Json(tally_result))
         } else {
             Err(TallyError::MUIDNotFound)
         }

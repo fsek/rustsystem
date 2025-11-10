@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  Lock,
-  Unlock,
-  type LockRequest,
-  type UnlockRequest,
-} from "@/api/host/state";
+
 import {
   MeetingSpecs,
   meetingSpecsWatch,
@@ -63,31 +58,13 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
     navigate({ to: "/invite", search: { muid } });
   };
 
-  const handleLock = () => {
-    Lock({} as LockRequest).then((result) => {
-      matchResult(result, {
-        Ok: () => {},
-        Err: (err) => setError(err),
-      });
-    });
-  };
-
-  const handleUnlock = () => {
-    Unlock({} as UnlockRequest).then((result) => {
-      matchResult(result, {
-        Ok: () => {},
-        Err: (err) => setError(err),
-      });
-    });
-  };
-
   return (
     <div className="fixed bottom-6 right-6 bg-white border border-gray-200 rounded-lg shadow-lg p-4 flex items-center gap-4 z-50">
       {/* Voter Count */}
       <div className="flex items-center gap-2">
         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
         <span className="text-sm font-medium text-gray-700">
-          {specs?.participants ?? 0} voters
+          {specs?.participants ?? 0} deltagare
         </span>
       </div>
 
@@ -99,21 +76,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
         onClick={handleInvite}
         className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white px-3 py-2 rounded text-sm font-medium shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
       >
-        Invite
-      </button>
-
-      {/* Lock/Unlock Buttons */}
-      <button
-        onClick={handleLock}
-        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm font-medium shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
-      >
-        🔒 Lock
-      </button>
-      <button
-        onClick={handleUnlock}
-        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm font-medium shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100"
-      >
-        🔓 Unlock
+        Bjud in
       </button>
     </div>
   );

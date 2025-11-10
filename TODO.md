@@ -8,11 +8,11 @@
 - [ ] Doc tests for proof
 - [x] Fix UUID
 - [x] Host Universal Auth Token
-- [ ] Meeting agenda update as we go
+- [x] Meeting agenda update as we go
 
 ### Client Side
 
-- [ ] Host/Voter Page
-- [ ] Start Page
-- [ ] Invite Voter/Host
-- [ ] Agenda Viewer
+- [x] Host/Voter Page
+- [x] Start Page
+- [x] Invite Voter/Host
+- [x] Agenda Viewer

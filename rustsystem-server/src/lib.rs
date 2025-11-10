@@ -35,10 +35,12 @@ pub struct Voter {
     name: String,
     logged_in: bool,
     is_host: bool,
+    registered_at: std::time::SystemTime,
 }
 
 pub struct Meeting {
     title: String,
+    agenda: String,
     voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
@@ -53,6 +55,7 @@ impl Meeting {
                 name,
                 logged_in: false,
                 is_host,
+                registered_at: std::time::SystemTime::now(),
             },
         )
     }
