@@ -3,7 +3,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
     AppState, MUuid, UUuid, Voter,
@@ -13,7 +13,7 @@ use crate::{
     vote_auth::VoteAuthority,
 };
 
-use api_core::{APIHandler, APIResult};
+use api_core::{APIErrorCode, APIHandler, APIResult};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateMeetingRequest {
@@ -29,7 +29,10 @@ pub struct CreateMeetingResponse {
 
 #[derive(APIEndpointError)]
 #[api(endpoint(method = "POST", path = "/create-meeting"))]
-pub enum CreateMeetingError {}
+pub enum CreateMeetingError {
+    #[api(code = APIErrorCode::Other, status=500)]
+    Other,
+}
 
 /// Endpoint for creating a new meeting resource
 ///
@@ -47,7 +50,13 @@ impl APIHandler for CreateMeeting {
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (jar, State(state), Json(query)) = request;
 
-        let (uuuid, muuid, jwt) = new_meeting_jwt(&state.secret);
+        let (uuuid, muuid, jwt) = match new_meeting_jwt(&state.secret) {
+            Ok(res) => res,
+            Err(e) => {
+                error!("{e}");
+                return Err(CreateMeetingError::Other);
+            }
+        };
         let new_cookie = new_cookie(jwt, state.is_secure);
 
         info!("Creating new meeting with id {muuid} and host {uuuid}");

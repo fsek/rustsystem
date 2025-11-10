@@ -35,7 +35,12 @@ struct MeetingClaims {
 
 // TODO: Improve security by refreshing JWT or switching to server based sessions.
 // The 12 hours is fine for now. Realistically, stealing JWTs over TLS is very difficult.
-fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 32]) -> String {
+fn create_meeting_jwt(
+    uuuid: UUuid,
+    muuid: MUuid,
+    is_host: bool,
+    secret: &[u8; 32],
+) -> Result<String, jsonwebtoken::errors::Error> {
     let expiration = Utc::now()
         .checked_add_signed(chrono::Duration::hours(12))
         .expect("valid timestamp")
@@ -53,7 +58,6 @@ fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 3
         &claims,
         &EncodingKey::from_secret(secret.as_ref()),
     )
-    .unwrap()
 }
 
 pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
@@ -65,14 +69,25 @@ pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
         .into()
 }
 
-pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUuid, MUuid, String) {
+pub fn new_meeting_jwt(
+    secret: &[u8; 32],
+) -> Result<(UUuid, MUuid, String), jsonwebtoken::errors::Error> {
     let uuuid = Uuid::new_v4();
     let muuid = Uuid::new_v4();
 
-    (uuuid, muuid, create_meeting_jwt(uuuid, muuid, true, secret))
+    Ok((
+        uuuid,
+        muuid,
+        create_meeting_jwt(uuuid, muuid, true, secret)?,
+    ))
 }
 
-pub fn get_meeting_jwt(uuid: UUuid, muid: MUuid, is_host: bool, secret: &[u8; 32]) -> String {
+pub fn get_meeting_jwt(
+    uuid: UUuid,
+    muid: MUuid,
+    is_host: bool,
+    secret: &[u8; 32],
+) -> Result<String, jsonwebtoken::errors::Error> {
     create_meeting_jwt(uuid, muid, is_host, secret)
 }
 

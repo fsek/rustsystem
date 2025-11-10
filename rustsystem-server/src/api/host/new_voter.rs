@@ -138,8 +138,9 @@ pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) ->
             admin_cred.get_sig_str()
         ));
     }
-    info!("{url}");
+    info!("Creating QR code from {url}");
 
-    let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H).unwrap();
+    let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)
+        .expect(&format!("Creation of QR code was unsuccessful. url: {url}"));
     code.render::<svg::Color>().min_dimensions(200, 200).build()
 }

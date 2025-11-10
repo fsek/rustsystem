@@ -34,6 +34,9 @@ pub enum LoginError {
 
     #[api(code = APIErrorCode::UUIDAlreadyClaimed, status=409)]
     UUIDAlreadyClaimed,
+
+    #[api(code = APIErrorCode::Other, status=500)]
+    Other,
 }
 
 /// Endpoint for logging in and claiming a UUID (voter)
@@ -96,7 +99,13 @@ impl APIHandler for Login {
             };
 
             info!("Creating JWT with is_host: {}", is_host);
-            let jwt = get_meeting_jwt(uuuid, muuid, is_host, &state.secret);
+            let jwt = match get_meeting_jwt(uuuid, muuid, is_host, &state.secret) {
+                Ok(token) => token,
+                Err(e) => {
+                    error!("{e}");
+                    return Err(LoginError::Other);
+                }
+            };
             let new_cookie = new_cookie(jwt, state.is_secure);
 
             info!("Voter with id {uuuid} has been accepted");

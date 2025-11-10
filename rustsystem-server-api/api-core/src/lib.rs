@@ -50,6 +50,8 @@ pub enum APIErrorCode {
     AuthError,
 
     InvalidStatusCode,
+
+    Other,
 }
 impl APIErrorCode {
     pub fn message(self) -> &'static str {
@@ -93,6 +95,8 @@ impl APIErrorCode {
 
             // System faults - Immediate cause for patch.
             Self::InvalidStatusCode => "Invalid HTTP status code.",
+
+            Self::Other => "An unexpected error occured. Please contact an admin.",
         }
     }
 }
