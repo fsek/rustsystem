@@ -1,9 +1,9 @@
 import { Auth, type AuthMeetingRequest, AuthStatus } from "@/api/auth";
 import {
-	MeetingSpecs,
-	type MeetingSpecsRequest,
-	type UpdateAgendaRequest,
-	updateAgenda,
+  MeetingSpecs,
+  type MeetingSpecsRequest,
+  type UpdateAgendaRequest,
+  updateAgenda,
 } from "@/api/common/meetingSpecs";
 import type { APIError } from "@/api/error";
 import ErrorHandler from "@/components/error";
@@ -17,124 +17,124 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "@/colors.css";
 
 type SearchParams = {
-	muuid: string;
-	uuuid: string;
+  muuid: string;
+  uuuid: string;
 };
 
 export const Route = createFileRoute("/meeting")({
-	validateSearch: (search): SearchParams => {
-		return {
-			muuid: (search.muuid as string) ?? "",
-			uuuid: (search.uuuid as string) ?? "",
-		};
-	},
+  validateSearch: (search): SearchParams => {
+    return {
+      muuid: (search.muuid as string) ?? "",
+      uuuid: (search.uuuid as string) ?? "",
+    };
+  },
 
-	component: RouteComponent,
+  component: RouteComponent,
 });
 
 function RouteComponent() {
-	const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
-	const [error, setError] = useState<APIError | null>(null);
-	const [agenda, setAgenda] = useState<string>("");
-	const [isUpdatingAgenda, setIsUpdatingAgenda] = useState(false);
-	const debounceTimerRef = useRef<number | null>(null);
-	const search = Route.useSearch();
-	const muuid = search.muuid;
-	const uuid = search.uuuid;
+  const [authStatus, setAuthStatus] = useState<AuthStatus>(AuthStatus.Loading);
+  const [error, setError] = useState<APIError | null>(null);
+  const [agenda, setAgenda] = useState<string>("");
+  const [isUpdatingAgenda, setIsUpdatingAgenda] = useState(false);
+  const debounceTimerRef = useRef<number | null>(null);
+  const search = Route.useSearch();
+  const muuid = search.muuid;
+  const uuid = search.uuuid;
 
-	useEffect(() => {
-		Auth({ muuid } satisfies AuthMeetingRequest).then((result) => {
-			matchResult(result, {
-				Ok: (res) => {
-					console.log("Auth response:", res);
-					console.log("Is host:", res.is_host);
-					if (res.is_host) {
-						console.log("Setting auth status to VerifiedHost");
-						setAuthStatus(AuthStatus.VerifiedHost);
-					} else {
-						console.log("Setting auth status to VerifiedNonHost");
-						setAuthStatus(AuthStatus.VerifiedNonHost);
-					}
-				},
-				Err: (err) => {
-					console.error("Auth error:", err);
-					setError(err);
-				},
-			});
-		});
+  useEffect(() => {
+    Auth({ muuid } satisfies AuthMeetingRequest).then((result) => {
+      matchResult(result, {
+        Ok: (res) => {
+          console.log("Auth response:", res);
+          console.log("Is host:", res.is_host);
+          if (res.is_host) {
+            console.log("Setting auth status to VerifiedHost");
+            setAuthStatus(AuthStatus.VerifiedHost);
+          } else {
+            console.log("Setting auth status to VerifiedNonHost");
+            setAuthStatus(AuthStatus.VerifiedNonHost);
+          }
+        },
+        Err: (err) => {
+          console.error("Auth error:", err);
+          setError(err);
+        },
+      });
+    });
 
-		// Fetch meeting specs to get agenda
-		MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
-			matchResult(result, {
-				Ok: (specsData) => {
-					setAgenda(specsData.agenda);
-				},
-				Err: (err) => {
-					setError(err);
-				},
-			});
-		});
-	}, []);
+    // Fetch meeting specs to get agenda
+    MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+      matchResult(result, {
+        Ok: (specsData) => {
+          setAgenda(specsData.agenda);
+        },
+        Err: (err) => {
+          setError(err);
+        },
+      });
+    });
+  }, []);
 
-	// Cleanup timer on unmount
-	useEffect(() => {
-		return () => {
-			if (debounceTimerRef.current) {
-				clearTimeout(debounceTimerRef.current);
-			}
-		};
-	}, []);
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
-	const debouncedSaveAgenda = useCallback(async (agendaText: string) => {
-		setIsUpdatingAgenda(true);
-		const result = await updateAgenda({
-			agenda: agendaText,
-		} as UpdateAgendaRequest);
-		matchResult(result, {
-			Ok: () => {
-				// Success - agenda saved
-			},
-			Err: (err) => {
-				setError(err);
-			},
-		});
-		setIsUpdatingAgenda(false);
-	}, []);
+  const debouncedSaveAgenda = useCallback(async (agendaText: string) => {
+    setIsUpdatingAgenda(true);
+    const result = await updateAgenda({
+      agenda: agendaText,
+    } as UpdateAgendaRequest);
+    matchResult(result, {
+      Ok: () => {
+        // Success - agenda saved
+      },
+      Err: (err) => {
+        setError(err);
+      },
+    });
+    setIsUpdatingAgenda(false);
+  }, []);
 
-	const handleAgendaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		const newAgenda = e.target.value;
-		setAgenda(newAgenda);
+  const handleAgendaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newAgenda = e.target.value;
+    setAgenda(newAgenda);
 
-		// Clear existing timer
-		if (debounceTimerRef.current) {
-			clearTimeout(debounceTimerRef.current);
-		}
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
 
-		// Set new timer
-		debounceTimerRef.current = setTimeout(() => {
-			debouncedSaveAgenda(newAgenda);
-		}, 500);
-	};
+    // Set new timer
+    debounceTimerRef.current = setTimeout(() => {
+      debouncedSaveAgenda(newAgenda);
+    }, 500);
+  };
 
-	if (error) {
-		return <ErrorHandler error={error} />;
-	}
+  if (error) {
+    return <ErrorHandler error={error} />;
+  }
 
-	let rightPaneContent = null;
+  let rightPaneContent = null;
 
-	if (authStatus === AuthStatus.Loading) {
-		rightPaneContent = (
-			<div className="flex items-center justify-center h-full">
-				<div className="text-lg text-gray-600">Autentiserar...</div>
-			</div>
-		);
-	} else if (authStatus === AuthStatus.VerifiedHost) {
-		rightPaneContent = <HostPage muid={muuid} />;
-	} else if (authStatus === AuthStatus.VerifiedNonHost) {
-		rightPaneContent = <VoterPage muid={muuid} uuid={uuid} />;
-	} else if (authStatus === AuthStatus.Denied) {
-		rightPaneContent = <Unauthorized />;
-	}
+  if (authStatus === AuthStatus.Loading) {
+    rightPaneContent = (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-lg text-gray-600">Autentiserar...</div>
+      </div>
+    );
+  } else if (authStatus === AuthStatus.VerifiedHost) {
+    rightPaneContent = <HostPage muid={muuid} />;
+  } else if (authStatus === AuthStatus.VerifiedNonHost) {
+    rightPaneContent = <VoterPage muid={muuid} uuid={uuid} />;
+  } else if (authStatus === AuthStatus.Denied) {
+    rightPaneContent = <Unauthorized />;
+  }
 
 	// Host view - split panes with agenda
 	if (authStatus === AuthStatus.VerifiedHost) {
@@ -170,21 +170,21 @@ function RouteComponent() {
 					</div>
 				</div>
 
-				{/* Right Pane - Host Content */}
-				<div className="w-1/2 flex flex-col overflow-hidden">
-					<div className="flex-1 overflow-y-auto">{rightPaneContent}</div>
-				</div>
+        {/* Right Pane - Host Content */}
+        <div className="w-1/2 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto">{rightPaneContent}</div>
+        </div>
 
-				{/* Floating Controls */}
-				<FloatingControls muid={muuid} setError={setError} />
-			</div>
-		);
-	}
+        {/* Floating Controls */}
+        <FloatingControls muid={muuid} setError={setError} />
+      </div>
+    );
+  }
 
-	// Voter/other views - normal full-width layout
-	return (
-		<div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
-			{rightPaneContent}
-		</div>
-	);
+  // Voter/other views - normal full-width layout
+  return (
+    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-contours)] font-sans leading-relaxed transition-colors duration-500">
+      {rightPaneContent}
+    </div>
+  );
 }
