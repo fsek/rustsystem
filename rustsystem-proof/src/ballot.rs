@@ -1,4 +1,7 @@
-use std::io::{self, Error, ErrorKind};
+use std::{
+    collections::HashSet,
+    io::{self, Error, ErrorKind},
+};
 
 use serde::{Deserialize, Serialize};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
@@ -122,6 +125,19 @@ impl BallotMetaData {
 
     pub fn set_candidates(&mut self, new_candidates: Candidates) {
         self.candidates = new_candidates;
+    }
+
+    pub fn check_valid(&self) -> bool {
+        let set: HashSet<_> = self.candidates.iter().collect();
+        if set.len() != self.candidates.len() {
+            return false;
+        }
+
+        if self.max_choices > self.candidates.len() {
+            return false;
+        }
+
+        true
     }
 }
 

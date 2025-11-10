@@ -28,6 +28,8 @@ pub struct StartVoteRequest {
 pub enum StartVoteError {
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
+    #[api(code = APIErrorCode::InvalidMetaData, status = 409)]
+    InvalidMetaData,
     #[api(code = APIErrorCode::InvalidState, status = 409)]
     InvalidState,
 }
@@ -44,6 +46,10 @@ impl APIHandler for StartVote {
         request: Self::Request,
     ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
         let (auth, State(state), Json(body)) = request;
+
+        if !body.metadata.check_valid() {
+            return Err(StartVoteError::InvalidMetaData);
+        }
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             if meeting.get_auth().is_inactive() {
