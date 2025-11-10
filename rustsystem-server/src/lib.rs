@@ -10,6 +10,7 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     set_header::SetResponseHeaderLayer,
 };
+use tracing::info;
 
 mod admin_auth;
 pub mod api;
@@ -88,12 +89,18 @@ pub type ActiveMeetings = Arc<Mutex<HashMap<MUuid, Meeting>>>;
 pub struct AppState {
     secret: [u8; 32],
     meetings: ActiveMeetings,
+    // decides whether cookies should be sent as secure (i.e. require https). This should be true
+    // for prod and false for dev
+    is_secure: bool,
 }
 
 pub fn app() -> Router {
+    let is_secure = API_ENDPOINT.starts_with("https://");
+    info!("Running rustsystem server with secure setting: {is_secure}");
     let state: AppState = AppState {
         secret: get_secret().unwrap(),
         meetings: Arc::new(Mutex::new(HashMap::new())),
+        is_secure,
     };
 
     let serve_dir = ServeDir::new("../frontend/dist")

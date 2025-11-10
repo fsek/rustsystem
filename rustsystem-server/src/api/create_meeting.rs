@@ -1,16 +1,16 @@
 use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
-use axum_extra::extract::{
-    CookieJar,
-    cookie::{self, Cookie},
-};
+use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
 
 use crate::{
-    AppState, MUuid, UUuid, Voter, admin_auth::AdminAuthority, invite_auth::InviteAuthority,
-    tokens::new_meeting_jwt, vote_auth::VoteAuthority,
+    AppState, MUuid, UUuid, Voter,
+    admin_auth::AdminAuthority,
+    invite_auth::InviteAuthority,
+    tokens::{new_cookie, new_meeting_jwt},
+    vote_auth::VoteAuthority,
 };
 
 use api_core::{APIHandler, APIResult};
@@ -48,11 +48,7 @@ impl APIHandler for CreateMeeting {
         let (jar, State(state), Json(query)) = request;
 
         let (uuuid, muuid, jwt) = new_meeting_jwt(&state.secret);
-        let new_cookie = Cookie::build(("access_token", jwt))
-            .http_only(true)
-            .secure(true)
-            .same_site(cookie::SameSite::Strict)
-            .path("/");
+        let new_cookie = new_cookie(jwt, state.is_secure);
 
         info!("Creating new meeting with id {muuid} and host {uuuid}");
         let mut meetings = state.meetings.lock().await;

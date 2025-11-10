@@ -12,7 +12,10 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
-use axum_extra::extract::CookieJar;
+use axum_extra::extract::{
+    CookieJar,
+    cookie::{self, Cookie},
+};
 use base64::prelude::*;
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
@@ -51,6 +54,15 @@ fn create_meeting_jwt(uuuid: UUuid, muuid: MUuid, is_host: bool, secret: &[u8; 3
         &EncodingKey::from_secret(secret.as_ref()),
     )
     .unwrap()
+}
+
+pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
+    Cookie::build(("access_token", jwt))
+        .http_only(true)
+        .same_site(cookie::SameSite::Strict)
+        .path("/")
+        .secure(is_secure)
+        .into()
 }
 
 pub fn new_meeting_jwt(secret: &[u8; 32]) -> (UUuid, MUuid, String) {

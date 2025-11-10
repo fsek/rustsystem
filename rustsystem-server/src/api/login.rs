@@ -1,15 +1,16 @@
 use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
-use axum_extra::extract::{
-    CookieJar,
-    cookie::{self, Cookie},
-};
+use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
 
-use crate::{AppState, admin_auth::AdminCred, tokens::get_meeting_jwt};
+use crate::{
+    AppState,
+    admin_auth::AdminCred,
+    tokens::{get_meeting_jwt, new_cookie},
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct LoginRequest {
@@ -96,11 +97,7 @@ impl APIHandler for Login {
 
             info!("Creating JWT with is_host: {}", is_host);
             let jwt = get_meeting_jwt(uuuid, muuid, is_host, &state.secret);
-            let new_cookie = Cookie::build(("access_token", jwt))
-                .http_only(true)
-                .secure(true)
-                .same_site(cookie::SameSite::Strict)
-                .path("/");
+            let new_cookie = new_cookie(jwt, state.is_secure);
 
             info!("Voter with id {uuuid} has been accepted");
             Ok(jar.add(new_cookie))

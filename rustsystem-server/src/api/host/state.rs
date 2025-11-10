@@ -135,6 +135,7 @@ impl APIHandler for EndVoteRound {
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
             meeting.get_auth().reset();
+            // Upon a hard reset (i.e. cancelling the voting round), we unlock
             meeting.unlock();
             Ok(())
         } else {
