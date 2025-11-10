@@ -103,8 +103,8 @@ pub fn app() -> Router {
         is_secure,
     };
 
-    let serve_dir = ServeDir::new("../frontend/dist")
-        .not_found_service(ServeFile::new("../frontend/dist/index.html"));
+    let serve_dir = ServeDir::new("frontend/dist")
+        .not_found_service(ServeFile::new("frontend/dist/index.html"));
 
     Router::new()
         .fallback_service(serve_dir)

@@ -5,18 +5,25 @@ export const APIErrorCodes = {
   UUIDNotFound: "UUIDNotFound",
   MUIDNotFound: "MUIDNotFound",
 
+  VoterNameNotFound: "VoterNameNotFound",
+
   UUIDAlreadyClaimed: "UUIDAlreadyClaimed",
+  NameTaken: "NameTaken",
   AlreadyRegistered: "AlreadyRegistered",
 
   MUIDMismatch: "MUIDMismatch",
 
   InvalidMetaData: "InvalidMetaData",
   InvalidVoteMethod: "InvalidVoteMethod",
+  InvalidVoteLength: "InvalidVoteLength",
   VotingInactive: "VotingInactive",
 
   SignatureInvalid: "SignatureInvalid",
   SignatureExpired: "SignatureExpired",
   SignatureFailure: "SignatureFailure",
+
+  InvalidState: "InvalidState",
+  AuthError: "AuthError",
 
   InvalidStatusCode: "InvalidStatusCode",
 };

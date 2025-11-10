@@ -1,6 +1,6 @@
+import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { NotFound } from "./components/error-pages/not_found.tsx";
 
 // Import the generated route tree
@@ -18,8 +18,8 @@ const router = createRouter({
 	defaultPreloadStaleTime: 0,
 	basepath: import.meta.env.BASE_URL,
 	defaultNotFoundComponent: () => {
-  	return <NotFound />;
-  },
+		return <NotFound />;
+	},
 });
 
 // Register the router instance for type safety

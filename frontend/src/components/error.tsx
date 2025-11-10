@@ -1,9 +1,9 @@
 import type { APIError } from "@/api/error";
-import type React from "react";
 import Unauthorized from "@/components/error-pages/unauthorized";
+import type React from "react";
 
 interface ErrorProps {
-  error: APIError;
+	error: APIError;
 }
 
 /**
@@ -13,146 +13,146 @@ interface ErrorProps {
  * - Provides navigation actions: back & go to start
  */
 function ErrorPage({ error }: ErrorProps) {
-  const goBack = () => {
-    try {
-      if (typeof window !== "undefined") {
-        if (window.history && window.history.length > 1) {
-          window.history.back();
-          return;
-        }
-        // Om vi inte har historik, gå hem istället
-        window.location.assign("/");
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+	const goBack = () => {
+		try {
+			if (typeof window !== "undefined") {
+				if (window.history && window.history.length > 1) {
+					window.history.back();
+					return;
+				}
+				// Om vi inte har historik, gå hem istället
+				window.location.assign("/");
+			}
+		} catch (err) {
+			console.error(err);
+		}
+	};
 
-  const exportJSON = () => {
-    try {
-      const data = JSON.stringify(error, null, 2);
-      const blob = new Blob([data], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const filename = `api-error-${error.httpStatus}-${Date.now()}.json`;
+	const exportJSON = () => {
+		try {
+			const data = JSON.stringify(error, null, 2);
+			const blob = new Blob([data], { type: "application/json" });
+			const url = URL.createObjectURL(blob);
+			const filename = `api-error-${error.httpStatus}-${Date.now()}.json`;
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      console.error("Misslyckades att exportera feldetaljer som JSON");
-    }
-  };
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch {
+			console.error("Misslyckades att exportera feldetaljer som JSON");
+		}
+	};
 
-  return (
-    <main
-      role="main"
-      className="min-h-screen bg-red-50 text-slate-900 flex items-center justify-center p-6"
-    >
-      <section
-        role="alert"
-        aria-live="assertive"
-        aria-atomic="true"
-        className="w-full max-w-3xl rounded-2xl border border-red-200 bg-white shadow-2xl"
-      >
-        <header className="border-b border-red-100 p-6 flex items-start gap-4">
-          <div className="flex-shrink-0 text-red-600" aria-hidden></div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-semibold text-red-800 tracking-tight">
-              Något gick fel
-            </h1>
-            <p className="mt-1 text-sm text-red-600">
-              Det uppstod ett fel när din begäran behandlades.
-              <br></br>
-              {/* TODO: Add contact information. */}
-              Om du tror att detta är oavsiktligt beteende, vänligen kontakta
-              *Lägg till kontaktinfo*. Se till att ladda ner feldetaljerna (från
-              "Exportera"-knappen nedan) och inkludera filen i din felrapport.
-            </p>
-          </div>
-        </header>
+	return (
+		<main
+			role="main"
+			className="min-h-screen bg-red-50 text-slate-900 flex items-center justify-center p-6"
+		>
+			<section
+				role="alert"
+				aria-live="assertive"
+				aria-atomic="true"
+				className="w-full max-w-3xl rounded-2xl border border-red-200 bg-white shadow-2xl"
+			>
+				<header className="border-b border-red-100 p-6 flex items-start gap-4">
+					<div className="flex-shrink-0 text-red-600" aria-hidden></div>
+					<div className="flex-1 min-w-0">
+						<h1 className="text-2xl font-semibold text-red-800 tracking-tight">
+							Något gick fel
+						</h1>
+						<p className="mt-1 text-sm text-red-600">
+							Det uppstod ett fel när din begäran behandlades.
+							<br></br>
+							{/* TODO: Add contact information. */}
+							Om du tror att detta är oavsiktligt beteende, vänligen kontakta
+							*Lägg till kontaktinfo*. Se till att ladda ner feldetaljerna (från
+							"Exportera"-knappen nedan) och inkludera filen i din felrapport.
+						</p>
+					</div>
+				</header>
 
-        <div className="p-6">
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-red-800">
-              <span className="font-medium">Meddelande:</span> {error.message}
-            </p>
-          </div>
+				<div className="p-6">
+					<div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+						<p className="text-sm text-red-800">
+							<span className="font-medium">Meddelande:</span> {error.message}
+						</p>
+					</div>
 
-          <dl className="grid grid-cols-1 sm:grid-cols-[200px,1fr] gap-x-6 gap-y-3 text-sm">
-            <dt className="text-slate-600">Kod</dt>
-            <dd>
-              <code className="rounded-md bg-red-100 px-1.5 py-0.5 text-red-800">
-                {String(error.code)}
-              </code>
-            </dd>
+					<dl className="grid grid-cols-1 sm:grid-cols-[200px,1fr] gap-x-6 gap-y-3 text-sm">
+						<dt className="text-slate-600">Kod</dt>
+						<dd>
+							<code className="rounded-md bg-red-100 px-1.5 py-0.5 text-red-800">
+								{String(error.code)}
+							</code>
+						</dd>
 
-            <dt className="text-slate-600">HTTP-status</dt>
-            <dd className="font-medium text-slate-900">{error.httpStatus}</dd>
+						<dt className="text-slate-600">HTTP-status</dt>
+						<dd className="font-medium text-slate-900">{error.httpStatus}</dd>
 
-            <dt className="text-slate-600">Slutpunkt</dt>
-            <dd className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-mono uppercase tracking-wider text-red-800">
-                {error.endpoint.method}
-              </span>
-              <code className="font-mono break-all text-slate-900">
-                {error.endpoint.path}
-              </code>
-            </dd>
+						<dt className="text-slate-600">Slutpunkt</dt>
+						<dd className="flex flex-wrap items-center gap-2">
+							<span className="rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-mono uppercase tracking-wider text-red-800">
+								{error.endpoint.method}
+							</span>
+							<code className="font-mono break-all text-slate-900">
+								{error.endpoint.path}
+							</code>
+						</dd>
 
-            <dt className="text-slate-600">Tidsstämpel</dt>
-            <dd>
-              <time className="font-mono text-slate-900">
-                {error.timestamp}
-              </time>
-            </dd>
-          </dl>
+						<dt className="text-slate-600">Tidsstämpel</dt>
+						<dd>
+							<time className="font-mono text-slate-900">
+								{error.timestamp}
+							</time>
+						</dd>
+					</dl>
 
-          {/* Actions */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              className="inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
-            >
-              Gå tillbaka
-            </button>
-            <a
-              href={"/"}
-              className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
-            >
-              Go to start
-            </a>
-            <button
-              type="button"
-              onClick={exportJSON}
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-400"
-              aria-label="Export error details as JSON"
-            >
-              Export
-            </button>
-          </div>
-        </div>
-      </section>
-    </main>
-  );
+					{/* Actions */}
+					<div className="mt-8 flex flex-wrap items-center gap-3">
+						<button
+							type="button"
+							onClick={goBack}
+							className="inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 shadow-sm transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+						>
+							Gå tillbaka
+						</button>
+						<a
+							href={"/"}
+							className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+						>
+							Go to start
+						</a>
+						<button
+							type="button"
+							onClick={exportJSON}
+							className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+							aria-label="Export error details as JSON"
+						>
+							Export
+						</button>
+					</div>
+				</div>
+			</section>
+		</main>
+	);
 }
 
 // Direct the the proper page based on the error found
 const ErrorHandler: React.FC<ErrorProps> = ({ error }) => {
-  switch (error.code) {
-    case "AuthError":
-      return <Unauthorized />;
+	switch (error.code) {
+		case "AuthError":
+			return <Unauthorized />;
 
-    // TODO: Fyll i fler icke-fatala felsidor
+		// TODO: Fyll i fler icke-fatala felsidor
 
-    default:
-      // Dessa är fel som bör rapporteras som buggar. De förväntas inte ses.
-      return ErrorPage({ error });
-  }
+		default:
+			// Dessa är fel som bör rapporteras som buggar. De förväntas inte ses.
+			return ErrorPage({ error });
+	}
 };
 
 export default ErrorHandler;

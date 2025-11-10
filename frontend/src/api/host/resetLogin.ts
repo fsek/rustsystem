@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "../error";
 
 export type ResetLoginRequest = {
@@ -8,7 +8,7 @@ export type ResetLoginRequest = {
 export async function resetLogin(
   req: ResetLoginRequest,
 ): Promise<Result<{ blob: Blob }, APIError>> {
-  const res = await fetch("api/host/reset-login", {
+  const res = await fetch("/api/host/reset-login", {
     method: "POST",
     credentials: "include",
     headers: {

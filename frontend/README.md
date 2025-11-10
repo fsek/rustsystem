@@ -11,9 +11,38 @@ pnpm start
 
 # Building For Production
 
-To build this application for production:
+## Environment Variables
+
+The build process requires the `API_ENDPOINT` environment variable to be set. This specifies the backend API URL that the frontend will communicate with.
+
+### For Local Development
+The build script will automatically use `http://localhost:3000` if no `API_ENDPOINT` is specified:
 
 ```bash
+./build.sh
+```
+
+### For Production
+Set the `API_ENDPOINT` environment variable before building:
+
+```bash
+API_ENDPOINT="https://your-production-api.com" ./build.sh
+```
+
+## Manual Build Commands
+
+To build this application for production manually:
+
+```bash
+# Set the API endpoint (required)
+export API_ENDPOINT="http://localhost:3000"
+
+# Build WASM client
+cd rustsystem-client
+wasm-pack build --target web -d ../src/pkg
+cd ..
+
+# Build frontend
 pnpm build
 ```
 

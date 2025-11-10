@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "../error";
 
 export type MeetingSpecsRequest = {};
@@ -12,7 +12,7 @@ export type MeetingSpecsResponse = {
 export async function MeetingSpecs(
   _req: MeetingSpecsRequest,
 ): Promise<Result<MeetingSpecsResponse, APIError>> {
-  const res = await fetch("api/common/meeting-specs", {
+  const res = await fetch("/api/common/meeting-specs", {
     method: "GET",
     credentials: "include",
   });
@@ -36,7 +36,7 @@ export type UpdateAgendaRequest = {
 export async function updateAgenda(
   req: UpdateAgendaRequest,
 ): Promise<Result<{}, APIError>> {
-  const res = await fetch("api/common/update-agenda", {
+  const res = await fetch("/api/common/update-agenda", {
     method: "POST",
     credentials: "include",
     headers: {

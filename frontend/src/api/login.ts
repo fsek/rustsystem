@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "./error";
 
 export type AdminCred = {
@@ -17,7 +17,7 @@ type LoginResponse = {};
 export async function Login(
   req: LoginRequest,
 ): Promise<Result<LoginResponse, APIError>> {
-  const res = await fetch("api/login", {
+  const res = await fetch("/api/login", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

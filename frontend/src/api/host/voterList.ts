@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "../error";
 
 export type VoterListRequest = {};
@@ -24,7 +24,7 @@ export type VoterListResponse = {
 export async function VoterList(
   _req: VoterListRequest,
 ): Promise<Result<VoterListResponse, APIError>> {
-  const res = await fetch("api/host/voter-list", {
+  const res = await fetch("/api/host/voter-list", {
     method: "GET",
     credentials: "include",
   });

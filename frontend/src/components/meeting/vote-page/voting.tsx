@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from "react";
+import { Login, type LoginRequest } from "@/api/login";
 import init, {
   try_register,
   new_ballot_validation,
   send_vote,
 } from "@/pkg/rustsystem_client";
-import { Login, type LoginRequest } from "@/api/login";
 import { matchResult } from "@/result";
+import type React from "react";
+import { useEffect, useState } from "react";
 
-import type { APIError } from "@/api/error";
 import type { MeetingSpecsResponse } from "@/api/common/meetingSpecs";
+import type { APIError } from "@/api/error";
 import { VotePageDisplay } from "../voter";
 
 type VotingPageProps = {
@@ -38,10 +39,41 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
   useEffect(() => {
     init();
+    checkVotingState();
     performLogin();
   }, []);
 
+  // Check if user has already voted (for refresh recovery)
+  const checkVotingState = () => {
+    const votedFlag = sessionStorage.getItem("hasVoted");
+    const voteInfo = sessionStorage.getItem("voteInfo");
+
+    if (votedFlag === "true" && voteInfo) {
+      try {
+        const info = JSON.parse(voteInfo);
+        setHasVoted(true);
+        setVoteName(info.voteName || "Vote");
+        setCandidates(info.candidates || []);
+        setSelectedCandidates(info.selectedCandidates || []);
+        setIsLoggingIn(false);
+        setIsRegistering(false);
+        console.log("Restored voting state: user has already voted");
+        return true;
+      } catch (error) {
+        console.warn("Failed to parse vote info, clearing corrupted data");
+        sessionStorage.removeItem("hasVoted");
+        sessionStorage.removeItem("voteInfo");
+      }
+    }
+    return false;
+  };
+
   const performLogin = async () => {
+    // Skip login if user has already voted
+    if (checkVotingState()) {
+      return;
+    }
+
     try {
       setIsLoggingIn(true);
       console.log("Checking authentication status...");
@@ -125,9 +157,45 @@ const VotingPage: React.FC<VotingPageProps> = ({
   };
 
   const autoRegister = async () => {
+    // Skip registration if user has already voted
+    if (checkVotingState()) {
+      return;
+    }
+
     try {
       setIsRegistering(true);
       console.log("Starting registration with muid:", muid, "uuid:", uuid);
+
+      // Check if we already have valid registration data in session storage
+      const existingValidation = sessionStorage.getItem("validation");
+      const existingMetadata = sessionStorage.getItem("metadata");
+
+      if (existingValidation && existingMetadata) {
+        console.log("Found existing registration data in session storage");
+        try {
+          const metadataValue = JSON.parse(existingMetadata);
+          console.log("Using existing metadata:", metadataValue);
+
+          // Restore vote info from existing metadata
+          setCandidates(metadataValue.candidates || []);
+          setVoteName(metadataValue.name || "Vote");
+          setMaxSelections(metadataValue.max_choices || 1);
+          setMinSelections(metadataValue.min_choices || 0);
+
+          setIsRegistering(false);
+          console.log("Successfully restored from existing registration data");
+          return;
+        } catch (parseError) {
+          console.warn(
+            "Failed to parse existing session data, will re-register:",
+            parseError,
+          );
+          // Clear corrupted data and proceed with new registration
+          sessionStorage.removeItem("validation");
+          sessionStorage.removeItem("metadata");
+        }
+      }
+
       console.log("Registration - UUID formats check:", {
         muid_type: typeof muid,
         uuid_type: typeof uuid,
@@ -186,6 +254,52 @@ const VotingPage: React.FC<VotingPageProps> = ({
           ? error.message
           : "Misslyckades att registrera för omröstning";
 
+      // Check if this is an AlreadyRegistered error
+      if (
+        errorMessage.includes("AlreadyRegistered") ||
+        errorMessage.includes("already registered")
+      ) {
+        // First check if user has already voted
+        if (checkVotingState()) {
+          return;
+        }
+
+        const existingValidation = sessionStorage.getItem("validation");
+        const existingMetadata = sessionStorage.getItem("metadata");
+
+        if (existingValidation && existingMetadata) {
+          console.log(
+            "AlreadyRegistered error but found session data, using existing registration",
+          );
+          try {
+            const metadataValue = JSON.parse(existingMetadata);
+            setCandidates(metadataValue.candidates || []);
+            setVoteName(metadataValue.name || "Vote");
+            setMaxSelections(metadataValue.max_choices || 1);
+            setMinSelections(metadataValue.min_choices || 0);
+            setIsRegistering(false);
+            return;
+          } catch (parseError) {
+            console.error("Failed to parse session data:", parseError);
+          }
+        }
+
+        // If no session data but AlreadyRegistered, user might have already voted
+        console.log(
+          "AlreadyRegistered with no session data - checking if already voted",
+        );
+        setError({
+          code: "AlreadyVoted",
+          message:
+            "Du har redan röstat i denna omröstning. Om du tror detta är ett fel, kontakta administratören.",
+          httpStatus: 409,
+          timestamp: new Date().toISOString(),
+          endpoint: { method: "POST", path: "/api/voter/register" },
+        });
+        setVotePageDisplay(VotePageDisplay.AlreadyVoted);
+        return;
+      }
+
       setError({
         code: "RegistrationError",
         message: `Registrering misslyckades: ${errorMessage}. MUID: ${muid}, UUID: ${uuid}`,
@@ -239,6 +353,16 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
       setHasVoted(true);
       setIsVoting(false);
+
+      // Store voting completion state for refresh recovery
+      const voteInfo = {
+        voteName,
+        candidates,
+        selectedCandidates,
+        votedAt: new Date().toISOString(),
+      };
+      sessionStorage.setItem("hasVoted", "true");
+      sessionStorage.setItem("voteInfo", JSON.stringify(voteInfo));
 
       // Clear sensitive data
       sessionStorage.removeItem("validation");

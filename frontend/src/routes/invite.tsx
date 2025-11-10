@@ -1,35 +1,35 @@
-import { useState, useEffect } from "react";
+import { Auth, type AuthMeetingRequest } from "@/api/auth";
+import {
+  VoteActive,
+  type VoteActiveRequest,
+  voteStateWatch,
+} from "@/api/common/state";
+import type { APIError } from "@/api/error";
+import { startInviteWait } from "@/api/host/inviteEvent";
+import {
+  type NewVoterRequest,
+  newVoter,
+  startInvite,
+  type startInviteRequest,
+} from "@/api/host/newVoter";
+import { type ResetLoginRequest, resetLogin } from "@/api/host/resetLogin";
+import { VoterList, type VoterListRequest } from "@/api/host/voterList";
+import ErrorHandler from "@/components/error";
+import { matchResult } from "@/result";
+import { rankItem } from "@tanstack/match-sorter-utils";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  getFilteredRowModel,
-  getSortedRowModel,
   type ColumnFiltersState,
   type SortingState,
   type VisibilityState,
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
 } from "@tanstack/react-table";
-import { rankItem } from "@tanstack/match-sorter-utils";
-import {
-  newVoter,
-  startInvite,
-  type NewVoterRequest,
-  type startInviteRequest,
-} from "@/api/host/newVoter";
-import { startInviteWait } from "@/api/host/inviteEvent";
-import { resetLogin, type ResetLoginRequest } from "@/api/host/resetLogin";
-import { matchResult } from "@/result";
-import type { APIError } from "@/api/error";
-import ErrorHandler from "@/components/error";
-import { VoterList, type VoterListRequest } from "@/api/host/voterList";
-import {
-  VoteActive,
-  voteStateWatch,
-  type VoteActiveRequest,
-} from "@/api/common/state";
-import { Auth, type AuthMeetingRequest } from "@/api/auth";
+import { useEffect, useState } from "react";
 import "@/colors.css";
 
 type SearchParams = {
@@ -66,7 +66,30 @@ function RouteComponent() {
   const [newVoterName, setNewVoterName] = useState("");
   const [isNewVoterAdmin, setIsNewVoterAdmin] = useState(false);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
+  const [nameCollisionError, setNameCollisionError] = useState<string | null>(
+    null,
+  );
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // Handle escape key for QR modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isQrModalOpen) {
+        setIsQrModalOpen(false);
+      }
+    };
+
+    if (isQrModalOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden"; // Prevent background scroll
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, [isQrModalOpen]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<APIError | null>(null);
   const [inviteReady, setInviteReady] = useState(false);
@@ -145,13 +168,13 @@ function RouteComponent() {
     fetchVoters();
     // Initialize invite system
     const inviteEvent = startInviteWait();
-    inviteEvent.onmessage = function (event) {
+    inviteEvent.onmessage = (event) => {
       if (event.data === "Ready") {
         setInviteReady(true);
       }
     };
 
-    inviteEvent.onopen = function () {
+    inviteEvent.onopen = () => {
       startInvite({} as startInviteRequest).then((result) => {
         matchResult(result, {
           Ok: () => {},
@@ -167,7 +190,7 @@ function RouteComponent() {
 
   const generateQrCodeForNewVoter = async (
     voterName: string,
-    isAdmin: boolean = false,
+    isAdmin = false,
   ) => {
     if (!inviteReady) {
       setError({
@@ -182,6 +205,7 @@ function RouteComponent() {
 
     setIsGenerating(true);
     setQrCodeUrl(null);
+    setNameCollisionError(null);
 
     const result = await newVoter({
       voterName: voterName,
@@ -211,6 +235,9 @@ function RouteComponent() {
               );
               if (newlyCreatedVoter) {
                 setSelectedVoter(newlyCreatedVoter);
+                // Clear form only on successful addition
+                setNewVoterName("");
+                setIsNewVoterAdmin(false);
               }
             },
             Err: (err) => setError(err),
@@ -218,8 +245,17 @@ function RouteComponent() {
         });
       },
       Err: (err) => {
-        setError(err);
         setIsGenerating(false);
+
+        // Handle name collision separately from other errors
+        if (err.code === "NameTaken") {
+          const suggestions = generateNameSuggestions(voterName, voters);
+          setNameCollisionError(
+            `Namnet "${voterName}" är redan taget. Förslag: ${suggestions.join(", ")}`,
+          );
+        } else {
+          setError(err);
+        }
       },
     });
   };
@@ -454,9 +490,42 @@ function RouteComponent() {
     debugTable: true,
   });
 
+  const generateNameSuggestions = (
+    baseName: string,
+    existingVoters: Voter[],
+  ): string[] => {
+    const suggestions: string[] = [];
+    const existingNames = existingVoters.map((v) => v.name.toLowerCase());
+
+    // Try adding numbers
+    for (let i = 2; i <= 5; i++) {
+      const suggestion = `${baseName} ${i}`;
+      if (!existingNames.includes(suggestion.toLowerCase())) {
+        suggestions.push(suggestion);
+      }
+    }
+
+    // Try adding common suffixes
+    const suffixes = ["Jr", "II", "III", "(2)", "(kopia)"];
+    for (const suffix of suffixes) {
+      const suggestion = `${baseName} ${suffix}`;
+      if (
+        !existingNames.includes(suggestion.toLowerCase()) &&
+        suggestions.length < 3
+      ) {
+        suggestions.push(suggestion);
+      }
+    }
+
+    return suggestions.slice(0, 3);
+  };
+
   const handleAddVoter = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVoterName.trim()) return;
+
+    // Clear any previous name collision errors
+    setNameCollisionError(null);
 
     setSelectedVoter({
       uuid: "",
@@ -466,8 +535,9 @@ function RouteComponent() {
       isHost: isNewVoterAdmin,
     });
     generateQrCodeForNewVoter(newVoterName.trim(), isNewVoterAdmin);
-    setNewVoterName("");
-    setIsNewVoterAdmin(false);
+
+    // Only clear the form if no collision error occurred
+    // The form will be cleared in the success case or kept for retry in error case
   };
 
   const handleBack = () => {
@@ -558,11 +628,42 @@ function RouteComponent() {
                 id="voterName"
                 type="text"
                 value={newVoterName}
-                onChange={(e) => setNewVoterName(e.target.value)}
+                onChange={(e) => {
+                  setNewVoterName(e.target.value);
+                  // Clear name collision error when user starts typing
+                  if (nameCollisionError) {
+                    setNameCollisionError(null);
+                  }
+                }}
                 placeholder="Ange deltagarens fullständiga namn"
-                className="w-full p-2 lg:p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100 text-sm lg:text-base"
+                className={`w-full p-2 lg:p-3 border rounded focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-100 text-sm lg:text-base ${
+                  nameCollisionError
+                    ? "border-red-300 focus:ring-red-500"
+                    : "border-gray-300 focus:ring-[var(--color-main)]"
+                }`}
                 required
               />
+              {nameCollisionError && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                  <div className="flex items-start">
+                    <svg
+                      className="w-4 h-4 text-red-500 mt-0.5 mr-2 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div>
+                      <p className="font-medium">Namn redan taget</p>
+                      <p>{nameCollisionError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center mt-2 lg:mt-3">
                 <input
                   id="isAdmin"
@@ -813,7 +914,9 @@ function RouteComponent() {
                     <img
                       src={qrCodeUrl}
                       alt={`QR Code for ${selectedVoter.name}`}
-                      className="w-48 h-48 lg:w-64 lg:h-64 border border-gray-200 rounded-lg shadow-sm"
+                      className="w-48 h-48 lg:w-64 lg:h-64 border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => setIsQrModalOpen(true)}
+                      title="Klicka för att förstora"
                     />
                   </div>
                   <div className="space-y-2 lg:space-y-3">
@@ -851,6 +954,17 @@ function RouteComponent() {
                             ? "Genererar..."
                             : "Regenerera QR-kod"}
                     </button>
+                    <button
+                      onClick={() => setIsQrModalOpen(true)}
+                      disabled={!qrCodeUrl}
+                      className={`px-3 lg:px-4 py-2 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base ${
+                        !qrCodeUrl
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                      }`}
+                    >
+                      🔍 Förstora
+                    </button>
                   </div>
                 </div>
               ) : null}
@@ -883,6 +997,57 @@ function RouteComponent() {
           )}
         </div>
       </div>
+
+      {/* QR Code Enlargement Modal */}
+      {isQrModalOpen && qrCodeUrl && selectedVoter && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
+          onClick={() => setIsQrModalOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setIsQrModalOpen(false);
+            }
+          }}
+          tabIndex={0}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qr-modal-title"
+        >
+          <div
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsQrModalOpen(false)}
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Stäng modal"
+            >
+              ×
+            </button>
+            <div className="text-center">
+              <h3
+                id="qr-modal-title"
+                className="text-lg font-semibold text-gray-900 mb-4"
+              >
+                QR-kod för {selectedVoter.name}
+              </h3>
+              <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
+                <img
+                  src={qrCodeUrl}
+                  alt={`QR Code for ${selectedVoter.name}`}
+                  className="w-full max-w-sm mx-auto"
+                />
+              </div>
+              <p className="text-sm text-gray-600">
+                Skanna denna kod för att logga in som {selectedVoter.name}
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                Tryck Escape eller klicka utanför för att stänga
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

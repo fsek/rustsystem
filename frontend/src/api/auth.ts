@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "./error";
 
 export type AuthMeetingRequest = {
@@ -14,7 +14,7 @@ type AuthMeetingResponse = {
 export async function Auth(
   req: AuthMeetingRequest,
 ): Promise<Result<AuthMeetingResponse, APIError>> {
-  const res = await fetch("api/auth-meeting", {
+  const res = await fetch("/api/auth-meeting", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

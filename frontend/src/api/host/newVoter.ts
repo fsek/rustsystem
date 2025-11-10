@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "@/result";
+import { type Result, err, ok } from "@/result";
 import type { APIError } from "../error";
 
 export type startInviteRequest = {};
@@ -7,7 +7,7 @@ type startInviteResponse = {};
 export async function startInvite(
   _req: startInviteRequest,
 ): Promise<Result<startInviteResponse, APIError>> {
-  const res = await fetch("api/host/start-invite", {
+  const res = await fetch("/api/host/start-invite", {
     method: "POST",
     credentials: "include",
   });
@@ -31,7 +31,7 @@ type NewVoterResponse = {
 export async function newVoter(
   req: NewVoterRequest,
 ): Promise<Result<NewVoterResponse, APIError>> {
-  const res = await fetch("api/host/new-voter", {
+  const res = await fetch("/api/host/new-voter", {
     method: "POST",
     credentials: "include",
     headers: { "content-type": "application/json" },

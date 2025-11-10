@@ -43,7 +43,7 @@ export type Result<T, E> = Ok<T> | Err<E>;
  * @returns An `Ok<T>` result.
  */
 export function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
+	return { ok: true, value };
 }
 
 /**
@@ -53,7 +53,7 @@ export function ok<T>(value: T): Ok<T> {
  * @returns An `Err<E>` result.
  */
 export function err<E>(error: E): Err<E> {
-  return { ok: false, error };
+	return { ok: false, error };
 }
 
 /**
@@ -70,7 +70,7 @@ export function err<E>(error: E): Err<E> {
  * ```
  */
 export function isOk<T, E>(res: Result<T, E>): res is Ok<T> {
-  return res.ok;
+	return res.ok;
 }
 
 /**
@@ -87,7 +87,7 @@ export function isOk<T, E>(res: Result<T, E>): res is Ok<T> {
  * ```
  */
 export function isErr<T, E>(res: Result<T, E>): res is Err<E> {
-  return !res.ok;
+	return !res.ok;
 }
 
 /**
@@ -107,8 +107,8 @@ export function isErr<T, E>(res: Result<T, E>): res is Err<E> {
  * ```
  */
 export function unwrap<T, E>(res: Result<T, E>): T {
-  if (res.ok) return res.value;
-  throw new Error(`Tried to unwrap Err: ${String(res.error)}`);
+	if (res.ok) return res.value;
+	throw new Error(`Tried to unwrap Err: ${String(res.error)}`);
 }
 
 /**
@@ -124,7 +124,7 @@ export function unwrap<T, E>(res: Result<T, E>): T {
  * ```
  */
 export function unwrapOr<T, E>(res: Result<T, E>, fallback: T): T {
-  return res.ok ? res.value : fallback;
+	return res.ok ? res.value : fallback;
 }
 
 /**
@@ -148,11 +148,11 @@ export function unwrapOr<T, E>(res: Result<T, E>, fallback: T): T {
  * ```
  */
 export function matchResult<T, E, R>(
-  res: Result<T, E>,
-  handlers: {
-    Ok: (val: T) => R;
-    Err: (err: E) => R;
-  },
+	res: Result<T, E>,
+	handlers: {
+		Ok: (val: T) => R;
+		Err: (err: E) => R;
+	},
 ): R {
-  return res.ok ? handlers.Ok(res.value) : handlers.Err(res.error);
+	return res.ok ? handlers.Ok(res.value) : handlers.Err(res.error);
 }

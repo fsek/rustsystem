@@ -1,10 +1,12 @@
-import React, { useState } from "react";
 import type { MeetingSpecsResponse } from "@/api/common/meetingSpecs";
 import type { APIError } from "@/api/error";
 import { StartVote, type StartVoteRequest } from "@/api/host/state";
+import { VoterList, type VoterListRequest } from "@/api/host/voterList";
 import init, { BallotMetaData } from "@/pkg/rustsystem_client";
 import { matchResult } from "@/result";
-import { VoteState } from "../host";
+import type React from "react";
+import { useState, useEffect } from "react";
+import type { VoteState } from "../host";
 
 type CreationPageProps = {
   specs: MeetingSpecsResponse | undefined;
@@ -22,6 +24,34 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
   const [candidates, setCandidates] = useState<string[]>(["", ""]);
   const [maxSelections, setMaxSelections] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [checkedInCount, setCheckedInCount] = useState(0);
+  const [totalParticipants, setTotalParticipants] = useState(0);
+
+  // Fetch voter list to get checked-in count
+  useEffect(() => {
+    const fetchVoterList = async () => {
+      const result = await VoterList({} as VoterListRequest);
+      matchResult(result, {
+        Ok: (response) => {
+          const checkedIn = response.voters.filter(
+            (voter) => voter.loggedIn,
+          ).length;
+          setCheckedInCount(checkedIn);
+          setTotalParticipants(response.voters.length);
+        },
+        Err: (err) => {
+          console.error("Failed to fetch voter list:", err);
+          // Fallback to specs participants if available
+          setTotalParticipants(specs?.participants || 0);
+        },
+      });
+    };
+
+    fetchVoterList();
+    // Refresh every 10 seconds to keep count updated
+    const interval = setInterval(fetchVoterList, 10000);
+    return () => clearInterval(interval);
+  }, [specs]);
 
   const handleAddCandidate = () => {
     setCandidates([...candidates, ""]);
@@ -96,7 +126,10 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
           </h1>
           <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
             <span className="flex items-center gap-1">
-              👥 {specs?.participants || 0} deltagare
+              👥 {totalParticipants} deltagare
+            </span>
+            <span className="flex items-center gap-1">
+              ✅ {checkedInCount} incheckade
             </span>
             <span className="flex items-center gap-1">📊 Redo att rösta</span>
           </div>
@@ -149,7 +182,9 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
                 max={Math.max(1, candidates.filter((c) => c.trim()).length)}
                 value={maxSelections}
                 onChange={(e) =>
-                  setMaxSelections(Math.max(0, parseInt(e.target.value) || 0))
+                  setMaxSelections(
+                    Math.max(0, Number.parseInt(e.target.value) || 0),
+                  )
                 }
                 className="w-24 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />

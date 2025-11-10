@@ -16,3 +16,7 @@
 - [x] Start Page
 - [x] Invite Voter/Host
 - [x] Agenda Viewer
+- [ ] Click to enlarge qr code
+- [ ] Allow voters to refresh page during voting
+- [ ] Format links and nested lists in agenda viewer
+- [ ] Tabs in textarea
