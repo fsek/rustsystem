@@ -1,6 +1,5 @@
 use rustsystem_proof::{Ballot, CandidateID};
 use wasm_bindgen::prelude::*;
-use web_sys::console::info_1;
 
 use crate::utils::{log, send_post};
 

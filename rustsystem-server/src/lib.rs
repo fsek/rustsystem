@@ -96,8 +96,8 @@ pub fn app() -> Router {
         meetings: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    let serve_dir = ServeDir::new("../rustsystem-client/static")
-        .not_found_service(ServeFile::new("../rustsystem-client/static/index.html"));
+    let serve_dir = ServeDir::new("../frontend/dist")
+        .not_found_service(ServeFile::new("../frontend/dist/index.html"));
 
     Router::new()
         .fallback_service(serve_dir)
