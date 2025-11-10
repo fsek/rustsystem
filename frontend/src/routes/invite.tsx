@@ -337,7 +337,7 @@ function RouteComponent() {
   const handleRemoveAll = async () => {
     if (
       !confirm(
-        "Är du säker på att du vill ta bort alla deltagare? Detta kommer att sparka ut alla icke-administratörer från mötet.",
+        "Är du säker på att du vill sparka ut alla deltagare? Detta kommer att logga ut alla icke-administratörer från mötet, men de kan logga in igen med nya QR-koder.",
       )
     ) {
       return;
@@ -644,7 +644,7 @@ function RouteComponent() {
                     : "bg-red-500 hover:bg-red-600 text-white"
                 }`}
               >
-                {isGenerating ? "Tar bort..." : "Ta bort alla deltagare"}
+                {isGenerating ? "Sparkar ut..." : "Sparka ut alla deltagare"}
               </button>
             </div>
           </div>
