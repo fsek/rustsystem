@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
 use tracing::{info, level_filters::LevelFilter};
 
-use axum_server::tls_rustls::RustlsConfig;
 use tracing_subscriber::EnvFilter;
 
 use rustsystem_server::app;
@@ -14,13 +13,9 @@ async fn main() {
 
     let app = app();
 
-    let config = RustlsConfig::from_pem_file("localhost+1.pem", "localhost+1-key.pem")
-        .await
-        .unwrap();
-
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Running server on {addr}");
-    axum_server::bind_rustls(addr, config)
+    axum_server::bind(addr)
         .serve(app.into_make_service())
         .await
         .unwrap();
