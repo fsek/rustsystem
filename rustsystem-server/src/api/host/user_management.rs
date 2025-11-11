@@ -3,13 +3,16 @@ use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
-    http::{StatusCode, header},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     AppState, UUuid,
-    api::host::{auth::AuthHost, new_voter::gen_qr_code},
+    api::host::{
+        auth::AuthHost,
+        new_voter::{QrCodeResponse, gen_qr_code_with_link},
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -243,7 +246,7 @@ impl APIHandler for ResetLogin {
 
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = ([(header::HeaderName, &'static str); 1], String);
+    type SuccessResponse = Json<QrCodeResponse>;
     type ErrorResponse = ResetLoginError;
 
     async fn route(
@@ -264,8 +267,12 @@ impl APIHandler for ResetLogin {
                 let new_uuuid = UUuid::new_v4();
                 meeting.voters.insert(new_uuuid, user);
 
-                let qr_svg = gen_qr_code(auth.muuid, new_uuuid, admin_cred);
-                Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
+                let (qr_svg, invite_link) =
+                    gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+                Ok(Json(QrCodeResponse {
+                    qr_svg,
+                    invite_link,
+                }))
             } else {
                 Err(ResetLoginError::UUuidNotFound)
             }

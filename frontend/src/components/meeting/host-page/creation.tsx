@@ -26,6 +26,11 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
   const [checkedInCount, setCheckedInCount] = useState(0);
   const [totalParticipants, setTotalParticipants] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [touched, setTouched] = useState({
+    voteName: false,
+    candidates: false,
+    maxSelections: false,
+  });
 
   // Fetch voter list to get checked-in count
   useEffect(() => {
@@ -218,23 +223,26 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
           </h3>
 
           {/* Validation Errors */}
-          {validationErrors.length > 0 && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
-              <div className="flex items-start gap-3">
-                <div className="text-red-500 mt-0.5">⚠️</div>
-                <div>
-                  <h4 className="font-medium text-red-900 mb-1">
-                    Åtgärda följande problem:
-                  </h4>
-                  <ul className="text-red-800 text-sm space-y-1">
-                    {validationErrors.map((error, index) => (
-                      <li key={index}>• {error}</li>
-                    ))}
-                  </ul>
+          {validationErrors.length > 0 &&
+            (touched.voteName ||
+              touched.candidates ||
+              touched.maxSelections) && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-start gap-3">
+                  <div className="text-red-500 mt-0.5">⚠️</div>
+                  <div>
+                    <h4 className="font-medium text-red-900 mb-1">
+                      Åtgärda följande problem:
+                    </h4>
+                    <ul className="text-red-800 text-sm space-y-1">
+                      {validationErrors.map((error, index) => (
+                        <li key={index}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Vote Name */}
           <div className="mb-6">
@@ -245,9 +253,11 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
               type="text"
               value={voteName}
               onChange={(e) => setVoteName(e.target.value)}
+              onBlur={() => setTouched((prev) => ({ ...prev, voteName: true }))}
               placeholder="t.ex. 'Styrelsemedlemsval', 'Budgetförslag'"
               className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
                 !voteName.trim() &&
+                touched.voteName &&
                 validationErrors.some((e) => e.includes("namn"))
                   ? "border-red-300 focus:ring-red-500"
                   : "border-gray-300 focus:ring-blue-500"
@@ -271,7 +281,11 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
                     Math.max(0, Number.parseInt(e.target.value) || 0),
                   )
                 }
+                onBlur={() =>
+                  setTouched((prev) => ({ ...prev, maxSelections: true }))
+                }
                 className={`w-24 p-3 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
+                  touched.maxSelections &&
                   validationErrors.some((e) => e.includes("Maximalt antal"))
                     ? "border-red-300 focus:ring-red-500"
                     : "border-gray-300 focus:ring-blue-500"
@@ -321,10 +335,15 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
                       onChange={(e) =>
                         handleCandidateChange(index, e.target.value)
                       }
+                      onBlur={() =>
+                        setTouched((prev) => ({ ...prev, candidates: true }))
+                      }
                       placeholder={`Alternativ ${index + 1}`}
                       className={`flex-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:border-transparent ${
                         isDuplicate ||
-                        (hasValidationError && candidate.trim() === "")
+                        (touched.candidates &&
+                          hasValidationError &&
+                          candidate.trim() === "")
                           ? "border-red-300 focus:ring-red-500"
                           : "border-gray-300 focus:ring-blue-500"
                       }`}

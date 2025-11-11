@@ -1,8 +1,10 @@
 use api_derive::APIEndpointError;
 use axum::Json;
 use axum::extract::FromRequest;
-use axum::http::header;
+
 use axum::{extract::State, http::StatusCode};
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
 use serde::{Deserialize, Serialize};
@@ -15,6 +17,13 @@ use crate::admin_auth::AdminCred;
 use crate::{API_ENDPOINT, AppState, MUuid, UUuid};
 
 use super::auth::AuthHost;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QrCodeResponse {
+    pub qr_svg: String,
+    pub invite_link: String,
+}
 
 #[derive(FromRequest)]
 pub struct StartInviteRequest {
@@ -86,7 +95,7 @@ impl APIHandler for NewVoter {
     type Request = NewVoterRequest;
 
     const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
-    type SuccessResponse = ([(header::HeaderName, &'static str); 1], String);
+    type SuccessResponse = Json<QrCodeResponse>;
     type ErrorResponse = NewVoterError;
     async fn route(
         request: Self::Request,
@@ -119,9 +128,12 @@ impl APIHandler for NewVoter {
             } else {
                 None
             };
-            let qr_svg = gen_qr_code(auth.muuid, new_uuuid, admin_cred);
+            let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
 
-            Ok(([(header::CONTENT_TYPE, "image/svg+xml")], qr_svg))
+            Ok(Json(QrCodeResponse {
+                qr_svg,
+                invite_link,
+            }))
         } else {
             Err(NewVoterError::MUIDNotFound)
         }
@@ -129,6 +141,15 @@ impl APIHandler for NewVoter {
 }
 
 pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) -> String {
+    let (qr_svg, _) = gen_qr_code_with_link(muuid, uuuid, admin_cred);
+    qr_svg
+}
+
+pub fn gen_qr_code_with_link(
+    muuid: MUuid,
+    uuuid: UUuid,
+    admin_cred: Option<AdminCred>,
+) -> (String, String) {
     info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
     let mut url = format!("{API_ENDPOINT}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {
@@ -142,5 +163,11 @@ pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) ->
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)
         .expect(&format!("Creation of QR code was unsuccessful. url: {url}"));
-    code.render::<svg::Color>().min_dimensions(200, 200).build()
+    let qr_svg = code.render::<svg::Color>().min_dimensions(200, 200).build();
+    let qr_svg_base64 = format!(
+        "data:image/svg+xml;base64,{}",
+        BASE64_STANDARD.encode(qr_svg)
+    );
+
+    (qr_svg_base64, url)
 }

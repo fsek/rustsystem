@@ -52,7 +52,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
       try {
         const info = JSON.parse(voteInfo);
         setHasVoted(true);
-        setVoteName(info.voteName || "Vote");
+        setVoteName(info.voteName || "Omröstning");
         setCandidates(info.candidates || []);
         setSelectedCandidates(info.selectedCandidates || []);
         setIsLoggingIn(false);
@@ -243,7 +243,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
         setIsRegistering(false);
       } else {
-        const errorMsg = `Registration failed - Valid: ${res.is_valid()}, Successful: ${res.is_successful()}`;
+        const errorMsg = `Registrering misslyckades - Giltig: ${res.is_valid()}, Framgångsrik: ${res.is_successful()}`;
         console.error(errorMsg);
         throw new Error(errorMsg);
       }
@@ -274,7 +274,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
           try {
             const metadataValue = JSON.parse(existingMetadata);
             setCandidates(metadataValue.candidates || []);
-            setVoteName(metadataValue.name || "Vote");
+            setVoteName(metadataValue.name || "Omröstning");
             setMaxSelections(metadataValue.max_choices || 1);
             setMinSelections(metadataValue.min_choices || 0);
             setIsRegistering(false);
@@ -643,8 +643,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
       {/* Footer Info */}
       <div className="mt-8 text-center text-sm text-gray-500">
         <p>
-          Your vote is cryptographically secured and anonymous. Once submitted,
-          it cannot be changed.
+          Din röst är kryptografiskt säker och anonym. När den väl har skickats
+          kan den inte ändras.
         </p>
       </div>
     </div>

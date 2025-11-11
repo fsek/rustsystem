@@ -116,6 +116,26 @@ function RouteComponent() {
     }, 500);
   };
 
+  const handleAgendaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+
+      // Insert 4 spaces at cursor position
+      const newValue =
+        value.substring(0, start) + "    " + value.substring(end);
+      setAgenda(newValue);
+
+      // Move cursor to after the inserted spaces
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 4;
+      }, 0);
+    }
+  };
+
   if (error) {
     return <ErrorHandler error={error} />;
   }
@@ -136,39 +156,40 @@ function RouteComponent() {
     rightPaneContent = <Unauthorized />;
   }
 
-	// Host view - split panes with agenda
-	if (authStatus === AuthStatus.VerifiedHost) {
-		return (
-			<div className="h-screen bg-[var(--color-background)] flex">
-				{/* Left Pane - Agenda */}
-				<div className="w-1/2 border-r border-gray-200 flex flex-col">
-					<div className="p-6 border-b border-gray-200 bg-white">
-						<h2 className="text-xl font-semibold text-[var(--color-contours)] mb-2">
-							Mötesagenda
-						</h2>
-						<p className="text-sm text-gray-600">
-							Använd detta utrymme för att spåra dagordningspunkter och
-							anteckningar
-						</p>
-					</div>
-					<div className="flex-1 p-6 bg-white">
-						<textarea
-							value={agenda}
-							onChange={handleAgendaChange}
-							placeholder="Lägg till dagordningspunkter, anteckningar och diskussionspunkter här..."
-							className="w-full h-full resize-none border-0 focus:outline-none focus:ring-0 text-gray-700 placeholder-gray-400 text-base leading-relaxed"
-							style={{
-								fontFamily:
-									'ui-monospace, "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
-							}}
-						/>
-						{isUpdatingAgenda && (
-							<div className="absolute bottom-2 right-2 text-xs text-gray-400">
-								Sparar...
-							</div>
-						)}
-					</div>
-				</div>
+  // Host view - split panes with agenda
+  if (authStatus === AuthStatus.VerifiedHost) {
+    return (
+      <div className="h-screen bg-[var(--color-background)] flex">
+        {/* Left Pane - Agenda */}
+        <div className="w-1/2 border-r border-gray-200 flex flex-col">
+          <div className="p-6 border-b border-gray-200 bg-white">
+            <h2 className="text-xl font-semibold text-[var(--color-contours)] mb-2">
+              Mötesagenda
+            </h2>
+            <p className="text-sm text-gray-600">
+              Använd detta utrymme för att spåra dagordningspunkter och
+              anteckningar
+            </p>
+          </div>
+          <div className="flex-1 p-6 bg-white">
+            <textarea
+              value={agenda}
+              onChange={handleAgendaChange}
+              onKeyDown={handleAgendaKeyDown}
+              placeholder="Lägg till dagordningspunkter, anteckningar och diskussionspunkter här..."
+              className="w-full h-full resize-none border-0 focus:outline-none focus:ring-0 text-gray-700 placeholder-gray-400 text-base leading-relaxed"
+              style={{
+                fontFamily:
+                  'ui-monospace, "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+              }}
+            />
+            {isUpdatingAgenda && (
+              <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                Sparar...
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Right Pane - Host Content */}
         <div className="w-1/2 flex flex-col overflow-hidden">

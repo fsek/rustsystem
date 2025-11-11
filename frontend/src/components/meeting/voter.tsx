@@ -1,7 +1,6 @@
 import RegisterPage from "@/components/meeting/vote-page/register";
 import VotingPage from "@/components/meeting/vote-page/voting";
-import type React from "react";
-import { type ReactElement, useEffect, useState } from "react";
+import React, { type ReactElement, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -389,7 +388,59 @@ function WaitPage(
             <h3 className="text-xl font-semibold text-gray-900 mb-4">
               Mötesagenda
             </h3>
-            <div className="prose prose-gray max-w-none">
+            <style>
+              {`
+                .agenda-content ol {
+                  padding-inline-start: 0;
+                  margin-block-end: 1em;
+                  counter-reset: section;
+                }
+
+                .agenda-content ol li {
+                  display: block;
+                }
+
+                .agenda-content ol > li {
+                  counter-increment: section;
+                }
+
+                .agenda-content ol > li::before {
+                  content: "§ " counter(section) ". ";
+                  font-weight: bold;
+                }
+
+                .agenda-content ol > li > ol {
+                  counter-reset: subsection;
+                }
+
+                .agenda-content ol > li > ol > li {
+                  counter-increment: subsection;
+                }
+
+                .agenda-content ol > li > ol > li::before {
+                  content: "§ " counter(section) "." counter(subsection) " ";
+                  margin-inline-end: 0.2em;
+                }
+
+                .agenda-content ol > li > ol > li > ol {
+                  counter-reset: subsubsection;
+                }
+
+                .agenda-content ol > li > ol > li > ol > li {
+                  counter-increment: subsubsection;
+                }
+
+                .agenda-content ol > li > ol > li > ol > li::before {
+                  content: "§ " counter(section) "." counter(subsection) "." counter(subsubsection) " ";
+                }
+
+                .agenda-content ol ol {
+                  margin-block-end: 0;
+                  padding-inline-start: 1.5em;
+                }
+              `}
+            </style>
+            <div className="agenda-content prose prose-gray max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -419,9 +470,7 @@ function WaitPage(
                     </ul>
                   ),
                   ol: ({ children }) => (
-                    <ol className="list-decimal list-inside text-gray-700 mb-3 space-y-1">
-                      {children}
-                    </ol>
+                    <ol className="text-gray-700 mb-3 space-y-1">{children}</ol>
                   ),
                   li: ({ children }) => (
                     <li className="text-gray-700">{children}</li>
@@ -495,7 +544,7 @@ function WaitPage(
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
             <div className="text-gray-400 mb-2">📋</div>
             <p className="text-gray-500">
-              No agenda has been set for this meeting
+              Ingen agenda har ställts in för detta möte
             </p>
           </div>
         )}

@@ -7,7 +7,7 @@ export type ResetLoginRequest = {
 
 export async function resetLogin(
   req: ResetLoginRequest,
-): Promise<Result<{ blob: Blob }, APIError>> {
+): Promise<Result<{ qrSvg: string; inviteLink: string }, APIError>> {
   const res = await fetch("/api/host/reset-login", {
     method: "POST",
     credentials: "include",
@@ -18,8 +18,8 @@ export async function resetLogin(
   });
 
   if (res.ok) {
-    const blob = await res.blob();
-    return ok({ blob });
+    const data = await res.json();
+    return ok(data);
   } else {
     const obj = await res.json();
     return err(obj as APIError);

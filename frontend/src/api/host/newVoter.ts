@@ -25,7 +25,8 @@ export type NewVoterRequest = {
   isHost: boolean;
 };
 type NewVoterResponse = {
-  blob: Blob;
+  qrSvg: string;
+  inviteLink: string;
 };
 
 export async function newVoter(
@@ -39,7 +40,8 @@ export async function newVoter(
   });
 
   if (res.ok) {
-    return ok({ blob: await res.blob() } as NewVoterResponse);
+    const data = await res.json();
+    return ok(data as NewVoterResponse);
   } else {
     const obj = await res.json();
     return err(obj as APIError);

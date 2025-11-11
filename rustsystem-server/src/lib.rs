@@ -1,7 +1,4 @@
-use axum::{
-    Router,
-    http::{HeaderValue, header::CONTENT_SECURITY_POLICY},
-};
+use axum::{Router, http::HeaderValue};
 use invite_auth::InviteAuthority;
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokens::{AuthUser, get_secret};
@@ -114,6 +111,5 @@ pub fn app() -> Router {
     Router::new()
         .fallback_service(serve_dir)
         .nest("/api", api_routes())
-        .layer(SetResponseHeaderLayer::overriding(CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'; img-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")))
         .with_state(state)
 }

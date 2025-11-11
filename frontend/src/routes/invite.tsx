@@ -70,7 +70,9 @@ function RouteComponent() {
   const [nameCollisionError, setNameCollisionError] = useState<string | null>(
     null,
   );
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [qrCodeSvg, setQrCodeSvg] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   // Handle escape key for QR modal
@@ -205,7 +207,8 @@ function RouteComponent() {
     }
 
     setIsGenerating(true);
-    setQrCodeUrl(null);
+    setQrCodeSvg(null);
+    setInviteLink(null);
     setNameCollisionError(null);
 
     const result = await newVoter({
@@ -215,8 +218,8 @@ function RouteComponent() {
 
     matchResult(result, {
       Ok: (res) => {
-        const url = URL.createObjectURL(res.blob);
-        setQrCodeUrl(url);
+        setQrCodeSvg(res.qrSvg);
+        setInviteLink(res.inviteLink);
         setIsGenerating(false);
         // Refresh voter list after adding and update selectedVoter with real data
         VoterList({} as VoterListRequest).then((updatedVoters) => {
@@ -263,7 +266,8 @@ function RouteComponent() {
 
   const regenerateQrCode = async (voter: Voter) => {
     setIsGenerating(true);
-    setQrCodeUrl(null);
+    setQrCodeSvg(null);
+    setInviteLink(null);
 
     const result = await resetLogin({
       user_uuuid: voter.uuid,
@@ -271,8 +275,8 @@ function RouteComponent() {
 
     matchResult(result, {
       Ok: (res) => {
-        const url = URL.createObjectURL(res.blob);
-        setQrCodeUrl(url);
+        setQrCodeSvg(res.qrSvg);
+        setInviteLink(res.inviteLink);
         setIsGenerating(false);
         // Refresh voter list after reset and update selectedVoter with new UUID
         VoterList({} as VoterListRequest).then((updatedVoters) => {
@@ -288,7 +292,7 @@ function RouteComponent() {
               setVoters(votersWithStatus);
               // Update selectedVoter with the new UUID from backend
               const updatedVoter = votersWithStatus.find(
-                (voter) => voter.name === selectedVoter?.name,
+                (voterData) => voterData.name === voter.name,
               );
               if (updatedVoter) {
                 setSelectedVoter(updatedVoter);
@@ -311,7 +315,7 @@ function RouteComponent() {
   };
 
   const handleKickOut = async (voter: Voter) => {
-    if (!confirm(`Är du säker på att du vill sparka ut ${voter.name}?`)) {
+    if (!confirm(`Är du säker på att du vill checka ut ${voter.name}?`)) {
       return;
     }
 
@@ -337,7 +341,7 @@ function RouteComponent() {
   const handleRemoveAll = async () => {
     if (
       !confirm(
-        "Är du säker på att du vill sparka ut alla deltagare? Detta kommer att logga ut alla icke-administratörer från mötet, men de kan logga in igen med nya QR-koder.",
+        "Är du säker på att du vill checka ut alla deltagare? Detta kommer att logga ut alla icke-administratörer från mötet, men de kan logga in igen med nya QR-koder.",
       )
     ) {
       return;
@@ -452,10 +456,10 @@ function RouteComponent() {
             <button
               onClick={() => handleShowQrCode(props.row.original)}
               disabled={isGenerating || isVotingActive || isCurrentUser}
-              className={`px-3 py-1.5 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all duration-150 ${
                 isGenerating || isVotingActive || isCurrentUser
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-slate-700 hover:bg-slate-600 text-white shadow-sm hover:shadow"
               }`}
               title={
                 isCurrentUser ? "Kan inte generera QR-kod för dig själv" : ""
@@ -467,17 +471,17 @@ function RouteComponent() {
                   ? "Omröstning aktiv"
                   : isGenerating
                     ? "..."
-                    : "Generera QR"}
+                    : "Bjud in igen"}
             </button>
             <button
               onClick={() => handleKickOut(props.row.original)}
               disabled={isGenerating || isVotingActive || isCurrentUser}
-              className={`px-3 py-1.5 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all duration-150 ${
                 isGenerating || isVotingActive || isCurrentUser
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-red-500 hover:bg-red-600 text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow"
               }`}
-              title={isCurrentUser ? "Kan inte sparka ut dig själv" : ""}
+              title={isCurrentUser ? "Kan inte checka ut dig själv" : ""}
             >
               {isCurrentUser
                 ? "Du"
@@ -485,7 +489,7 @@ function RouteComponent() {
                   ? "Omröstning aktiv"
                   : isGenerating
                     ? "..."
-                    : "Sparka ut"}
+                    : "Checka ut"}
             </button>
           </div>
         );
@@ -575,14 +579,14 @@ function RouteComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
       {/* Left Pane - Voter Table */}
       <div className="flex-1 lg:border-r border-gray-200 flex flex-col order-2 lg:order-1">
         {/* Header */}
-        <div className="p-4 lg:p-6 border-b border-gray-200 bg-white">
+        <div className="p-6 lg:p-8 border-b border-gray-200 bg-white">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-4">
             <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-[var(--color-contours)] mb-2">
+              <h1 className="text-xl lg:text-2xl font-semibold text-gray-900 mb-2">
                 Deltagarhantering
               </h1>
               <p className="text-sm text-gray-600">
@@ -622,29 +626,29 @@ function RouteComponent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 lg:gap-4 mb-4 lg:mb-6">
+            <div className="flex flex-wrap gap-3 lg:gap-4 mb-6 lg:mb-8">
               <button
                 onClick={fetchVoters}
-                className="bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base"
+                className="bg-slate-900 hover:bg-slate-800 text-white px-4 lg:px-6 py-2 lg:py-2.5 rounded-md border border-slate-900 hover:border-slate-800 shadow-sm hover:shadow transition-all duration-150 text-sm lg:text-base font-medium"
               >
                 Uppdatera lista
               </button>
               <button
                 onClick={handleBack}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base"
+                className="bg-white hover:bg-gray-50 text-gray-700 px-4 lg:px-6 py-2 lg:py-2.5 rounded-md border border-gray-300 hover:border-gray-400 shadow-sm hover:shadow transition-all duration-150 text-sm lg:text-base font-medium"
               >
                 Tillbaka till mötet
               </button>
               <button
                 onClick={handleRemoveAll}
                 disabled={isGenerating || isVotingActive}
-                className={`px-3 lg:px-4 py-2 rounded shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 text-sm lg:text-base ${
+                className={`px-4 lg:px-6 py-2 lg:py-2.5 rounded-md border shadow-sm transition-all duration-150 text-sm lg:text-base font-medium ${
                   isGenerating || isVotingActive
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-red-500 hover:bg-red-600 text-white"
+                    ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 hover:shadow"
                 }`}
               >
-                {isGenerating ? "Sparkar ut..." : "Sparka ut alla deltagare"}
+                {isGenerating ? "Sparkar ut..." : "Checka ut alla deltagare"}
               </button>
             </div>
           </div>
@@ -673,10 +677,10 @@ function RouteComponent() {
                   }
                 }}
                 placeholder="Ange deltagarens fullständiga namn"
-                className={`w-full p-2 lg:p-3 border rounded focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-100 text-sm lg:text-base ${
+                className={`w-full p-2 lg:p-3 border rounded focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-150 text-sm lg:text-base ${
                   nameCollisionError
                     ? "border-red-300 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-[var(--color-main)]"
+                    : "border-gray-300 focus:ring-blue-500"
                 }`}
                 required
               />
@@ -707,7 +711,7 @@ function RouteComponent() {
                   type="checkbox"
                   checked={isNewVoterAdmin}
                   onChange={(e) => setIsNewVoterAdmin(e.target.checked)}
-                  className="h-4 w-4 text-[var(--color-main)] focus:ring-[var(--color-main)] border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label
                   htmlFor="isAdmin"
@@ -723,19 +727,17 @@ function RouteComponent() {
             <button
               type="submit"
               disabled={isGenerating || isVotingActive}
-              className={`py-2 lg:py-3 px-4 lg:px-6 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base whitespace-nowrap ${
+              className={`py-2 lg:py-2.5 px-4 lg:px-6 rounded-md font-medium shadow-sm transition-all duration-150 text-sm lg:text-base whitespace-nowrap ${
                 isGenerating || isVotingActive
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-slate-900 hover:bg-slate-800 text-white hover:shadow"
               }`}
             >
-              {isVotingActive
-                ? "Omröstning aktiv"
-                : isGenerating
-                  ? "Genererar..."
-                  : isNewVoterAdmin
-                    ? "🔐 Lägg till admin"
-                    : "👤 Lägg till deltagare"}
+              {isGenerating
+                ? "Lägger till..."
+                : isNewVoterAdmin
+                  ? "Lägg till admin"
+                  : "Lägg till deltagare"}
             </button>
           </form>
         </div>
@@ -757,7 +759,7 @@ function RouteComponent() {
                   <input
                     value={globalFilter ?? ""}
                     onChange={(e) => setGlobalFilter(String(e.target.value))}
-                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-main)] focus:border-transparent transition-all duration-100 text-sm lg:text-base"
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-150 text-sm lg:text-base"
                     placeholder="Sök deltagare efter namn..."
                   />
                 </div>
@@ -791,7 +793,7 @@ function RouteComponent() {
                       </tr>
                     ))}
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-200 bg-white">
                     {table.getRowModel().rows.map((row) => (
                       <tr
                         key={row.original.uuid}
@@ -800,7 +802,7 @@ function RouteComponent() {
                         {row.getVisibleCells().map((cell) => (
                           <td
                             key={cell.id}
-                            className="px-3 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm lg:text-base"
+                            className="px-3 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm lg:text-base text-gray-900"
                           >
                             {flexRender(
                               cell.column.columnDef.cell,
@@ -859,16 +861,16 @@ function RouteComponent() {
                           disabled={
                             isGenerating || isVotingActive || isCurrentUser
                           }
-                          className={`flex-1 py-2 px-3 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                          className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-all duration-150 ${
                             isGenerating || isVotingActive || isCurrentUser
-                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                              : "bg-[var(--color-main)] hover:bg-[var(--color-accent2)] text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-slate-700 hover:bg-slate-600 text-white shadow-sm hover:shadow"
                           }`}
                         >
                           {isCurrentUser
                             ? "Ditt konto"
                             : isVotingActive
-                              ? "Omröstning aktiv"
+                              ? "Röstning"
                               : isGenerating
                                 ? "..."
                                 : "Generera QR"}
@@ -878,16 +880,16 @@ function RouteComponent() {
                           disabled={
                             isGenerating || isVotingActive || isCurrentUser
                           }
-                          className={`py-2 px-3 rounded text-xs font-medium shadow-sm transition-all duration-100 ${
+                          className={`py-2 px-3 rounded text-sm font-medium transition-all duration-150 ${
                             isGenerating || isVotingActive || isCurrentUser
-                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                              : "bg-red-500 hover:bg-red-600 text-white hover:shadow-md active:shadow-none active:translate-y-px"
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow"
                           }`}
                         >
                           {isCurrentUser
                             ? "Du"
                             : isVotingActive
-                              ? "Omröstning aktiv"
+                              ? "Röstning"
                               : isGenerating
                                 ? "..."
                                 : "Sparka"}
@@ -914,10 +916,10 @@ function RouteComponent() {
       </div>
 
       {/* Right Pane - QR Code */}
-      <div className="w-full lg:w-80 flex flex-col bg-white border-b lg:border-b-0 lg:border-l border-gray-200 order-1 lg:order-2">
+      <div className="w-full lg:w-120 flex flex-col bg-white border-b lg:border-b-0 lg:border-l border-gray-200 order-1 lg:order-2">
         <div className="p-4 lg:p-6 border-b border-gray-200">
           <h2 className="text-lg lg:text-xl font-semibold text-gray-900">
-            QR-kodsgenerator
+            QR-kodgenerator
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             Generera åtkomstkoder för deltagare
@@ -945,16 +947,35 @@ function RouteComponent() {
                     </p>
                   </div>
                 </div>
-              ) : qrCodeUrl ? (
+              ) : qrCodeSvg ? (
                 <div className="space-y-4 lg:space-y-6">
                   <div className="flex justify-center">
-                    <img
-                      src={qrCodeUrl}
-                      alt={`QR Code for ${selectedVoter.name}`}
-                      className="w-48 h-48 lg:w-64 lg:h-64 border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:scale-105 transition-transform"
-                      onClick={() => setIsQrModalOpen(true)}
-                      title="Klicka för att förstora"
-                    />
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <img
+                        className="size-48 lg:size-96 border border-gray-200 rounded-lg shadow-sm cursor-pointer [& svg]:w-full"
+                        onClick={() => setIsQrModalOpen(true)}
+                        title="Klicka för att förstora"
+                        src={qrCodeSvg}
+                      />
+                      {inviteLink && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(inviteLink);
+                              setCopyFeedback("Länk kopierad!");
+                              setTimeout(() => setCopyFeedback(null), 2000);
+                            } catch (err) {
+                              setCopyFeedback("Kunde inte kopiera länk");
+                              setTimeout(() => setCopyFeedback(null), 2000);
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                          title="Kopiera inbjudningslänk"
+                        >
+                          {copyFeedback || "Kopiera länk"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2 lg:space-y-3">
                     <p className="text-sm lg:text-base text-gray-600 px-2">
@@ -963,6 +984,14 @@ function RouteComponent() {
                         {selectedVoter.name}
                       </span>
                     </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+                    <button
+                      onClick={() => setIsQrModalOpen(true)}
+                      className="flex-1 py-2 lg:py-2.5 px-3 lg:px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md font-medium transition-all duration-150 text-sm lg:text-base"
+                    >
+                      Förstora
+                    </button>
                     <button
                       onClick={() => regenerateQrCode(selectedVoter)}
                       disabled={
@@ -970,12 +999,12 @@ function RouteComponent() {
                         isVotingActive ||
                         currentUserUuid === selectedVoter.uuid
                       }
-                      className={`w-full lg:w-auto px-3 lg:px-4 py-2 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base ${
+                      className={`flex-1 py-2 lg:py-2.5 px-3 lg:px-4 rounded-md font-medium shadow-sm transition-all duration-150 text-sm lg:text-base ${
                         isGenerating ||
                         isVotingActive ||
                         currentUserUuid === selectedVoter.uuid
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow-md active:shadow-none active:translate-y-px"
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-slate-700 hover:bg-slate-600 text-white hover:shadow"
                       }`}
                       title={
                         currentUserUuid === selectedVoter.uuid
@@ -990,17 +1019,6 @@ function RouteComponent() {
                           : isGenerating
                             ? "Genererar..."
                             : "Regenerera QR-kod"}
-                    </button>
-                    <button
-                      onClick={() => setIsQrModalOpen(true)}
-                      disabled={!qrCodeUrl}
-                      className={`px-3 lg:px-4 py-2 rounded font-medium shadow-sm transition-all duration-100 text-sm lg:text-base ${
-                        !qrCodeUrl
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md active:shadow-none active:translate-y-px"
-                      }`}
-                    >
-                      🔍 Förstora
                     </button>
                   </div>
                 </div>
@@ -1036,7 +1054,7 @@ function RouteComponent() {
       </div>
 
       {/* QR Code Enlargement Modal */}
-      {isQrModalOpen && qrCodeUrl && selectedVoter && (
+      {isQrModalOpen && qrCodeSvg && selectedVoter && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
           onClick={() => setIsQrModalOpen(false)}
@@ -1069,12 +1087,26 @@ function RouteComponent() {
                 QR-kod för {selectedVoter.name}
               </h3>
               <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-                <img
-                  src={qrCodeUrl}
-                  alt={`QR Code for ${selectedVoter.name}`}
-                  className="w-full max-w-sm mx-auto"
-                />
+                <img className="w-full max-w-sm mx-auto" src={qrCodeSvg} />
               </div>
+              {inviteLink && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(inviteLink);
+                      setCopyFeedback("Länk kopierad!");
+                      setTimeout(() => setCopyFeedback(null), 2000);
+                    } catch (err) {
+                      setCopyFeedback("Kunde inte kopiera länk");
+                      setTimeout(() => setCopyFeedback(null), 2000);
+                    }
+                  }}
+                  className="mb-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="Kopiera inbjudningslänk"
+                >
+                  {copyFeedback || "Kopiera länk"}
+                </button>
+              )}
               <p className="text-sm text-gray-600">
                 Skanna denna kod för att logga in som {selectedVoter.name}
               </p>
