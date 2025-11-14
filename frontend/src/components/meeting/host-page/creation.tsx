@@ -2,7 +2,8 @@ import type { MeetingSpecsResponse } from "@/api/common/meetingSpecs";
 import type { APIError } from "@/api/error";
 import { StartVote, type StartVoteRequest } from "@/api/host/state";
 import { VoterList, type VoterListRequest } from "@/api/host/voterList";
-import init, { BallotMetaData } from "@/pkg/rustsystem_client";
+import { BallotMetaData } from "@/pkg/rustsystem_client";
+import { withWasm } from "@/utils/wasm";
 import { matchResult } from "@/result";
 import React, { useState, useEffect } from "react";
 import type { VoteState } from "../host";
@@ -17,8 +18,6 @@ type CreationPageProps = {
 };
 
 const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
-  init();
-
   const [voteName, setVoteName] = useState("");
   const [candidates, setCandidates] = useState<string[]>(["", ""]);
   const [maxSelections, setMaxSelections] = useState(1);
@@ -143,27 +142,44 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
 
     setIsLoading(true);
 
-    const validCandidates = candidates.filter((c) => c.trim() !== "");
-    const result = await StartVote({
-      name: voteName.trim(),
-      metadata: new BallotMetaData(
-        validCandidates,
-        0,
-        Math.min(maxSelections, validCandidates.length),
-      ),
-    } as StartVoteRequest);
+    try {
+      const validCandidates = candidates.filter((c) => c.trim() !== "");
+      const metadata = await withWasm(
+        () =>
+          new BallotMetaData(
+            validCandidates,
+            0,
+            Math.min(maxSelections, validCandidates.length),
+          ),
+      );
 
-    matchResult(result, {
-      Ok: (_res) => {
-        setIsLoading(false);
-        setValidationErrors([]);
-        // State will be updated automatically via WebSocket
-      },
-      Err: (err) => {
-        setError(err);
-        setIsLoading(false);
-      },
-    });
+      const result = await StartVote({
+        name: voteName.trim(),
+        metadata,
+      } as StartVoteRequest);
+
+      matchResult(result, {
+        Ok: (_res) => {
+          setIsLoading(false);
+          setValidationErrors([]);
+          // State will be updated automatically via WebSocket
+        },
+        Err: (err) => {
+          setError(err);
+          setIsLoading(false);
+        },
+      });
+    } catch (error) {
+      setError({
+        code: "WasmError",
+        message:
+          "Ett fel uppstod vid skapande av omröstningsdata. Försök igen.",
+        httpStatus: 500,
+        timestamp: new Date().toISOString(),
+        endpoint: { method: "POST", path: "/api/host/start-vote" },
+      });
+      setIsLoading(false);
+    }
   };
 
   // Real-time validation as user types
@@ -407,7 +423,7 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
               type="button"
               onClick={handleStartVote}
               disabled={isLoading || validationErrors.length > 0}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium rounded-md shadow-sm hover:shadow-md active:shadow-none active:translate-y-px transition-all duration-100 disabled:cursor-not-allowed"
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 font-medium"
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">

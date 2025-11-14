@@ -9,6 +9,6 @@ fi
 echo "Building with API_ENDPOINT=$API_ENDPOINT"
 
 cd rustsystem-client
-# wasm-pack build --target web -d ../src/pkg
+wasm-pack build --target web -d ../src/pkg
 cd ..
 pnpm run build

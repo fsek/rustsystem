@@ -2,6 +2,7 @@ import {
   type BallotMetaData,
   start_vote_json_req,
 } from "@/pkg/rustsystem_client";
+import { withWasm } from "@/utils/wasm";
 import { type Result, err, ok } from "@/result";
 import type { APIError } from "../error";
 
@@ -15,18 +16,32 @@ type StartVoteResponse = {};
 export async function StartVote(
   req: StartVoteRequest,
 ): Promise<Result<StartVoteResponse, APIError>> {
-  const res = await fetch("/api/host/start-vote", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(start_vote_json_req(req.name, req.metadata)),
-  });
+  try {
+    const requestBody = await withWasm(() =>
+      start_vote_json_req(req.name, req.metadata),
+    );
 
-  if (res.ok) {
-    return ok({} as StartVoteResponse);
-  } else {
-    const obj = await res.json();
-    return err(obj as APIError);
+    const res = await fetch("/api/host/start-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(requestBody),
+    });
+
+    if (res.ok) {
+      return ok({} as StartVoteResponse);
+    } else {
+      const obj = await res.json();
+      return err(obj as APIError);
+    }
+  } catch (error) {
+    return err({
+      code: "WasmError",
+      message: "Failed to prepare vote data. Please try again.",
+      httpStatus: 500,
+      timestamp: new Date().toISOString(),
+      endpoint: { method: "POST", path: "/api/host/start-vote" },
+    } as APIError);
   }
 }
 

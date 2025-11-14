@@ -1,9 +1,10 @@
 import { Login, type LoginRequest } from "@/api/login";
-import init, {
+import {
   try_register,
   new_ballot_validation,
   send_vote,
 } from "@/pkg/rustsystem_client";
+import { withWasm } from "@/utils/wasm";
 import { matchResult } from "@/result";
 import type React from "react";
 import { useEffect, useState } from "react";
@@ -38,7 +39,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
   const [minSelections, setMinSelections] = useState(0);
 
   useEffect(() => {
-    init();
     checkVotingState();
     performLogin();
   }, []);
@@ -205,7 +205,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
         uuid_sample: uuid?.substring(0, 8) + "...",
       });
 
-      const res = await try_register(muid, uuid);
+      const res = await withWasm(async () => await try_register(muid, uuid));
       console.log("Registration response:", {
         is_valid: res.is_valid(),
         is_successful: res.is_successful(),
@@ -213,10 +213,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
       });
 
       if (res.is_valid() && res.is_successful()) {
-        const validation = new_ballot_validation(
-          res.proof(),
-          res.token(),
-          res.signature(),
+        const validation = await withWasm(async () =>
+          new_ballot_validation(res.proof(), res.token(), res.signature()),
         );
         const metadata = res.metadata();
 
@@ -349,7 +347,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
       // Send selected candidates or null for blank vote
       const choice = selectedCandidates.length > 0 ? selectedCandidates : null;
 
-      await send_vote(metadata, choice, validation);
+      await withWasm(async () => await send_vote(metadata, choice, validation));
 
       setHasVoted(true);
       setIsVoting(false);
@@ -422,6 +420,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-8">
+          {/* Admin Navigation */}
+
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -459,6 +459,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Admin Navigation */}
+
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{voteName}</h1>
