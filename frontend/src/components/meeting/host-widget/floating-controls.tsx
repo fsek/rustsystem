@@ -16,11 +16,13 @@ import "@/colors.css";
 
 interface FloatingControlsProps {
   muid: string;
+  uuuid: string;
   setError: (error: APIError) => void;
 }
 
 const FloatingControls: React.FC<FloatingControlsProps> = ({
   muid,
+  uuuid,
   setError,
 }) => {
   const [specs, setSpecs] = useState<MeetingSpecsResponse | undefined>(
@@ -78,7 +80,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
   }, []);
 
   const handleInvite = () => {
-    navigate({ to: "/invite", search: { muid } });
+    navigate({ to: "/invite", search: { muid, uuuid } });
   };
 
   return (

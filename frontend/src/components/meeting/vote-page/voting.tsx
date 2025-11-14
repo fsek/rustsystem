@@ -15,7 +15,7 @@ import { VotePageDisplay } from "../voter";
 
 type VotingPageProps = {
   muid: string;
-  uuid: string;
+  uuuid: string;
   specs: MeetingSpecsResponse | undefined;
   setVotePageDisplay: React.Dispatch<React.SetStateAction<VotePageDisplay>>;
   setError: React.Dispatch<React.SetStateAction<APIError | null>>;
@@ -23,7 +23,7 @@ type VotingPageProps = {
 
 const VotingPage: React.FC<VotingPageProps> = ({
   muid,
-  uuid,
+  uuuid,
   specs,
   setVotePageDisplay,
   setError,
@@ -97,25 +97,16 @@ const VotingPage: React.FC<VotingPageProps> = ({
         console.log("Not authenticated yet, proceeding with login");
       }
 
-      console.log("Attempting login with muuid:", muid, "uuuid:", uuid);
-      console.log("UUID types:", typeof muid, typeof uuid);
-      console.log(
-        "UUID formats - muid length:",
-        muid?.length,
-        "uuid length:",
-        uuid?.length,
-      );
-
       // Validate UUID format
-      if (!muid || !uuid) {
+      if (!muid || !uuuid) {
         throw new Error(
-          `Saknade UUID-parametrar - muid: ${muid}, uuid: ${uuid}`,
+          `Saknade UUID-parametrar - muid: ${muid}, uuuid: ${uuuid}`,
         );
       }
 
       const loginResult = await Login({
         muuid: muid,
-        uuuid: uuid,
+        uuuid: uuuid,
       } as LoginRequest);
 
       matchResult(loginResult, {
@@ -147,7 +138,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
       setError({
         code: "LoginError",
-        message: `Inloggning misslyckades: ${errorMessage}. MUID: ${muid}, UUID: ${uuid}. Vänligen skanna QR-koden igen.`,
+        message: `Inloggning misslyckades: ${errorMessage}. MUID: ${muid}, UUID: ${uuuid}. Vänligen skanna QR-koden igen.`,
         httpStatus: 401,
         timestamp: new Date().toISOString(),
         endpoint: { method: "POST", path: "/api/login" },
@@ -164,7 +155,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
     try {
       setIsRegistering(true);
-      console.log("Starting registration with muid:", muid, "uuid:", uuid);
 
       // Check if we already have valid registration data in session storage
       const existingValidation = sessionStorage.getItem("validation");
@@ -196,16 +186,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
         }
       }
 
-      console.log("Registration - UUID formats check:", {
-        muid_type: typeof muid,
-        uuid_type: typeof uuid,
-        muid_length: muid?.length,
-        uuid_length: uuid?.length,
-        muid_sample: muid?.substring(0, 8) + "...",
-        uuid_sample: uuid?.substring(0, 8) + "...",
-      });
-
-      const res = await withWasm(async () => await try_register(muid, uuid));
+      const res = await withWasm(async () => await try_register(muid, uuuid));
       console.log("Registration response:", {
         is_valid: res.is_valid(),
         is_successful: res.is_successful(),
@@ -300,7 +281,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
       setError({
         code: "RegistrationError",
-        message: `Registrering misslyckades: ${errorMessage}. MUID: ${muid}, UUID: ${uuid}`,
+        message: `Registrering misslyckades. MUID: ${muid}, UUID: ${uuuid}. Vänligen försök igen.`,
         httpStatus: 500,
         timestamp: new Date().toISOString(),
         endpoint: { method: "POST", path: "/api/voter/register" },

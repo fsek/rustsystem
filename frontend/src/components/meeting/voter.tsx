@@ -17,7 +17,7 @@ import ErrorHandler from "../error";
 
 type VoterPageProps = {
   muid: any;
-  uuid: any;
+  uuuid: any;
 };
 
 export const VotePageDisplay = {
@@ -37,7 +37,7 @@ export const VotePageDisplay = {
 export type VotePageDisplay =
   (typeof VotePageDisplay)[keyof typeof VotePageDisplay];
 
-const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
+const VoterPage: React.FC<VoterPageProps> = ({ muid, uuuid }) => {
   const [voteStateEvent, setVoteStateEvent] = useState<EventSource | null>(
     null,
   );
@@ -291,7 +291,7 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
       return (
         <RegisterPage
           muid={muid}
-          uuid={uuid}
+          uuuid={uuuid}
           setVotePageDisplay={setVotePageDisplay}
         />
       );
@@ -299,7 +299,7 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuid }) => {
       return (
         <VotingPage
           muid={muid}
-          uuid={uuid}
+          uuuid={uuuid}
           specs={specs}
           setVotePageDisplay={setVotePageDisplay}
           setError={setError}

@@ -35,12 +35,14 @@ import "@/colors.css";
 
 type SearchParams = {
   muid: string;
+  uuuid?: string;
 };
 
 export const Route = createFileRoute("/invite")({
   validateSearch: (search): SearchParams => {
     return {
       muid: (search.muid as string) ?? "",
+      uuuid: (search.uuuid as string) ?? undefined,
     };
   },
   component: RouteComponent,
@@ -60,6 +62,7 @@ function RouteComponent() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const muid = search.muid;
+  const providedUuuid = search.uuuid;
 
   const [voters, setVoters] = useState<Voter[]>([]);
   const [isVotingActive, setIsVotingActive] = useState(false);
@@ -101,6 +104,7 @@ function RouteComponent() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [currentUserUuid, setCurrentUserUuid] = useState<string | null>(null);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
 
   const checkVoteState = async () => {
     try {
@@ -127,6 +131,7 @@ function RouteComponent() {
       matchResult(result, {
         Ok: (res) => {
           setCurrentUserUuid(res.uuid);
+          setIsCurrentUserAdmin(res.is_host);
         },
         Err: (err) => {
           console.error("Failed to get current user:", err);
@@ -571,7 +576,25 @@ function RouteComponent() {
   };
 
   const handleBack = () => {
-    navigate({ to: "/meeting", search: { muuid: muid, uuuid: "" } });
+    // Use providedUuuid from URL params as fallback if currentUserUuid is not available
+    const uuidToUse = currentUserUuid || providedUuuid;
+
+    if (!uuidToUse) {
+      console.error("No UUID available for navigation back to meeting");
+      return;
+    }
+
+    if (isCurrentUserAdmin) {
+      navigate({
+        to: "/meeting/admin",
+        search: { muuid: muid, uuuid: uuidToUse },
+      });
+    } else {
+      navigate({
+        to: "/meeting",
+        search: { muuid: muid, uuuid: uuidToUse },
+      });
+    }
   };
 
   if (error) {

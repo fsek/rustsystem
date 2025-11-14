@@ -13,13 +13,13 @@ import { VotePageDisplay } from "../voter";
 
 type RegisterPageProps = {
   muid: any;
-  uuid: any;
+  uuuid: any;
   setVotePageDisplay: React.Dispatch<React.SetStateAction<VotePageDisplay>>;
 };
 
 const RegisterPage: React.FC<RegisterPageProps> = ({
   muid,
-  uuid,
+  uuuid,
   setVotePageDisplay,
 }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -28,7 +28,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({
     setIsRegistering(true);
     try {
       await withWasm(async () => {
-        const res = await try_register(muid, uuid);
+        const res = await try_register(muid, uuuid);
         if (res.is_valid() && res.is_successful()) {
           const validation = new_ballot_validation(
             res.proof(),
