@@ -94,29 +94,33 @@ const TallyPage: React.FC<TallyPageProps> = ({
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 Sammanfattning
               </h3>
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Obs:</strong> Procentsatser baseras på antal röstande
+                  (inte totala markeringar). Eftersom röstsedlar kan innehålla
+                  flera val kan procentsatserna summera till över 100%.
+                </p>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">
+                    {results.votersWhoCast}
+                  </div>
+                  <div className="text-sm text-blue-800">Antal röstande</div>
+                </div>
+                <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-yellow-600">
                     {results.totalVotes}
                   </div>
-                  <div className="text-sm text-blue-800">Totala röster</div>
+                  <div className="text-sm text-yellow-800">
+                    Totala markeringar
+                  </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-gray-600">
                     {results.blankVotes}
                   </div>
                   <div className="text-sm text-gray-800">Blanka röster</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Math.round(
-                      ((results.totalVotes - results.blankVotes) /
-                        results.totalVotes) *
-                        100,
-                    )}
-                    %
-                  </div>
-                  <div className="text-sm text-green-800">Deltagande</div>
                 </div>
               </div>
             </div>
@@ -156,6 +160,9 @@ function processResults(tally: TallyResponse) {
       return sum + (typeof count === "number" ? count : 0);
     }, 0) + tally.blank;
 
+  // Calculate voters who cast ballots (including blank votes)
+  const votersWhoCast = totalVotes; // This represents people who used their ballot
+
   // Check if it's a dichotomous vote (Yes/No)
   if ("Dichotomous" in tally.score) {
     const scores = tally.score["Dichotomous"] as number[];
@@ -165,6 +172,7 @@ function processResults(tally: TallyResponse) {
       no: scores[1] || 0,
       totalVotes,
       blankVotes: tally.blank,
+      votersWhoCast,
     };
   }
 
@@ -174,8 +182,8 @@ function processResults(tally: TallyResponse) {
       name,
       count: typeof count === "number" ? count : 0,
       percentage:
-        totalVotes > 0
-          ? ((typeof count === "number" ? count : 0) / totalVotes) * 100
+        votersWhoCast > 0
+          ? ((typeof count === "number" ? count : 0) / votersWhoCast) * 100
           : 0,
     }))
     .sort((a, b) => b.count - a.count);
@@ -183,8 +191,11 @@ function processResults(tally: TallyResponse) {
   return {
     type: "candidates" as const,
     candidates,
-    totalVotes,
+    totalVotes: Object.values(tally.score).reduce((sum: number, count: any) => {
+      return sum + (typeof count === "number" ? count : 0);
+    }, 0), // Only candidate votes, not including blanks
     blankVotes: tally.blank,
+    votersWhoCast,
   };
 }
 
@@ -201,7 +212,8 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
                 {candidate.name}
               </span>
               <span className="text-sm text-gray-600">
-                {candidate.count} röster ({Math.round(candidate.percentage)}%)
+                {candidate.count} röster ({Math.round(candidate.percentage)}% av
+                röstande)
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -209,8 +221,16 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
                 className={`h-3 rounded-full transition-all duration-700 ${
                   index === 0 ? "bg-green-500" : "bg-blue-500"
                 }`}
-                style={{ width: `${candidate.percentage}%` }}
+                style={{
+                  width: `${Math.min(candidate.percentage, 100)}%`,
+                  opacity: candidate.percentage > 100 ? 0.8 : 1,
+                }}
               ></div>
+              {candidate.percentage > 100 && (
+                <div className="text-xs text-gray-500 mt-1">
+                  (Över 100% p.g.a. flera val per röstsedel)
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -222,9 +242,9 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
 // Component for dichotomous (Yes/No) results
 const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
   const yesPercentage =
-    results.totalVotes > 0 ? (results.yes / results.totalVotes) * 100 : 0;
+    results.votersWhoCast > 0 ? (results.yes / results.votersWhoCast) * 100 : 0;
   const noPercentage =
-    results.totalVotes > 0 ? (results.no / results.totalVotes) * 100 : 0;
+    results.votersWhoCast > 0 ? (results.no / results.votersWhoCast) * 100 : 0;
   const winner = results.yes > results.no ? "Ja" : "Nej";
 
   return (
@@ -270,6 +290,9 @@ const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
       <div className="text-center p-4 bg-blue-50 rounded-lg">
         <div className="text-lg font-semibold text-blue-900">
           Resultat: <span className="text-2xl">{winner}</span> vinner
+        </div>
+        <div className="text-sm text-blue-700 mt-1">
+          Procent baserat på {results.votersWhoCast} röstande
         </div>
       </div>
     </div>
