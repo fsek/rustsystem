@@ -4,6 +4,7 @@ import {
   type MeetingSpecsRequest,
   type UpdateAgendaRequest,
   updateAgenda,
+  meetingSpecsWatch,
 } from "@/api/common/meetingSpecs";
 import type { APIError } from "@/api/error";
 import ErrorHandler from "@/components/error";
@@ -36,6 +37,11 @@ function RouteComponent() {
   const [error, setError] = useState<APIError | null>(null);
   const [agenda, setAgenda] = useState<string>("");
   const [isUpdatingAgenda, setIsUpdatingAgenda] = useState(false);
+  const [lastAgendaUpdate, setLastAgendaUpdate] = useState<number>(0);
+  const [agendaUpdateSource, setAgendaUpdateSource] = useState<
+    "local" | "remote"
+  >("local");
+  const [showSyncStatus, setShowSyncStatus] = useState(false);
   const debounceTimerRef = useRef<number | null>(null);
   const search = Route.useSearch();
   const muuid = search.muuid;
@@ -70,6 +76,42 @@ function RouteComponent() {
     });
   }, []);
 
+  // Setup real-time agenda synchronization
+  useEffect(() => {
+    const agendaEventSource = meetingSpecsWatch();
+
+    agendaEventSource.onmessage = (event) => {
+      if (event.data === "NewData") {
+        // Fetch the latest agenda to sync with other admins
+        MeetingSpecs({} as MeetingSpecsRequest).then((result) => {
+          matchResult(result, {
+            Ok: (specsData) => {
+              const now = Date.now();
+              // Only update if this isn't from our own recent update
+              if (now - lastAgendaUpdate > 1000) {
+                setAgendaUpdateSource("remote");
+                setAgenda(specsData.agenda);
+                setShowSyncStatus(true);
+                setTimeout(() => setShowSyncStatus(false), 2000);
+              }
+            },
+            Err: (err) => {
+              console.error("Failed to fetch updated agenda:", err);
+            },
+          });
+        });
+      }
+    };
+
+    agendaEventSource.onerror = (error) => {
+      console.error("Agenda watch error:", error);
+    };
+
+    return () => {
+      agendaEventSource.close();
+    };
+  }, [lastAgendaUpdate]);
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -81,12 +123,16 @@ function RouteComponent() {
 
   const debouncedSaveAgenda = useCallback(async (agendaText: string) => {
     setIsUpdatingAgenda(true);
+    setLastAgendaUpdate(Date.now());
+    setAgendaUpdateSource("local");
     const result = await updateAgenda({
       agenda: agendaText,
     } as UpdateAgendaRequest);
     matchResult(result, {
       Ok: () => {
-        // Success - agenda saved
+        // Success - agenda saved and will be broadcast to other admins
+        setShowSyncStatus(true);
+        setTimeout(() => setShowSyncStatus(false), 1500);
       },
       Err: (err) => {
         setError(err);
@@ -180,7 +226,7 @@ function RouteComponent() {
         <div className="p-6 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-[var(--color-contours)]">
-              Mötesagenda
+              Kollaborativ agenda
             </h2>
             <Link
               to="/meeting"
@@ -190,18 +236,37 @@ function RouteComponent() {
               🗳️ Rösta
             </Link>
           </div>
-          <p className="text-sm text-gray-600">
-            Använd detta utrymme för att spåra dagordningspunkter och
-            anteckningar. Du kan växla till röstningsvyn för att delta i
-            omröstningar.
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Ändringar synkroniseras automatiskt mellan alla administratörer.
+            </p>
+            {showSyncStatus && (
+              <div
+                className={`text-xs px-2 py-1 rounded-full ${
+                  agendaUpdateSource === "remote"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-green-100 text-green-800"
+                }`}
+              >
+                {agendaUpdateSource === "remote"
+                  ? "📥 Synkroniserad"
+                  : "📤 Sparat"}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex-1 p-6 bg-white relative">
           <textarea
             value={agenda}
             onChange={handleAgendaChange}
             onKeyDown={handleAgendaKeyDown}
-            placeholder="Lägg till dagordningspunkter, anteckningar och diskussionspunkter här..."
+            placeholder="Lägg till dagordningspunkter, anteckningar och diskussionspunkter här...
+
+🔸 Välkomna
+🔸 Punkt 1: ...
+🔸 Punkt 2: ...
+🔸 Övrigt
+🔸 Avslutning"
             className="w-full h-full resize-none border-0 focus:outline-none focus:ring-0 text-gray-700 placeholder-gray-400 text-base leading-relaxed"
             style={{
               fontFamily:
@@ -209,8 +274,9 @@ function RouteComponent() {
             }}
           />
           {isUpdatingAgenda && (
-            <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-              Sparar...
+            <div className="absolute bottom-2 right-2 text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg shadow-sm border border-blue-200 flex items-center gap-2">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+              Sparar och synkroniserar...
             </div>
           )}
         </div>
@@ -218,6 +284,14 @@ function RouteComponent() {
 
       {/* Right Pane - Admin Controls */}
       <div className="w-1/2 flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-gray-200 bg-white">
+          <h2 className="text-xl font-semibold text-[var(--color-contours)]">
+            Administratörskontroller
+          </h2>
+          <p className="text-sm text-gray-600">
+            Hantera omröstningar och deltagare
+          </p>
+        </div>
         <div className="flex-1 overflow-y-auto">
           <HostPage muid={muuid} />
         </div>

@@ -72,6 +72,24 @@ export async function Tally(
 export type EndVoteRoundRequest = {};
 type EndVoteRoundResponse = {};
 
+export type GetTallyRequest = {};
+
+export async function getTally(
+  _req: GetTallyRequest,
+): Promise<Result<TallyResponse, APIError>> {
+  const res = await fetch("/api/host/get-tally", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const obj = await res.json();
+  if (res.ok) {
+    return ok(obj as TallyResponse);
+  } else {
+    return err(obj as APIError);
+  }
+}
+
 export async function EndVoteRound(
   _req: EndVoteRoundRequest,
 ): Promise<Result<EndVoteRoundResponse, APIError>> {

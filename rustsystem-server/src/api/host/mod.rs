@@ -13,7 +13,7 @@ use invite_watch::InviteWatch;
 pub mod auth;
 
 pub mod state;
-use state::{EndVoteRound, StartVote, Tally};
+use state::{EndVoteRound, GetTally, StartVote, Tally};
 
 pub mod new_voter;
 use new_voter::{NewVoter, StartInvite};
@@ -27,6 +27,7 @@ pub fn host_routes() -> Router<AppState> {
         .route("/start-vote", post(StartVote::handler))
         .route("/end-vote-round", delete(EndVoteRound::handler))
         .route("/tally", post(Tally::handler))
+        .route("/get-tally", get(GetTally::handler))
         .route("/new-voter", post(NewVoter::handler))
         .route("/start-invite", post(StartInvite::handler))
         .route("/invite-watch", get(InviteWatch::handler))

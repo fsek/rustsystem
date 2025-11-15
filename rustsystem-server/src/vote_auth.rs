@@ -80,6 +80,15 @@ impl Tally {
     }
 }
 
+impl Clone for Tally {
+    fn clone(&self) -> Self {
+        Self {
+            score: self.score.clone(),
+            blank: self.blank,
+        }
+    }
+}
+
 pub struct VoteRound {
     metadata: BallotMetaData,
     keys: AuthenticationKeys,
@@ -140,6 +149,7 @@ pub struct VoteAuthority {
     _state_rx: Receiver<VoteState>,
     update_tx: Sender<bool>,
     round: Option<VoteRound>,
+    last_tally: Option<Tally>,
 }
 impl Default for VoteAuthority {
     fn default() -> Self {
@@ -158,6 +168,7 @@ impl VoteAuthority {
             state_tx,
             update_tx: Sender::new(true),
             round: None,
+            last_tally: None,
         }
     }
 
@@ -207,6 +218,12 @@ impl VoteAuthority {
         if let Err(e) = self.state_tx.send(VoteState::Tally) {
             error!("{e}");
         }
+        match res {
+            Ok(ref tally) => {
+                self.last_tally = Some(tally.clone());
+            }
+            Err(_) => {}
+        }
         res
     }
 
@@ -216,6 +233,7 @@ impl VoteAuthority {
             error!("{e}");
         }
         self.round = None;
+        self.last_tally = None;
     }
 
     pub fn new_state_watcher(&self) -> Receiver<VoteState> {
@@ -228,5 +246,9 @@ impl VoteAuthority {
 
     pub fn send_update(&self) {
         self.update_tx.send(true).ok();
+    }
+
+    pub fn get_last_tally(&self) -> Option<&Tally> {
+        self.last_tally.as_ref()
     }
 }

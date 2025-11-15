@@ -122,6 +122,50 @@ pub enum EndVoteRoundError {
     MUIDNotFound,
 }
 
+#[derive(FromRequest)]
+pub struct GetTallyRequest {
+    auth: AuthHost,
+    state: State<AppState>,
+}
+
+#[derive(APIEndpointError)]
+#[api(endpoint(method = "GET", path = "/api/host/get-tally"))]
+pub enum GetTallyError {
+    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
+    MUIDNotFound,
+    #[api(code = APIErrorCode::VotingInactive, status = 410)]
+    NoTallyAvailable,
+}
+
+pub struct GetTally;
+impl APIHandler for GetTally {
+    type State = AppState;
+    type Request = GetTallyRequest;
+
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse = Json<vote_auth::Tally>;
+    type ErrorResponse = GetTallyError;
+
+    async fn route(
+        request: Self::Request,
+    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        let GetTallyRequest {
+            auth,
+            state: State(state),
+        } = request;
+
+        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
+            if let Some(tally) = meeting.vote_auth.get_last_tally() {
+                Ok(Json(tally.clone()))
+            } else {
+                Err(GetTallyError::NoTallyAvailable)
+            }
+        } else {
+            Err(GetTallyError::MUIDNotFound)
+        }
+    }
+}
+
 pub struct EndVoteRound;
 impl APIHandler for EndVoteRound {
     type State = AppState;
