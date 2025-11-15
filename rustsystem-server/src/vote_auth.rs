@@ -131,6 +131,14 @@ impl VoteRound {
         self.votes.push(choice);
     }
 
+    pub fn get_vote_count(&self) -> usize {
+        self.votes.len()
+    }
+
+    pub fn get_registered_count(&self) -> usize {
+        self.registered_voters.len()
+    }
+
     pub fn tally(self) -> TallyResult<Tally> {
         let votes = self.votes.clone();
         Tally::tally(votes, &self.metadata.get_candidates())
@@ -150,6 +158,7 @@ pub struct VoteAuthority {
     update_tx: Sender<bool>,
     round: Option<VoteRound>,
     last_tally: Option<Tally>,
+    current_vote_name: Option<String>,
 }
 impl Default for VoteAuthority {
     fn default() -> Self {
@@ -169,6 +178,7 @@ impl VoteAuthority {
             update_tx: Sender::new(true),
             round: None,
             last_tally: None,
+            current_vote_name: None,
         }
     }
 
@@ -192,15 +202,16 @@ impl VoteAuthority {
         }
 
         let keys = Sha256Provider::generate_authentication_keys();
-        let header = header.as_bytes().to_vec();
+        let header_bytes = header.as_bytes().to_vec();
         let registered_voters = HashSet::new();
         let expired_signatures = HashSet::new();
         if let Err(e) = self.state_tx.send(VoteState::Voting) {
             error!("{e}");
         }
+        self.current_vote_name = Some(header.clone());
         self.round = Some(VoteRound {
             keys,
-            header,
+            header: header_bytes,
             registered_voters,
             expired_signatures,
             metadata,
@@ -210,6 +221,10 @@ impl VoteAuthority {
 
     pub fn round(&mut self) -> Option<&mut VoteRound> {
         self.round.as_mut()
+    }
+
+    pub fn round_ref(&self) -> Option<&VoteRound> {
+        self.round.as_ref()
     }
 
     // This is the function that should later handle the tallying of votes
@@ -234,6 +249,7 @@ impl VoteAuthority {
         }
         self.round = None;
         self.last_tally = None;
+        self.current_vote_name = None;
     }
 
     pub fn new_state_watcher(&self) -> Receiver<VoteState> {
@@ -250,5 +266,9 @@ impl VoteAuthority {
 
     pub fn get_last_tally(&self) -> Option<&Tally> {
         self.last_tally.as_ref()
+    }
+
+    pub fn get_current_vote_name(&self) -> Option<&String> {
+        self.current_vote_name.as_ref()
     }
 }

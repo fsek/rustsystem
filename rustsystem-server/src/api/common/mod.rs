@@ -8,7 +8,7 @@ use api_core::APIHandler;
 use crate::AppState;
 
 mod state;
-use state::{VoteActive, VoteStateWatch};
+use state::{VoteActive, VoteProgress, VoteProgressWatch, VoteStateWatch};
 
 mod meeting_specs;
 use meeting_specs::{MeetingSpecs, MeetingSpecsWatch, UpdateAgenda};
@@ -20,6 +20,8 @@ pub fn common_routes() -> Router<AppState> {
     Router::new()
         .route("/vote-state-watch", get(VoteStateWatch::handler))
         .route("/vote-active", get(VoteActive::handler))
+        .route("/vote-progress", get(VoteProgress::handler))
+        .route("/vote-progress-watch", get(VoteProgressWatch::handler))
         .route("/meeting-specs", get(MeetingSpecs::handler))
         .route("/meeting-specs-watch", get(MeetingSpecsWatch::handler))
         .route("/update-agenda", post(UpdateAgenda::handler))

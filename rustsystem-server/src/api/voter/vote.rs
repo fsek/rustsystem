@@ -130,6 +130,9 @@ impl APIHandler for Submit {
         // Only with valid metadata, valid length, and a valid signature (unused!) will the vote be counted
         round.add_vote(choice.to_owned());
 
+        // Notify watchers that the vote count has been updated
+        vote_auth.send_update();
+
         Ok(())
     }
 }

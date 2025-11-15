@@ -12,6 +12,11 @@ import { useEffect, useState } from "react";
 import type { MeetingSpecsResponse } from "@/api/common/meetingSpecs";
 import type { APIError } from "@/api/error";
 import { VotePageDisplay } from "../voter";
+import {
+  getVoteProgress,
+  voteProgressWatch,
+  type VoteProgressResponse,
+} from "@/api/common/voteProgress";
 
 type VotingPageProps = {
   muid: string;
@@ -37,10 +42,23 @@ const VotingPage: React.FC<VotingPageProps> = ({
   const [selectedCandidates, setSelectedCandidates] = useState<number[]>([]);
   const [maxSelections, setMaxSelections] = useState(1);
   const [minSelections, setMinSelections] = useState(0);
+  const [voteProgress, setVoteProgress] = useState<VoteProgressResponse | null>(
+    null,
+  );
 
   useEffect(() => {
     checkVotingState();
     performLogin();
+    fetchVoteProgress();
+    const cleanup = setupVoteProgressWatch();
+
+    // Set up periodic refresh as fallback
+    const progressInterval = setInterval(fetchVoteProgress, 10000); // Every 10 seconds
+
+    return () => {
+      if (cleanup) cleanup();
+      clearInterval(progressInterval);
+    };
   }, []);
 
   // Check if user has already voted (for refresh recovery)
@@ -66,6 +84,47 @@ const VotingPage: React.FC<VotingPageProps> = ({
       }
     }
     return false;
+  };
+
+  const fetchVoteProgress = async () => {
+    try {
+      const result = await getVoteProgress({});
+      matchResult(result, {
+        Ok: (progressData) => {
+          setVoteProgress(progressData);
+        },
+        Err: (err) => {
+          console.warn("Failed to fetch vote progress:", err);
+        },
+      });
+    } catch (error) {
+      console.warn("Error fetching vote progress:", error);
+    }
+  };
+
+  const setupVoteProgressWatch = () => {
+    const eventSource = voteProgressWatch();
+
+    eventSource.onmessage = (event) => {
+      if (event.data === "VoteProgressUpdated") {
+        // When we get an update, fetch the latest progress
+        fetchVoteProgress();
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error("Vote progress watch error:", error);
+      // Reconnect after a delay
+      setTimeout(() => {
+        eventSource.close();
+        setupVoteProgressWatch();
+      }, 5000);
+    };
+
+    // Cleanup on unmount
+    return () => {
+      eventSource.close();
+    };
   };
 
   const performLogin = async () => {
@@ -416,6 +475,36 @@ const VotingPage: React.FC<VotingPageProps> = ({
             </div>
           </div>
 
+          {/* Progress Bar */}
+          {voteProgress && voteProgress.isActive && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Omröstningsframsteg
+                </h3>
+                <div className="text-sm text-gray-600">
+                  {voteProgress.totalVotesCast} av{" "}
+                  {voteProgress.totalParticipants} röster avgivna
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                  style={{
+                    width:
+                      voteProgress.totalParticipants > 0
+                        ? `${Math.min((voteProgress.totalVotesCast / voteProgress.totalParticipants) * 100, 100)}%`
+                        : "0%",
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500 mt-2">
+                <span>0 röster</span>
+                <span>{voteProgress.totalParticipants} röster</span>
+              </div>
+            </div>
+          )}
+
           {/* Success Card */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -452,6 +541,36 @@ const VotingPage: React.FC<VotingPageProps> = ({
             <span className="flex items-center gap-1">🗳️ Omröstning aktiv</span>
           </div>
         </div>
+
+        {/* Progress Bar */}
+        {voteProgress && voteProgress.isActive && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Omröstningsframsteg
+              </h3>
+              <div className="text-sm text-gray-600">
+                {voteProgress.totalVotesCast} av{" "}
+                {voteProgress.totalParticipants} röster avgivna
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className="bg-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                style={{
+                  width:
+                    voteProgress.totalParticipants > 0
+                      ? `${Math.min((voteProgress.totalVotesCast / voteProgress.totalParticipants) * 100, 100)}%`
+                      : "0%",
+                }}
+              ></div>
+            </div>
+            <div className="flex justify-between text-sm text-gray-500 mt-2">
+              <span>0 röster</span>
+              <span>{voteProgress.totalParticipants} röster</span>
+            </div>
+          </div>
+        )}
 
         {/* Voting Instructions */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
