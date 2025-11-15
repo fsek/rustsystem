@@ -215,9 +215,13 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuuid }) => {
       } else if (event.data === "Creation" || event.data === "Tally") {
         console.log("Transitioning to wait page");
         // Clear voting state when voting phase ends
-        sessionStorage.removeItem("hasVoted");
-        sessionStorage.removeItem("voteInfo");
-        console.log("Cleared voting state for new voting round");
+        localStorage.removeItem("hasVoted");
+        localStorage.removeItem("voteInfo");
+        // Also clear registration tokens for clean slate
+        localStorage.removeItem("validation");
+        localStorage.removeItem("metadata");
+        localStorage.removeItem("currentVoteName");
+        console.log("Cleared voting state and tokens for new voting round");
         setVotePageDisplay(VotePageDisplay.Wait);
       }
     };

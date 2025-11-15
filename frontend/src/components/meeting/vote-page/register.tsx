@@ -27,6 +27,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({
   async function sendRegistration() {
     setIsRegistering(true);
     try {
+      // Clear any existing local storage data before registering for a new vote
+      localStorage.removeItem("validation");
+      localStorage.removeItem("metadata");
+      localStorage.removeItem("hasVoted");
+      localStorage.removeItem("voteInfo");
+
       await withWasm(async () => {
         const res = await try_register(muid, uuuid);
         if (res.is_valid() && res.is_successful()) {
@@ -36,11 +42,11 @@ const RegisterPage: React.FC<RegisterPageProps> = ({
             res.signature(),
           );
           console.log(validation.toValue());
-          sessionStorage.setItem(
+          localStorage.setItem(
             "validation",
             JSON.stringify(validation.toValue()),
           );
-          sessionStorage.setItem(
+          localStorage.setItem(
             "metadata",
             JSON.stringify(res.metadata()!.toValue()),
           );

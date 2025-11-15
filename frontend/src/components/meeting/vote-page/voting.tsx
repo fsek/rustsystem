@@ -47,8 +47,18 @@ const VotingPage: React.FC<VotingPageProps> = ({
   );
 
   useEffect(() => {
-    checkVotingState();
-    performLogin();
+    console.log("=== Voting component mounted ===");
+    console.log("Checking localStorage for existing tokens:");
+    console.log("hasVoted:", localStorage.getItem("hasVoted"));
+    console.log("validation exists:", !!localStorage.getItem("validation"));
+    console.log("metadata exists:", !!localStorage.getItem("metadata"));
+    console.log("voteInfo exists:", !!localStorage.getItem("voteInfo"));
+
+    const initializeComponent = async () => {
+      await checkVotingState();
+      performLogin();
+    };
+    initializeComponent();
     fetchVoteProgress();
     const cleanup = setupVoteProgressWatch();
 
@@ -62,13 +72,45 @@ const VotingPage: React.FC<VotingPageProps> = ({
   }, []);
 
   // Check if user has already voted (for refresh recovery)
-  const checkVotingState = () => {
-    const votedFlag = sessionStorage.getItem("hasVoted");
-    const voteInfo = sessionStorage.getItem("voteInfo");
+  const checkVotingState = async () => {
+    const votedFlag = localStorage.getItem("hasVoted");
+    const voteInfo = localStorage.getItem("voteInfo");
 
     if (votedFlag === "true" && voteInfo) {
       try {
         const info = JSON.parse(voteInfo);
+
+        // Check if we're in a new voting round by fetching current progress
+        try {
+          const result = await getVoteProgress({});
+          await new Promise((resolve) => {
+            matchResult(result, {
+              Ok: (progressData) => {
+                if (progressData.isActive && progressData.voteName) {
+                  if (info.voteName !== progressData.voteName) {
+                    console.log(
+                      `New voting round detected: stored="${info.voteName}", current="${progressData.voteName}" - clearing old voting state`,
+                    );
+                    localStorage.removeItem("hasVoted");
+                    localStorage.removeItem("voteInfo");
+                    localStorage.removeItem("validation");
+                    localStorage.removeItem("metadata");
+                    localStorage.removeItem("currentVoteName");
+                    setHasVoted(false);
+                  }
+                }
+                resolve(undefined);
+              },
+              Err: (err) => {
+                console.warn("Failed to check current vote progress:", err);
+                resolve(undefined);
+              },
+            });
+          });
+        } catch (progressError) {
+          console.warn("Failed to check current vote progress:", progressError);
+        }
+
         setHasVoted(true);
         setVoteName(info.voteName || "Omröstning");
         setCandidates(info.candidates || []);
@@ -79,8 +121,9 @@ const VotingPage: React.FC<VotingPageProps> = ({
         return true;
       } catch (error) {
         console.warn("Failed to parse vote info, clearing corrupted data");
-        sessionStorage.removeItem("hasVoted");
-        sessionStorage.removeItem("voteInfo");
+        localStorage.removeItem("hasVoted");
+        localStorage.removeItem("voteInfo");
+        setHasVoted(false);
       }
     }
     return false;
@@ -91,6 +134,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
       const result = await getVoteProgress({});
       matchResult(result, {
         Ok: (progressData) => {
+          console.log("Vote progress response:", progressData);
           setVoteProgress(progressData);
         },
         Err: (err) => {
@@ -129,7 +173,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
   const performLogin = async () => {
     // Skip login if user has already voted
-    if (checkVotingState()) {
+    if (hasVoted) {
       return;
     }
 
@@ -147,9 +191,79 @@ const VotingPage: React.FC<VotingPageProps> = ({
         });
 
         if (authCheck.ok) {
-          console.log("Already authenticated, skipping login");
+          console.log(
+            "Already authenticated, checking for existing session data",
+          );
           setIsLoggingIn(false);
-          autoRegister();
+
+          // If we have existing session data, use it
+          const existingValidation = localStorage.getItem("validation");
+          const existingMetadata = localStorage.getItem("metadata");
+
+          console.log("Checking existing tokens after auth check:");
+          console.log("validation exists:", !!existingValidation);
+          console.log("metadata exists:", !!existingMetadata);
+
+          if (existingValidation && existingMetadata) {
+            try {
+              const metadataValue = JSON.parse(existingMetadata);
+              setCandidates(metadataValue.candidates || []);
+              setVoteName(metadataValue.name || "Vote");
+              setMaxSelections(metadataValue.max_choices || 1);
+              setMinSelections(metadataValue.min_choices || 0);
+              console.log("Using existing session data");
+              return;
+            } catch (parseError) {
+              console.warn(
+                "Failed to parse existing session data:",
+                parseError,
+              );
+            }
+          }
+
+          // If no session data but authenticated, check if voting is active
+          // This is likely a refresh scenario during active voting
+          console.log(
+            "No tokens found, checking if this is a refresh during voting",
+          );
+          try {
+            const result = await getVoteProgress({});
+            let votingIsActive = false;
+
+            matchResult(result, {
+              Ok: (progressData) => {
+                votingIsActive = progressData.isActive;
+              },
+              Err: () => {
+                // Ignore error
+              },
+            });
+
+            if (votingIsActive) {
+              // Additional safeguard: if user shows as "already voted" but voting is active,
+              // this might be stale state from previous round
+              if (hasVoted) {
+                console.log(
+                  "Active voting detected but user shows as already voted - clearing stale voting state",
+                );
+                localStorage.removeItem("hasVoted");
+                localStorage.removeItem("voteInfo");
+                localStorage.removeItem("currentVoteName");
+                setHasVoted(false);
+              }
+              console.log(
+                "Active voting detected with no tokens - attempting auto-registration",
+              );
+              autoRegister();
+              return;
+            }
+          } catch (progressError) {
+            console.warn("Failed to check vote progress:", progressError);
+          }
+
+          // If voting not active, show register page
+          console.log("No active voting, showing register page");
+          setVotePageDisplay(VotePageDisplay.Register);
           return;
         }
       } catch (authError) {
@@ -208,40 +322,117 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
   const autoRegister = async () => {
     // Skip registration if user has already voted
-    if (checkVotingState()) {
+    if (hasVoted) {
       return;
     }
 
     try {
       setIsRegistering(true);
 
-      // Check if we already have valid registration data in session storage
-      const existingValidation = sessionStorage.getItem("validation");
-      const existingMetadata = sessionStorage.getItem("metadata");
+      // Check if we already have valid registration data in local storage
+      const existingValidation = localStorage.getItem("validation");
+      const existingMetadata = localStorage.getItem("metadata");
 
       if (existingValidation && existingMetadata) {
-        console.log("Found existing registration data in session storage");
+        console.log("Found existing registration data in local storage");
         try {
           const metadataValue = JSON.parse(existingMetadata);
-          console.log("Using existing metadata:", metadataValue);
+          console.log("Existing metadata:", metadataValue);
+          const storedVoteName = localStorage.getItem("currentVoteName");
+          console.log("Stored vote name:", storedVoteName);
 
-          // Restore vote info from existing metadata
-          setCandidates(metadataValue.candidates || []);
-          setVoteName(metadataValue.name || "Vote");
-          setMaxSelections(metadataValue.max_choices || 1);
-          setMinSelections(metadataValue.min_choices || 0);
+          // Check if tokens are for current round by comparing vote names
+          try {
+            const result = await getVoteProgress({});
+            let shouldContinueWithNewRegistration = false;
 
-          setIsRegistering(false);
-          console.log("Successfully restored from existing registration data");
-          return;
+            matchResult(result, {
+              Ok: (progressData) => {
+                console.log("Current vote progress:", progressData);
+                const storedVoteName = localStorage.getItem("currentVoteName");
+                console.log("Comparing:", {
+                  stored: storedVoteName,
+                  current: progressData.voteName,
+                });
+                if (progressData.voteName) {
+                  if (storedVoteName === progressData.voteName) {
+                    // Same voting round - use existing tokens
+                    console.log(
+                      "Existing tokens are for current round, using them",
+                    );
+                    setCandidates(metadataValue.candidates || []);
+                    setVoteName(metadataValue.name || "Vote");
+                    setMaxSelections(metadataValue.max_choices || 1);
+                    setMinSelections(metadataValue.min_choices || 0);
+                    setIsRegistering(false);
+                    console.log(
+                      "Successfully restored from existing registration data",
+                    );
+                  } else {
+                    // Different voting round - clear old tokens and register for new round
+                    console.log(
+                      `New voting round detected: stored="${storedVoteName}", current="${progressData.voteName}"`,
+                    );
+                    localStorage.removeItem("validation");
+                    localStorage.removeItem("metadata");
+                    localStorage.removeItem("currentVoteName");
+                    localStorage.removeItem("hasVoted");
+                    localStorage.removeItem("voteInfo");
+                    setHasVoted(false);
+                    shouldContinueWithNewRegistration = true;
+                  }
+                } else {
+                  // No current vote name - assume tokens are valid
+                  console.log(
+                    "No current vote name available, using existing tokens",
+                  );
+                  setCandidates(metadataValue.candidates || []);
+                  setVoteName(metadataValue.name || "Vote");
+                  setMaxSelections(metadataValue.max_choices || 1);
+                  setMinSelections(metadataValue.min_choices || 0);
+                  setIsRegistering(false);
+                }
+              },
+              Err: (err) => {
+                console.warn(
+                  "Failed to get vote progress for token validation:",
+                  err,
+                );
+                // On error, use existing tokens
+                setCandidates(metadataValue.candidates || []);
+                setVoteName(metadataValue.name || "Vote");
+                setMaxSelections(metadataValue.max_choices || 1);
+                setMinSelections(metadataValue.min_choices || 0);
+                setIsRegistering(false);
+              },
+            });
+
+            // If we need to continue with new registration, exit here to proceed below
+            if (shouldContinueWithNewRegistration) {
+              // Continue with new registration below
+            } else {
+              return;
+            }
+          } catch (progressError) {
+            console.warn("Error during vote progress check:", progressError);
+            // On error, use existing tokens
+            setCandidates(metadataValue.candidates || []);
+            setVoteName(metadataValue.name || "Vote");
+            setMaxSelections(metadataValue.max_choices || 1);
+            setMinSelections(metadataValue.min_choices || 0);
+            setIsRegistering(false);
+            return;
+          }
         } catch (parseError) {
           console.warn(
-            "Failed to parse existing session data, will re-register:",
+            "Failed to parse existing registration data, will re-register:",
             parseError,
           );
           // Clear corrupted data and proceed with new registration
-          sessionStorage.removeItem("validation");
-          sessionStorage.removeItem("metadata");
+          localStorage.removeItem("validation");
+          localStorage.removeItem("metadata");
+          localStorage.removeItem("hasVoted");
+          localStorage.removeItem("voteInfo");
         }
       }
 
@@ -259,18 +450,41 @@ const VotingPage: React.FC<VotingPageProps> = ({
         const metadata = res.metadata();
 
         if (metadata) {
-          sessionStorage.setItem(
-            "validation",
-            JSON.stringify(validation.toValue()),
-          );
-          sessionStorage.setItem(
-            "metadata",
-            JSON.stringify(metadata.toValue()),
-          );
-
-          // Extract vote info from metadata
+          const validationValue = validation.toValue();
           const metadataValue = metadata.toValue();
-          console.log("Metadata value:", metadataValue);
+
+          console.log("Saving tokens to localStorage:");
+          console.log("validation:", validationValue);
+          console.log("metadata:", metadataValue);
+
+          localStorage.setItem("validation", JSON.stringify(validationValue));
+          localStorage.setItem("metadata", JSON.stringify(metadataValue));
+
+          // Store vote name separately since it's not part of ballot metadata
+          try {
+            const currentProgress = await getVoteProgress({});
+            matchResult(currentProgress, {
+              Ok: (progressData) => {
+                if (progressData.voteName) {
+                  localStorage.setItem(
+                    "currentVoteName",
+                    progressData.voteName,
+                  );
+                  console.log(
+                    "Stored current vote name:",
+                    progressData.voteName,
+                  );
+                }
+              },
+              Err: (err) => {
+                console.warn("Failed to get vote name for storage:", err);
+              },
+            });
+          } catch (error) {
+            console.warn("Error getting vote name for storage:", error);
+          }
+
+          console.log("Registration successful, tokens saved to localStorage");
           setCandidates(metadataValue.candidates || []);
           setVoteName(metadataValue.name || "Vote");
           setMaxSelections(metadataValue.max_choices || 1);
@@ -288,64 +502,35 @@ const VotingPage: React.FC<VotingPageProps> = ({
     } catch (error) {
       console.error("Auto-registration error:", error);
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Misslyckades att registrera för omröstning";
+        error instanceof Error ? error.message : String(error);
 
-      // Check if this is an AlreadyRegistered error
+      // Check if this is an AlreadyRegistered error (refresh scenario)
       if (
         errorMessage.includes("AlreadyRegistered") ||
-        errorMessage.includes("already registered")
+        errorMessage.includes("already registered") ||
+        errorMessage.includes("Empty") ||
+        errorMessage.includes("409")
       ) {
-        // First check if user has already voted
-        if (checkVotingState()) {
-          return;
-        }
-
-        const existingValidation = sessionStorage.getItem("validation");
-        const existingMetadata = sessionStorage.getItem("metadata");
-
-        if (existingValidation && existingMetadata) {
-          console.log(
-            "AlreadyRegistered error but found session data, using existing registration",
-          );
-          try {
-            const metadataValue = JSON.parse(existingMetadata);
-            setCandidates(metadataValue.candidates || []);
-            setVoteName(metadataValue.name || "Omröstning");
-            setMaxSelections(metadataValue.max_choices || 1);
-            setMinSelections(metadataValue.min_choices || 0);
-            setIsRegistering(false);
-            return;
-          } catch (parseError) {
-            console.error("Failed to parse session data:", parseError);
-          }
-        }
-
-        // If no session data but AlreadyRegistered, user might have already voted
-        console.log(
-          "AlreadyRegistered with no session data - checking if already voted",
-        );
+        console.log("User already registered - refresh scenario detected");
+        // For refresh scenarios, show helpful message instead of broken register button
         setError({
-          code: "AlreadyVoted",
+          code: "AlreadyRegistered",
           message:
-            "Du har redan röstat i denna omröstning. Om du tror detta är ett fel, kontakta administratören.",
+            "Du är redan registrerad för denna omröstning. Dina röstnings-tokens har tyvärr förlorats vid siduppdateringen. För säkerhets skull kan du inte rösta efter en refresh under pågående omröstning.",
           httpStatus: 409,
           timestamp: new Date().toISOString(),
           endpoint: { method: "POST", path: "/api/voter/register" },
         });
-        setVotePageDisplay(VotePageDisplay.AlreadyVoted);
-        return;
+        setVotePageDisplay(VotePageDisplay.RegistrationFail);
+      } else {
+        // For other errors, show register page
+        console.log(
+          "Auto-registration failed with other error, showing register page",
+        );
+        setVotePageDisplay(VotePageDisplay.Register);
       }
-
-      setError({
-        code: "RegistrationError",
-        message: `Registrering misslyckades. MUID: ${muid}, UUID: ${uuuid}. Vänligen försök igen.`,
-        httpStatus: 500,
-        timestamp: new Date().toISOString(),
-        endpoint: { method: "POST", path: "/api/voter/register" },
-      });
-      setVotePageDisplay(VotePageDisplay.RegistrationFail);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -374,8 +559,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
     try {
       setIsVoting(true);
 
-      const validationData = sessionStorage.getItem("validation");
-      const metadataData = sessionStorage.getItem("metadata");
+      const validationData = localStorage.getItem("validation");
+      const metadataData = localStorage.getItem("metadata");
 
       if (!validationData || !metadataData) {
         throw new Error("Registreringsdata saknas");
@@ -399,12 +584,12 @@ const VotingPage: React.FC<VotingPageProps> = ({
         selectedCandidates,
         votedAt: new Date().toISOString(),
       };
-      sessionStorage.setItem("hasVoted", "true");
-      sessionStorage.setItem("voteInfo", JSON.stringify(voteInfo));
+      localStorage.setItem("hasVoted", "true");
+      localStorage.setItem("voteInfo", JSON.stringify(voteInfo));
 
       // Clear sensitive data
-      sessionStorage.removeItem("validation");
-      sessionStorage.removeItem("metadata");
+      localStorage.removeItem("validation");
+      localStorage.removeItem("metadata");
     } catch (error) {
       setError({
         code: "VotingError",

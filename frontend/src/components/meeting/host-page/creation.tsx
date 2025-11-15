@@ -153,6 +153,14 @@ const CreationPage: React.FC<CreationPageProps> = ({ specs, setError }) => {
           ),
       );
 
+      // Clear any existing voting state when starting a new vote
+      localStorage.removeItem("hasVoted");
+      localStorage.removeItem("voteInfo");
+      localStorage.removeItem("validation");
+      localStorage.removeItem("metadata");
+      localStorage.removeItem("currentVoteName");
+      console.log("Cleared previous voting state before starting new vote");
+
       const result = await StartVote({
         name: voteName.trim(),
         metadata,
