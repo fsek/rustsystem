@@ -45,7 +45,8 @@ const TallyPage: React.FC<TallyPageProps> = ({
   };
 
   // Process tally data for display
-  const results = tally ? processResults(tally) : null;
+  const results =
+    tally && specs ? processResults(tally, specs.participants) : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -94,14 +95,14 @@ const TallyPage: React.FC<TallyPageProps> = ({
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 Sammanfattning
               </h3>
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>Obs:</strong> Procentsatser baseras på antal röstande
-                  (inte totala markeringar). Eftersom röstsedlar kan innehålla
-                  flera val kan procentsatserna summera till över 100%.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {results.totalRegisteredVoters}
+                  </div>
+                  <div className="text-sm text-purple-800">Röstberättigade</div>
+                </div>
                 <div className="bg-blue-50 rounded-lg p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">
                     {results.votersWhoCast}
@@ -154,7 +155,7 @@ const TallyPage: React.FC<TallyPageProps> = ({
 };
 
 // Helper function to process tally results
-function processResults(tally: TallyResponse) {
+function processResults(tally: TallyResponse, totalRegisteredVoters: number) {
   const totalVotes =
     Object.values(tally.score).reduce((sum: number, count: any) => {
       return sum + (typeof count === "number" ? count : 0);
@@ -173,6 +174,7 @@ function processResults(tally: TallyResponse) {
       totalVotes,
       blankVotes: tally.blank,
       votersWhoCast,
+      totalRegisteredVoters,
     };
   }
 
@@ -182,8 +184,9 @@ function processResults(tally: TallyResponse) {
       name,
       count: typeof count === "number" ? count : 0,
       percentage:
-        votersWhoCast > 0
-          ? ((typeof count === "number" ? count : 0) / votersWhoCast) * 100
+        totalRegisteredVoters > 0
+          ? ((typeof count === "number" ? count : 0) / totalRegisteredVoters) *
+            100
           : 0,
     }))
     .sort((a, b) => b.count - a.count);
@@ -196,6 +199,7 @@ function processResults(tally: TallyResponse) {
     }, 0), // Only candidate votes, not including blanks
     blankVotes: tally.blank,
     votersWhoCast,
+    totalRegisteredVoters,
   };
 }
 
@@ -213,7 +217,7 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
               </span>
               <span className="text-sm text-gray-600">
                 {candidate.count} röster ({Math.round(candidate.percentage)}% av
-                röstande)
+                registrerade röstberättigade)
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -222,15 +226,9 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
                   index === 0 ? "bg-green-500" : "bg-blue-500"
                 }`}
                 style={{
-                  width: `${Math.min(candidate.percentage, 100)}%`,
-                  opacity: candidate.percentage > 100 ? 0.8 : 1,
+                  width: `${candidate.percentage}%`,
                 }}
               ></div>
-              {candidate.percentage > 100 && (
-                <div className="text-xs text-gray-500 mt-1">
-                  (Över 100% p.g.a. flera val per röstsedel)
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -242,9 +240,13 @@ const CandidateResults: React.FC<{ results: any }> = ({ results }) => {
 // Component for dichotomous (Yes/No) results
 const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
   const yesPercentage =
-    results.votersWhoCast > 0 ? (results.yes / results.votersWhoCast) * 100 : 0;
+    results.totalRegisteredVoters > 0
+      ? (results.yes / results.totalRegisteredVoters) * 100
+      : 0;
   const noPercentage =
-    results.votersWhoCast > 0 ? (results.no / results.votersWhoCast) * 100 : 0;
+    results.totalRegisteredVoters > 0
+      ? (results.no / results.totalRegisteredVoters) * 100
+      : 0;
   const winner = results.yes > results.no ? "Ja" : "Nej";
 
   return (
@@ -263,7 +265,7 @@ const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
               {results.yes}
             </div>
             <div className="text-sm text-gray-600">
-              {Math.round(yesPercentage)}% av rösterna
+              {Math.round(yesPercentage)}% av registrerade röstberättigade
             </div>
           </div>
         </div>
@@ -281,7 +283,7 @@ const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
               {results.no}
             </div>
             <div className="text-sm text-gray-600">
-              {Math.round(noPercentage)}% av rösterna
+              {Math.round(noPercentage)}% av registrerade röstberättigade
             </div>
           </div>
         </div>
@@ -292,7 +294,8 @@ const DichotomousResults: React.FC<{ results: any }> = ({ results }) => {
           Resultat: <span className="text-2xl">{winner}</span> vinner
         </div>
         <div className="text-sm text-blue-700 mt-1">
-          Procent baserat på {results.votersWhoCast} röstande
+          Procent baserat på {results.totalRegisteredVoters} registrerade
+          röstberättigade
         </div>
       </div>
     </div>
