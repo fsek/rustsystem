@@ -320,10 +320,6 @@ function RouteComponent() {
   };
 
   const handleKickOut = async (voter: Voter) => {
-    if (!confirm(`Är du säker på att du vill checka ut ${voter.name}?`)) {
-      return;
-    }
-
     setIsGenerating(true);
 
     const result = await resetLogin({
