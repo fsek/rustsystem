@@ -217,8 +217,7 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuuid }) => {
         localStorage.removeItem("hasVoted");
         localStorage.removeItem("voteInfo");
         // Also clear registration tokens for clean slate
-        localStorage.removeItem("validation");
-        localStorage.removeItem("metadata");
+
         localStorage.removeItem("currentVoteName");
         console.log("Cleared voting state and tokens for new voting round");
         setVotePageDisplay(VotePageDisplay.Wait);
