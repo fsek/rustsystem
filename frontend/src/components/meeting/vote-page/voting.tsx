@@ -1,4 +1,3 @@
-import { Login, type LoginRequest } from "@/api/login";
 import {
   try_register,
   new_ballot_validation,
@@ -33,7 +32,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
   setVotePageDisplay,
   setError,
 }) => {
-  const [isLoggingIn, setIsLoggingIn] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
@@ -56,7 +54,7 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
     const initializeComponent = async () => {
       await checkVotingState();
-      performLogin();
+      performAuth();
     };
     initializeComponent();
     fetchVoteProgress();
@@ -93,8 +91,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
                     );
                     localStorage.removeItem("hasVoted");
                     localStorage.removeItem("voteInfo");
-                    localStorage.removeItem("validation");
-                    localStorage.removeItem("metadata");
                     localStorage.removeItem("currentVoteName");
                     setHasVoted(false);
                   }
@@ -115,7 +111,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
         setVoteName(info.voteName || "Omröstning");
         setCandidates(info.candidates || []);
         setSelectedCandidates(info.selectedCandidates || []);
-        setIsLoggingIn(false);
         setIsRegistering(false);
         console.log("Restored voting state: user has already voted");
         return true;
@@ -171,101 +166,90 @@ const VotingPage: React.FC<VotingPageProps> = ({
     };
   };
 
-  const performLogin = async () => {
+  const performAuth = async () => {
     // Skip login if user has already voted
     if (hasVoted) {
       return;
     }
 
     try {
-      setIsLoggingIn(true);
       console.log("Checking authentication status...");
 
       // First check if already authenticated
       try {
-        const authCheck = await fetch("/api/auth/meeting", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ muuid: muid }),
-        });
+        console.log(
+          "Already authenticated, checking for existing session data",
+        );
 
-        if (authCheck.ok) {
-          console.log(
-            "Already authenticated, checking for existing session data",
-          );
-          setIsLoggingIn(false);
+        // If we have existing session data, use it
+        const existingValidation = localStorage.getItem("validation");
+        const existingMetadata = localStorage.getItem("metadata");
 
-          // If we have existing session data, use it
-          const existingValidation = localStorage.getItem("validation");
-          const existingMetadata = localStorage.getItem("metadata");
+        console.log("Checking existing tokens after auth check:");
+        console.log("validation exists:", !!existingValidation);
+        console.log("metadata exists:", !!existingMetadata);
 
-          console.log("Checking existing tokens after auth check:");
-          console.log("validation exists:", !!existingValidation);
-          console.log("metadata exists:", !!existingMetadata);
-
-          if (existingValidation && existingMetadata) {
-            try {
-              const metadataValue = JSON.parse(existingMetadata);
-              setCandidates(metadataValue.candidates || []);
-              setVoteName(metadataValue.name || "Vote");
-              setMaxSelections(metadataValue.max_choices || 1);
-              setMinSelections(metadataValue.min_choices || 0);
-              console.log("Using existing session data");
-              return;
-            } catch (parseError) {
-              console.warn(
-                "Failed to parse existing session data:",
-                parseError,
-              );
-            }
-          }
-
-          // If no session data but authenticated, check if voting is active
-          // This is likely a refresh scenario during active voting
-          console.log(
-            "No tokens found, checking if this is a refresh during voting",
-          );
+        if (existingValidation && existingMetadata) {
           try {
-            const result = await getVoteProgress({});
-            let votingIsActive = false;
-
-            matchResult(result, {
-              Ok: (progressData) => {
-                votingIsActive = progressData.isActive;
-              },
-              Err: () => {
-                // Ignore error
-              },
-            });
-
-            if (votingIsActive) {
-              // Additional safeguard: if user shows as "already voted" but voting is active,
-              // this might be stale state from previous round
-              if (hasVoted) {
-                console.log(
-                  "Active voting detected but user shows as already voted - clearing stale voting state",
-                );
-                localStorage.removeItem("hasVoted");
-                localStorage.removeItem("voteInfo");
-                localStorage.removeItem("currentVoteName");
-                setHasVoted(false);
-              }
-              console.log(
-                "Active voting detected with no tokens - attempting auto-registration",
-              );
-              autoRegister();
-              return;
-            }
-          } catch (progressError) {
-            console.warn("Failed to check vote progress:", progressError);
+            const metadataValue = JSON.parse(existingMetadata);
+            setCandidates(metadataValue.candidates || []);
+            setVoteName(metadataValue.name || "Vote");
+            setMaxSelections(metadataValue.max_choices || 1);
+            setMinSelections(metadataValue.min_choices || 0);
+            console.log("Using existing session data");
+            return;
+          } catch (parseError) {
+            console.warn(
+              "Failed to parse existing session data:",
+              parseError,
+            );
           }
-
-          // If voting not active, show register page
-          console.log("No active voting, showing register page");
-          setVotePageDisplay(VotePageDisplay.Register);
-          return;
         }
+
+        // If no session data but authenticated, check if voting is active
+        // This is likely a refresh scenario during active voting
+        console.log(
+          "No tokens found, checking if this is a refresh during voting",
+        );
+        try {
+          const result = await getVoteProgress({});
+          let votingIsActive = false;
+
+          matchResult(result, {
+            Ok: (progressData) => {
+              votingIsActive = progressData.isActive;
+            },
+            Err: () => {
+              // Ignore error
+            },
+          });
+
+          if (votingIsActive) {
+            // Additional safeguard: if user shows as "already voted" but voting is active,
+            // this might be stale state from previous round
+            if (hasVoted) {
+              console.log(
+                "Active voting detected but user shows as already voted - clearing stale voting state",
+              );
+              localStorage.removeItem("hasVoted");
+              localStorage.removeItem("voteInfo");
+              localStorage.removeItem("currentVoteName");
+              setHasVoted(false);
+            }
+            console.log(
+              "Active voting detected with no tokens - attempting auto-registration",
+            );
+            autoRegister();
+            return;
+          }
+        } catch (progressError) {
+          console.warn("Failed to check vote progress:", progressError);
+        }
+
+        // If voting not active, show register page
+        console.log("No active voting, showing register page");
+        setVotePageDisplay(VotePageDisplay.Register);
+        return;
       } catch (authError) {
         console.log("Not authenticated yet, proceeding with login");
       }
@@ -276,34 +260,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
           `Saknade UUID-parametrar - muid: ${muid}, uuuid: ${uuuid}`,
         );
       }
-
-      const loginResult = await Login({
-        muuid: muid,
-        uuuid: uuuid,
-      } as LoginRequest);
-
-      matchResult(loginResult, {
-        Ok: () => {
-          console.log("Login successful, starting registration");
-          setIsLoggingIn(false);
-          autoRegister();
-        },
-        Err: (err) => {
-          console.error("Login failed:", err);
-
-          // If already claimed, user is probably already logged in, try to proceed anyway
-          if (err.code === "UUIDAlreadyClaimed") {
-            console.log(
-              "UUID already claimed, assuming already logged in and proceeding",
-            );
-            setIsLoggingIn(false);
-            autoRegister();
-            return;
-          }
-
-          throw new Error(`Inloggning misslyckades: ${err.message}`);
-        },
-      });
     } catch (error) {
       console.error("Login error:", error);
       const errorMessage =
@@ -586,11 +542,8 @@ const VotingPage: React.FC<VotingPageProps> = ({
       };
       localStorage.setItem("hasVoted", "true");
       localStorage.setItem("voteInfo", JSON.stringify(voteInfo));
-
-      // Clear sensitive data
-      localStorage.removeItem("validation");
-      localStorage.removeItem("metadata");
     } catch (error) {
+      console.error(error);
       setError({
         code: "VotingError",
         message: "Misslyckades att skicka röst",
@@ -608,22 +561,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
       selectedCandidates.length <= maxSelections
     );
   };
-
-  if (isLoggingIn) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Loggar in
-          </h2>
-          <p className="text-gray-600">
-            Vänligen vänta medan vi autentiserar din session...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (isRegistering) {
     return (
@@ -819,22 +756,20 @@ const VotingPage: React.FC<VotingPageProps> = ({
                   key={index}
                   onClick={() => handleCandidateToggle(index)}
                   disabled={!canSelect || hasVoted}
-                  className={`w-full p-6 rounded-lg border-2 text-left transition-all duration-200 ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : canSelect
-                        ? "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 active:scale-[0.99]"
-                        : "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
-                  }`}
+                  className={`w-full p-6 rounded-lg border-2 text-left transition-all duration-200 ${isSelected
+                    ? "border-blue-500 bg-blue-50"
+                    : canSelect
+                      ? "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 active:scale-[0.99]"
+                      : "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed"
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold ${
-                          isSelected
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold ${isSelected
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-100 text-gray-600"
+                          }`}
                       >
                         {isSelected ? "✓" : candidate.charAt(0).toUpperCase()}
                       </div>

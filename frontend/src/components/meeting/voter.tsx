@@ -1,4 +1,3 @@
-import RegisterPage from "@/components/meeting/vote-page/register";
 import VotingPage from "@/components/meeting/vote-page/voting";
 import React, { type ReactElement, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -291,14 +290,6 @@ const VoterPage: React.FC<VoterPageProps> = ({ muid, uuuid }) => {
   switch (currentVotePageDisplay) {
     case VotePageDisplay.Wait:
       return WaitPage(specs, isAuthenticated);
-    case VotePageDisplay.Register:
-      return (
-        <RegisterPage
-          muid={muid}
-          uuuid={uuuid}
-          setVotePageDisplay={setVotePageDisplay}
-        />
-      );
     case VotePageDisplay.Voting:
       return (
         <VotingPage
