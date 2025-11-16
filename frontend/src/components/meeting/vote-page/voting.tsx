@@ -89,10 +89,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
                     console.log(
                       `New voting round detected: stored="${info.voteName}", current="${progressData.voteName}" - clearing old voting state`,
                     );
-                    localStorage.removeItem("hasVoted");
-                    localStorage.removeItem("voteInfo");
-                    localStorage.removeItem("currentVoteName");
-                    setHasVoted(false);
                   }
                 }
                 resolve(undefined);
@@ -116,9 +112,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
         return true;
       } catch (error) {
         console.warn("Failed to parse vote info, clearing corrupted data");
-        localStorage.removeItem("hasVoted");
-        localStorage.removeItem("voteInfo");
-        setHasVoted(false);
       }
     }
     return false;
@@ -227,18 +220,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
           if (votingIsActive) {
             // Additional safeguard: if user shows as "already voted" but voting is active,
             // this might be stale state from previous round
-            if (hasVoted) {
-              console.log(
-                "Active voting detected but user shows as already voted - clearing stale voting state",
-              );
-              localStorage.removeItem("hasVoted");
-              localStorage.removeItem("voteInfo");
-              localStorage.removeItem("currentVoteName");
-              setHasVoted(false);
-            }
-            console.log(
-              "Active voting detected with no tokens - attempting auto-registration",
-            );
             autoRegister();
             return;
           }
@@ -384,11 +365,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
             "Failed to parse existing registration data, will re-register:",
             parseError,
           );
-          // Clear corrupted data and proceed with new registration
-          localStorage.removeItem("validation");
-          localStorage.removeItem("metadata");
-          localStorage.removeItem("hasVoted");
-          localStorage.removeItem("voteInfo");
         }
       }
 
