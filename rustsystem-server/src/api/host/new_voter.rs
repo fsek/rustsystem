@@ -116,7 +116,6 @@ impl APIHandler for NewVoter {
                 return Err(NewVoterError::InvalidState);
             }
 
-            meeting.invite_auth.set_state(false);
             if meeting.has_voter_with_name(&voter_name) {
                 return Err(NewVoterError::NameTaken);
             } else {
