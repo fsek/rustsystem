@@ -21,6 +21,7 @@ use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use time;
 use uuid::Uuid;
 
 use crate::{AppState, MUuid, UUuid};
@@ -66,6 +67,7 @@ pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
         .same_site(cookie::SameSite::Strict)
         .path("/")
         .secure(is_secure)
+        .max_age(time::Duration::hours(12))
         .into()
 }
 
