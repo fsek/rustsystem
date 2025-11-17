@@ -44,10 +44,11 @@ const VotingPage: React.FC<VotingPageProps> = ({
     null,
   );
 
+
+
   useEffect(() => {
     console.log("=== Voting component mounted ===");
     console.log("Checking localStorage for existing tokens:");
-    console.log("hasVoted:", localStorage.getItem("hasVoted"));
     console.log("validation exists:", !!localStorage.getItem("validation"));
     console.log("metadata exists:", !!localStorage.getItem("metadata"));
     console.log("voteInfo exists:", !!localStorage.getItem("voteInfo"));
@@ -71,10 +72,9 @@ const VotingPage: React.FC<VotingPageProps> = ({
 
   // Check if user has already voted (for refresh recovery)
   const checkVotingState = async () => {
-    const votedFlag = localStorage.getItem("hasVoted");
     const voteInfo = localStorage.getItem("voteInfo");
 
-    if (votedFlag === "true" && voteInfo) {
+    if (voteInfo) {
       try {
         const info = JSON.parse(voteInfo);
 
@@ -313,7 +313,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
                     localStorage.removeItem("validation");
                     localStorage.removeItem("metadata");
                     localStorage.removeItem("currentVoteName");
-                    localStorage.removeItem("hasVoted");
                     localStorage.removeItem("voteInfo");
                     setHasVoted(false);
                     shouldContinueWithNewRegistration = true;
@@ -369,12 +368,17 @@ const VotingPage: React.FC<VotingPageProps> = ({
       }
 
       const res = await withWasm(async () => await try_register(muid, uuuid));
+
       console.log("Registration response:", {
         is_valid: res.is_valid(),
         is_successful: res.is_successful(),
         has_metadata: !!res.metadata(),
       });
 
+      if (!res.is_successful()) {
+        // Assume already voted
+        setHasVoted(true);
+      }
       if (res.is_valid() && res.is_successful()) {
         const validation = await withWasm(async () =>
           new_ballot_validation(res.proof(), res.token(), res.signature()),
@@ -445,15 +449,15 @@ const VotingPage: React.FC<VotingPageProps> = ({
       ) {
         console.log("User already registered - refresh scenario detected");
         // For refresh scenarios, show helpful message instead of broken register button
-        setError({
-          code: "AlreadyRegistered",
-          message:
-            "Du är redan registrerad för denna omröstning. Dina röstnings-tokens har tyvärr förlorats vid siduppdateringen. För säkerhets skull kan du inte rösta efter en refresh under pågående omröstning.",
-          httpStatus: 409,
-          timestamp: new Date().toISOString(),
-          endpoint: { method: "POST", path: "/api/voter/register" },
-        });
-        setVotePageDisplay(VotePageDisplay.RegistrationFail);
+        // setError({
+        //   code: "AlreadyRegistered",
+        //   message:
+        //     "Du är redan registrerad för denna omröstning. Dina röstnings-tokens har tyvärr förlorats vid siduppdateringen. För säkerhets skull kan du inte rösta efter en refresh under pågående omröstning.",
+        //   httpStatus: 409,
+        //   timestamp: new Date().toISOString(),
+        //   endpoint: { method: "POST", path: "/api/voter/register" },
+        // });
+        // setVotePageDisplay(VotePageDisplay.RegistrationFail);
       } else {
         // For other errors, show register page
         console.log(
@@ -516,7 +520,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
         selectedCandidates,
         votedAt: new Date().toISOString(),
       };
-      localStorage.setItem("hasVoted", "true");
       localStorage.setItem("voteInfo", JSON.stringify(voteInfo));
     } catch (error) {
       console.error(error);
