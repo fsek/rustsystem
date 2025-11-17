@@ -160,109 +160,75 @@ const VotingPage: React.FC<VotingPageProps> = ({
   };
 
   const performAuth = async () => {
-    // Skip login if user has already voted
-    if (hasVoted) {
+    try {
+      console.log(
+        "Already authenticated, checking for existing session data",
+      );
+
+      // If we have existing session data, use it
+      const existingValidation = localStorage.getItem("validation");
+      const existingMetadata = localStorage.getItem("metadata");
+
+      console.log("Checking existing tokens after auth check:");
+      console.log("validation exists:", !!existingValidation);
+      console.log("metadata exists:", !!existingMetadata);
+      try {
+        const result = await getVoteProgress({});
+        let votingIsActive = false;
+
+        matchResult(result, {
+          Ok: (progressData) => {
+            votingIsActive = progressData.isActive;
+          },
+          Err: () => {
+            // Ignore error
+          },
+        });
+
+        if (votingIsActive) {
+          // Additional safeguard: if user shows as "already voted" but voting is active,
+          // this might be stale state from previous round
+          autoRegister();
+          return;
+        }
+      } catch (progressError) {
+        console.warn("Failed to check vote progress:", progressError);
+      }
+
+      // if (existingValidation && existingMetadata) {
+      //   try {
+      //     const metadataValue = JSON.parse(existingMetadata);
+      //     setCandidates(metadataValue.candidates || []);
+      //     setVoteName(metadataValue.name || "Vote");
+      //     setMaxSelections(metadataValue.max_choices || 1);
+      //     setMinSelections(metadataValue.min_choices || 0);
+      //     console.log("Using existing session data");
+      //     return;
+      //   } catch (parseError) {
+      //     console.warn(
+      //       "Failed to parse existing session data:",
+      //       parseError,
+      //     );
+      //   }
+      // }
+
+      // If voting not active, show register page
+      console.log("No active voting, showing register page");
+      setVotePageDisplay(VotePageDisplay.Register);
       return;
+    } catch (authError) {
+      console.log("Not authenticated yet, proceeding with login");
     }
 
-    try {
-      console.log("Checking authentication status...");
-
-      // First check if already authenticated
-      try {
-        console.log(
-          "Already authenticated, checking for existing session data",
-        );
-
-        // If we have existing session data, use it
-        const existingValidation = localStorage.getItem("validation");
-        const existingMetadata = localStorage.getItem("metadata");
-
-        console.log("Checking existing tokens after auth check:");
-        console.log("validation exists:", !!existingValidation);
-        console.log("metadata exists:", !!existingMetadata);
-
-        if (existingValidation && existingMetadata) {
-          try {
-            const metadataValue = JSON.parse(existingMetadata);
-            setCandidates(metadataValue.candidates || []);
-            setVoteName(metadataValue.name || "Vote");
-            setMaxSelections(metadataValue.max_choices || 1);
-            setMinSelections(metadataValue.min_choices || 0);
-            console.log("Using existing session data");
-            return;
-          } catch (parseError) {
-            console.warn(
-              "Failed to parse existing session data:",
-              parseError,
-            );
-          }
-        }
-
-        // If no session data but authenticated, check if voting is active
-        // This is likely a refresh scenario during active voting
-        console.log(
-          "No tokens found, checking if this is a refresh during voting",
-        );
-        try {
-          const result = await getVoteProgress({});
-          let votingIsActive = false;
-
-          matchResult(result, {
-            Ok: (progressData) => {
-              votingIsActive = progressData.isActive;
-            },
-            Err: () => {
-              // Ignore error
-            },
-          });
-
-          if (votingIsActive) {
-            // Additional safeguard: if user shows as "already voted" but voting is active,
-            // this might be stale state from previous round
-            autoRegister();
-            return;
-          }
-        } catch (progressError) {
-          console.warn("Failed to check vote progress:", progressError);
-        }
-
-        // If voting not active, show register page
-        console.log("No active voting, showing register page");
-        setVotePageDisplay(VotePageDisplay.Register);
-        return;
-      } catch (authError) {
-        console.log("Not authenticated yet, proceeding with login");
-      }
-
-      // Validate UUID format
-      if (!muid || !uuuid) {
-        throw new Error(
-          `Saknade UUID-parametrar - muid: ${muid}, uuuid: ${uuuid}`,
-        );
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Inloggning misslyckades";
-
-      setError({
-        code: "LoginError",
-        message: `Inloggning misslyckades: ${errorMessage}. MUID: ${muid}, UUID: ${uuuid}. Vänligen skanna QR-koden igen.`,
-        httpStatus: 401,
-        timestamp: new Date().toISOString(),
-        endpoint: { method: "POST", path: "/api/login" },
-      });
-      setVotePageDisplay(VotePageDisplay.RegistrationFail);
+    // Validate UUID format
+    if (!muid || !uuuid) {
+      throw new Error(
+        `Saknade UUID-parametrar - muid: ${muid}, uuuid: ${uuuid}`,
+      );
     }
   };
 
   const autoRegister = async () => {
-    // Skip registration if user has already voted
-    if (hasVoted) {
-      return;
-    }
-
     try {
       setIsRegistering(true);
 
@@ -314,7 +280,6 @@ const VotingPage: React.FC<VotingPageProps> = ({
                     localStorage.removeItem("metadata");
                     localStorage.removeItem("currentVoteName");
                     localStorage.removeItem("voteInfo");
-                    setHasVoted(false);
                     shouldContinueWithNewRegistration = true;
                   }
                 } else {
@@ -375,7 +340,9 @@ const VotingPage: React.FC<VotingPageProps> = ({
         has_metadata: !!res.metadata(),
       });
 
-      if (!res.is_successful()) {
+      if (res.is_successful()) {
+        setHasVoted(false);
+      } else {
         // Assume already voted
         setHasVoted(true);
       }
