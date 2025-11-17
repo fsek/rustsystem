@@ -598,9 +598,9 @@ function RouteComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+    <div className="h-screen overflow-hidden bg-gray-50 flex flex-col lg:flex-row">
       {/* Left Pane - Voter Table */}
-      <div className="flex-1 lg:border-r border-gray-200 flex flex-col order-2 lg:order-1 lg:h-screen lg:overflow-hidden">
+      <div className="flex-1 lg:border-r border-gray-200 flex flex-col order-2 lg:order-1 lg:h-full lg:overflow-auto">
         {/* Header */}
         <div className="p-6 lg:p-8 border-b border-gray-200 bg-white">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-4">
@@ -762,7 +762,7 @@ function RouteComponent() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 bg-white overflow-hidden lg:overflow-auto">
+        <div className="flex-1 bg-white">
           <div className="h-full flex flex-col">
             <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-gray-200 bg-gray-50">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-3 lg:mb-4 gap-2">
@@ -789,7 +789,7 @@ function RouteComponent() {
                 </div>
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1">
               {/* Desktop Table View */}
               <div className="hidden lg:block">
                 <table className="w-full min-w-[600px]">
@@ -936,15 +936,6 @@ function RouteComponent() {
 
       {/* Right Pane - QR Code */}
       <div className="w-full lg:w-120 flex flex-col bg-white border-b lg:border-b-0 lg:border-l border-gray-200 order-1 lg:order-2 lg:h-screen lg:overflow-hidden">
-        <div className="p-4 lg:p-6 border-b border-gray-200">
-          <h2 className="text-lg lg:text-xl font-semibold text-gray-900">
-            QR-kodgenerator
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Generera åtkomstkoder för deltagare
-          </p>
-        </div>
-
         <div className="flex-1 p-4 lg:p-6 flex items-center justify-center min-h-[300px] lg:min-h-0 lg:overflow-y-auto">
           {selectedVoter ? (
             <div className="text-center space-y-4 lg:space-y-6 max-w-sm lg:max-w-md w-full">
