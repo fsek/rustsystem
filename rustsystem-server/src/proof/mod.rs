@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::{
@@ -7,13 +6,10 @@ use std::{
     time::Duration,
 };
 
-use bincode::{Decode, Encode};
 use blake3::{Hash, Hasher};
 use bls12_381_plus::elliptic_curve::hash2curve::ExpandMsg;
-use getrandom;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use wasm_bindgen::prelude::wasm_bindgen;
 use zkryptium::{
     bbsplus::{ciphersuites::BbsCiphersuite, commitment::BlindFactor, keys::BBSplusPublicKey},
     keys::pair::KeyPair,
@@ -22,6 +18,8 @@ use zkryptium::{
         generics::{BlindSignature, Commitment},
     },
 };
+
+use rand::{self, Rng};
 
 mod ballot;
 pub use ballot::*;
@@ -72,7 +70,6 @@ impl RegistrationSuccessResponse {
     }
 }
 
-#[wasm_bindgen]
 pub struct WASMRegistrationResponse {
     rejected: Option<RegistrationReject>,
     accepted: Option<RegistrationSuccessResponse>,
@@ -137,7 +134,6 @@ impl From<RegistrationReject> for WASMRegistrationResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[wasm_bindgen]
 pub enum ValidationReject {
     InvalidMetaData,
     MUIDNotFound,
@@ -147,7 +143,7 @@ pub enum ValidationReject {
     SignatureExpired,
 }
 
-#[derive(Serialize, Deserialize, Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ProofContext {
     voter_id: Vec<u8>,               // Voter's UUID
     meeting_id: Vec<u8>,             // Meeting's MUID
@@ -156,12 +152,6 @@ pub struct ProofContext {
 }
 impl ProofContext {
     pub fn new(voter_id: Vec<u8>, meeting_id: Vec<u8>) -> Self {
-        #[cfg(target_arch = "wasm32")]
-        let registration_timestamp = Duration::from_millis(js_sys::Date::now() as u64)
-            .as_secs()
-            .to_be_bytes()
-            .to_vec();
-        #[cfg(not(target_arch = "wasm32"))]
         let registration_timestamp = Duration::from_millis(
             SystemTime::elapsed(&UNIX_EPOCH)
                 .unwrap_or_default()
@@ -322,7 +312,7 @@ where
         let material: Vec<u8> = (0..S::Ciphersuite::IKM_LEN)
             .map(|_| {
                 let mut buf = [0u8];
-                getrandom::fill(&mut buf).unwrap();
+                rand::rng().fill(&mut buf);
                 buf[0]
             })
             .collect();
@@ -342,7 +332,7 @@ where
         Box<dyn Error>,
     > {
         let mut commited_token = vec![0u8; TOKEN_SIZE];
-        getrandom::fill(&mut commited_token).unwrap();
+        rand::rng().fill(&mut commited_token[..]);
 
         let (commitment, proof) =
             Commitment::<BBSplus<S::Ciphersuite>>::commit(Some(&[commited_token.clone()]))?;

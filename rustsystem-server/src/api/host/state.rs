@@ -1,10 +1,10 @@
+use crate::proof::BallotMetaData;
 use api_derive::APIEndpointError;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
 };
-use rustsystem_proof::BallotMetaData;
 use serde::{Deserialize, Serialize};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};

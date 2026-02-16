@@ -1,12 +1,9 @@
-use axum::{Router, http::HeaderValue};
+use axum::Router;
 use invite_auth::InviteAuthority;
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokens::{AuthUser, get_secret};
 use tokio::sync::Mutex;
-use tower_http::{
-    services::{ServeDir, ServeFile},
-    set_header::SetResponseHeaderLayer,
-};
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 mod admin_auth;
@@ -17,6 +14,8 @@ use vote_auth::VoteAuthority;
 mod invite_auth;
 pub mod tokens;
 pub mod voting;
+
+mod proof;
 
 use uuid::Uuid;
 

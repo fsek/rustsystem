@@ -3,12 +3,11 @@ use std::{
     io::{self, Error, ErrorKind},
 };
 
+use crate::proof::{Sha256ValidationInfo, ValidationInfo};
+
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
-
-use wasm_bindgen::prelude::*;
-
-use crate::{Sha256ValidationInfo, ValidationInfo};
 
 pub type VoteRoundID = u128;
 pub type CandidateID = usize;
@@ -20,29 +19,12 @@ pub type Choice = Vec<CandidateID>;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 // All fields are private since they should not change once set
-#[wasm_bindgen]
 pub struct BallotValidation {
     proof: Vec<u8>,
     token: Vec<u8>,
     signature: BlindSignature<BbsBls12381Sha256>,
 }
-#[wasm_bindgen]
-impl BallotValidation {
-    #[wasm_bindgen]
-    pub fn debug(&self) -> String {
-        format!("{self:?}")
-    }
 
-    #[wasm_bindgen(js_name = toValue)]
-    pub fn to_value(&self) -> Result<JsValue, JsError> {
-        serde_wasm_bindgen::to_value(self).map_err(JsError::from)
-    }
-
-    #[wasm_bindgen(js_name = fromValue)]
-    pub fn from_value(v: JsValue) -> Result<Self, JsError> {
-        serde_wasm_bindgen::from_value(v).map_err(JsError::from)
-    }
-}
 impl BallotValidation {
     pub fn new(
         proof: Vec<u8>,
@@ -75,15 +57,12 @@ impl From<BallotValidation> for Sha256ValidationInfo {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 // All fields are private since they should not change once set
-#[wasm_bindgen]
 pub struct BallotMetaData {
     candidates: Candidates,
     max_choices: usize,
     protocol_version: ProtocolVersion,
 }
-#[wasm_bindgen]
 impl BallotMetaData {
-    #[wasm_bindgen(constructor)]
     pub fn new(
         candidates: Candidates,
         protocol_version: ProtocolVersion,
@@ -96,19 +75,8 @@ impl BallotMetaData {
         }
     }
 
-    #[wasm_bindgen]
     pub fn debug(&self) -> String {
         format!("{self:?}")
-    }
-
-    #[wasm_bindgen(js_name = toValue)]
-    pub fn to_value(&self) -> Result<JsValue, JsError> {
-        serde_wasm_bindgen::to_value(self).map_err(JsError::from)
-    }
-
-    #[wasm_bindgen(js_name = fromValue)]
-    pub fn from_value(v: JsValue) -> Result<Self, JsError> {
-        serde_wasm_bindgen::from_value(v).map_err(JsError::from)
     }
 }
 impl BallotMetaData {
@@ -185,12 +153,8 @@ impl Ballot {
         self._padding.resize(padding_size, 0);
         // Randomize to avoid determenistic compression
         // Compression may still occur, but it will not be possible to tell the original size
-        if let Err(e) = getrandom::fill(&mut self._padding) {
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("Failed to randomize ballot padding: {e}"),
-            ));
-        }
+        rand::rng().fill(&mut self._padding[..]);
+
         Ok(())
     }
 

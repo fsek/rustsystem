@@ -15,7 +15,6 @@ serde.workspace = true
 serde_json = "1.0.140"
 
 # Local (part of workspace)
-rustsystem-proof = { path = "../rustsystem-proof" }
 api-core = { path = "../rustsystem-server-api/api-core"}
 api-derive = { path = "../rustsystem-server-api/api-derive"}
 
@@ -36,6 +35,7 @@ ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 futures = "0.3.31"
 futures-util = "0.3.31"
 time = { version = "0.3", features = ["serde"] }
+blake3 = "1.8.3"
 
 [dev-dependencies]
 tower = "0.5.2"

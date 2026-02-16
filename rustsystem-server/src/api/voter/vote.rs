@@ -1,9 +1,9 @@
-use api_derive::APIEndpointError;
-use axum::{Json, extract::State, http::StatusCode};
-use rustsystem_proof::{
+use crate::proof::{
     Ballot, BallotMetaData, BallotValidation, Choice, Provider, RegistrationSuccessResponse,
     Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo, ValidationInfo,
 };
+use api_derive::APIEndpointError;
+use axum::{Json, extract::State, http::StatusCode};
 use tracing::{error, info};
 
 use api_core::{APIErrorCode, APIHandler, APIResult};
@@ -22,6 +22,8 @@ pub enum RegisterError {
 
     #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
     MUIDNotFound,
+    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
+    UUIDNotFound,
     #[api(code = APIErrorCode::VotingInactive, status = 410)]
     VoteInactive,
 }
@@ -47,6 +49,10 @@ impl APIHandler for Register {
         } else {
             return Err(RegisterError::MUIDNotFound);
         };
+
+        if !meeting.voters.contains_key(&auth.uuuid) {
+            return Err(RegisterError::UUIDNotFound);
+        }
 
         let vote_auth = meeting.get_auth();
 
