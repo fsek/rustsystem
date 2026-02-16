@@ -11,41 +11,20 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as MeetingImport } from './routes/meeting'
-import { Route as LoginImport } from './routes/login'
-import { Route as InviteImport } from './routes/invite'
+import { Route as DevTestingImport } from './routes/dev-testing'
 import { Route as IndexImport } from './routes/index'
-import { Route as MeetingAdminImport } from './routes/meeting_.admin'
 
 // Create/Update Routes
 
-const MeetingRoute = MeetingImport.update({
-  id: '/meeting',
-  path: '/meeting',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const LoginRoute = LoginImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const InviteRoute = InviteImport.update({
-  id: '/invite',
-  path: '/invite',
+const DevTestingRoute = DevTestingImport.update({
+  id: '/dev-testing',
+  path: '/dev-testing',
   getParentRoute: () => rootRoute,
 } as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const MeetingAdminRoute = MeetingAdminImport.update({
-  id: '/meeting_/admin',
-  path: '/meeting/admin',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -60,32 +39,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
-    '/invite': {
-      id: '/invite'
-      path: '/invite'
-      fullPath: '/invite'
-      preLoaderRoute: typeof InviteImport
-      parentRoute: typeof rootRoute
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginImport
-      parentRoute: typeof rootRoute
-    }
-    '/meeting': {
-      id: '/meeting'
-      path: '/meeting'
-      fullPath: '/meeting'
-      preLoaderRoute: typeof MeetingImport
-      parentRoute: typeof rootRoute
-    }
-    '/meeting_/admin': {
-      id: '/meeting_/admin'
-      path: '/meeting/admin'
-      fullPath: '/meeting/admin'
-      preLoaderRoute: typeof MeetingAdminImport
+    '/dev-testing': {
+      id: '/dev-testing'
+      path: '/dev-testing'
+      fullPath: '/dev-testing'
+      preLoaderRoute: typeof DevTestingImport
       parentRoute: typeof rootRoute
     }
   }
@@ -95,52 +53,37 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/invite': typeof InviteRoute
-  '/login': typeof LoginRoute
-  '/meeting': typeof MeetingRoute
-  '/meeting/admin': typeof MeetingAdminRoute
+  '/dev-testing': typeof DevTestingRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/invite': typeof InviteRoute
-  '/login': typeof LoginRoute
-  '/meeting': typeof MeetingRoute
-  '/meeting/admin': typeof MeetingAdminRoute
+  '/dev-testing': typeof DevTestingRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/invite': typeof InviteRoute
-  '/login': typeof LoginRoute
-  '/meeting': typeof MeetingRoute
-  '/meeting_/admin': typeof MeetingAdminRoute
+  '/dev-testing': typeof DevTestingRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/invite' | '/login' | '/meeting' | '/meeting/admin'
+  fullPaths: '/' | '/dev-testing'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/invite' | '/login' | '/meeting' | '/meeting/admin'
-  id: '__root__' | '/' | '/invite' | '/login' | '/meeting' | '/meeting_/admin'
+  to: '/' | '/dev-testing'
+  id: '__root__' | '/' | '/dev-testing'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  InviteRoute: typeof InviteRoute
-  LoginRoute: typeof LoginRoute
-  MeetingRoute: typeof MeetingRoute
-  MeetingAdminRoute: typeof MeetingAdminRoute
+  DevTestingRoute: typeof DevTestingRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  InviteRoute: InviteRoute,
-  LoginRoute: LoginRoute,
-  MeetingRoute: MeetingRoute,
-  MeetingAdminRoute: MeetingAdminRoute,
+  DevTestingRoute: DevTestingRoute,
 }
 
 export const routeTree = rootRoute
@@ -154,26 +97,14 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/invite",
-        "/login",
-        "/meeting",
-        "/meeting_/admin"
+        "/dev-testing"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
-    "/invite": {
-      "filePath": "invite.tsx"
-    },
-    "/login": {
-      "filePath": "login.tsx"
-    },
-    "/meeting": {
-      "filePath": "meeting.tsx"
-    },
-    "/meeting_/admin": {
-      "filePath": "meeting_.admin.tsx"
+    "/dev-testing": {
+      "filePath": "dev-testing.tsx"
     }
   }
 }
