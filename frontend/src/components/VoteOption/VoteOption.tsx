@@ -9,16 +9,13 @@ export interface VoteOptionProps {
 	className?: string;
 }
 
-const SIZE_CLASSES: Record<
-	Size,
-	{ p: string; rounded: string; text: string; dot: string; inner: string; gap: string }
-> = {
-	s: { p: "p-1.5", rounded: "rounded", text: "text-xs", dot: "w-3 h-3", inner: "w-1.5 h-1.5", gap: "gap-1.5" },
-	sm: { p: "p-2", rounded: "rounded-md", text: "text-xs", dot: "w-3 h-3", inner: "w-1.5 h-1.5", gap: "gap-2" },
-	m: { p: "p-2.5", rounded: "rounded-lg", text: "text-sm", dot: "w-4 h-4", inner: "w-2 h-2", gap: "gap-2" },
-	ml: { p: "p-3", rounded: "rounded-lg", text: "text-sm", dot: "w-4 h-4", inner: "w-2 h-2", gap: "gap-2.5" },
-	l: { p: "p-4", rounded: "rounded-xl", text: "text-base", dot: "w-5 h-5", inner: "w-2.5 h-2.5", gap: "gap-3" },
-	xl: { p: "p-5", rounded: "rounded-xl", text: "text-lg", dot: "w-6 h-6", inner: "w-3 h-3", gap: "gap-3" },
+const SIZE_CLASSES: Record<Size, { p: string; rounded: string; text: string; checkbox: string; gap: string }> = {
+	s: { p: "p-1.5", rounded: "rounded", text: "text-xs", checkbox: "w-3.5 h-3.5", gap: "gap-1.5" },
+	sm: { p: "p-2", rounded: "rounded-md", text: "text-xs", checkbox: "w-4 h-4", gap: "gap-2" },
+	m: { p: "p-2.5", rounded: "rounded-lg", text: "text-sm", checkbox: "w-5 h-5", gap: "gap-2" },
+	ml: { p: "p-3", rounded: "rounded-lg", text: "text-sm", checkbox: "w-5 h-5", gap: "gap-2.5" },
+	l: { p: "p-4", rounded: "rounded-xl", text: "text-base", checkbox: "w-6 h-6", gap: "gap-3" },
+	xl: { p: "p-5", rounded: "rounded-xl", text: "text-lg", checkbox: "w-7 h-7", gap: "gap-3" },
 };
 
 const COLOR_VAR: Record<Color, string> = {
@@ -28,7 +25,7 @@ const COLOR_VAR: Record<Color, string> = {
 };
 
 export function VoteOption({ size, color, label, selected = false, onClick, className = "" }: VoteOptionProps) {
-	const { p, rounded, text, dot, inner, gap } = SIZE_CLASSES[size];
+	const { p, rounded, text, checkbox, gap } = SIZE_CLASSES[size];
 	const colorVar = COLOR_VAR[color];
 	return (
 		<button
@@ -43,10 +40,24 @@ export function VoteOption({ size, color, label, selected = false, onClick, clas
 			aria-pressed={selected}
 		>
 			<div
-				className={`${dot} rounded-full border-2 flex items-center justify-center shrink-0`}
-				style={{ borderColor: selected ? colorVar : "var(--color-accent)" }}
+				className={`${checkbox} rounded flex items-center justify-center shrink-0`}
+				style={
+					selected
+						? { backgroundColor: colorVar, border: `2px solid ${colorVar}` }
+						: { border: "2px solid var(--color-accent)" }
+				}
 			>
-				{selected && <div className={`${inner} rounded-full`} style={{ backgroundColor: colorVar }} />}
+				{selected && (
+					<svg viewBox="0 0 12 12" fill="none" className="w-full h-full p-0.5">
+						<path
+							d="M2 6.5l2.5 2.5 5.5-5.5"
+							stroke="white"
+							strokeWidth="2"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+				)}
 			</div>
 			<span
 				className={`${text} font-medium`}

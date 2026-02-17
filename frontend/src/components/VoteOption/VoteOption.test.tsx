@@ -26,11 +26,14 @@ describe("VoteOption", () => {
 		expect(container.querySelector("button")?.getAttribute("aria-pressed")).toBe("true");
 	});
 
-	it("shows filled inner dot when selected", () => {
+	it("shows checkmark svg when selected", () => {
 		const { container } = render(<VoteOption size="m" color="primary" label="A" selected />);
-		// The inner filled dot div is only rendered when selected
-		const dots = container.querySelectorAll("div");
-		expect(dots.length).toBeGreaterThan(1);
+		expect(container.querySelector("svg")).toBeTruthy();
+	});
+
+	it("does not show checkmark svg when not selected", () => {
+		const { container } = render(<VoteOption size="m" color="primary" label="A" />);
+		expect(container.querySelector("svg")).toBeNull();
 	});
 
 	it("calls onClick when clicked", () => {

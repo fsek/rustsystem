@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Alert } from "@/components/Alert/Alert";
 import { Badge } from "@/components/Badge/Badge";
@@ -7,6 +8,8 @@ import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { VoteOption } from "@/components/VoteOption/VoteOption";
+import { VoteSection } from "@/components/VoteSection/VoteSection";
+import type { VoteSectionHandle } from "@/components/VoteSection/VoteSection";
 import type { Color, Size } from "@/components/types";
 
 export const Route = createFileRoute("/preview")({
@@ -293,6 +296,21 @@ function Cards() {
 	);
 }
 
+// Stateful wrapper so individual VoteOptions are clickable in the preview
+function TogglableVoteOption({ size, color, className }: { size: Size; color: Color; className?: string }) {
+	const [selected, setSelected] = useState(false);
+	return (
+		<VoteOption
+			size={size}
+			color={color}
+			label={selected ? "Selected" : "Click me"}
+			selected={selected}
+			onClick={() => setSelected((s) => !s)}
+			className={className}
+		/>
+	);
+}
+
 function VoteOptions() {
 	return (
 		<Section title="Vote Options">
@@ -300,19 +318,53 @@ function VoteOptions() {
 				<ColorRow key={row.key} label={row.label} align="start">
 					{SIZES.map((s) => (
 						<SizedStart key={s.key} label={s.label}>
-							<VoteOption
-								size={s.key}
-								color={row.key}
-								label="Option A"
-								selected
-								className={`mb-1.5 ${VOTE_WIDTHS[s.key]}`}
-							/>
-							<VoteOption
-								size={s.key}
-								color={row.key}
-								label="Option B"
-								className={VOTE_WIDTHS[s.key]}
-							/>
+							<TogglableVoteOption size={s.key} color={row.key} className={VOTE_WIDTHS[s.key]} />
+						</SizedStart>
+					))}
+				</ColorRow>
+			))}
+		</Section>
+	);
+}
+
+// Demo wrapper that reads the selection via ref
+function VoteSectionDemo({ size, color }: { size: Size; color: Color }) {
+	const ref = useRef<VoteSectionHandle>(null);
+	const [result, setResult] = useState<string[] | null>(null);
+	return (
+		<div className="flex flex-col gap-2">
+			<VoteSection
+				ref={ref}
+				size={size}
+				color={color}
+				options={["In favor", "Against", "Abstain"]}
+				className={VOTE_WIDTHS[size]}
+			/>
+			<button
+				type="button"
+				className="text-xs underline cursor-pointer text-left"
+				style={{ color: "var(--color-secondary)" }}
+				onClick={() => setResult(ref.current?.getSelected() ?? [])}
+			>
+				Read selection
+			</button>
+			{result !== null && (
+				<p className="text-xs font-mono" style={{ color: "var(--color-primary)" }}>
+					{result.length ? result.join(", ") : "(none)"}
+				</p>
+			)}
+		</div>
+	);
+}
+
+function VoteSections() {
+	return (
+		<Section title="Vote Section">
+			{COLOR_ROWS.map((row) => (
+				<ColorRow key={row.key} label={row.label} align="start">
+					{SIZES.map((s) => (
+						<SizedStart key={s.key} label={s.label}>
+							<VoteSectionDemo size={s.key} color={row.key} />
 						</SizedStart>
 					))}
 				</ColorRow>
@@ -342,6 +394,7 @@ function Preview() {
 			<Alerts />
 			<Cards />
 			<VoteOptions />
+			<VoteSections />
 		</div>
 	);
 }
