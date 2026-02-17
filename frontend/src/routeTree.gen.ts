@@ -10,111 +10,111 @@
 
 // Import Routes
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as SignatureDevImport } from './routes/signature-dev'
-import { Route as PreviewImport } from './routes/preview'
-import { Route as DevTestingImport } from './routes/dev-testing'
-import { Route as IndexImport } from './routes/index'
+import { Route as rootRoute } from "./routes/__root";
+import { Route as SignatureDevImport } from "./routes/signature-dev";
+import { Route as PreviewImport } from "./routes/preview";
+import { Route as DevTestingImport } from "./routes/dev-testing";
+import { Route as IndexImport } from "./routes/index";
 
 // Create/Update Routes
 
 const SignatureDevRoute = SignatureDevImport.update({
-  id: '/signature-dev',
-  path: '/signature-dev',
+  id: "/signature-dev",
+  path: "/signature-dev",
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 const PreviewRoute = PreviewImport.update({
-  id: '/preview',
-  path: '/preview',
+  id: "/preview",
+  path: "/preview",
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 const DevTestingRoute = DevTestingImport.update({
-  id: '/dev-testing',
-  path: '/dev-testing',
+  id: "/dev-testing",
+  path: "/dev-testing",
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 const IndexRoute = IndexImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRoute,
-} as any)
+} as any);
 
 // Populate the FileRoutesByPath interface
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/dev-testing': {
-      id: '/dev-testing'
-      path: '/dev-testing'
-      fullPath: '/dev-testing'
-      preLoaderRoute: typeof DevTestingImport
-      parentRoute: typeof rootRoute
-    }
-    '/preview': {
-      id: '/preview'
-      path: '/preview'
-      fullPath: '/preview'
-      preLoaderRoute: typeof PreviewImport
-      parentRoute: typeof rootRoute
-    }
-    '/signature-dev': {
-      id: '/signature-dev'
-      path: '/signature-dev'
-      fullPath: '/signature-dev'
-      preLoaderRoute: typeof SignatureDevImport
-      parentRoute: typeof rootRoute
-    }
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/dev-testing": {
+      id: "/dev-testing";
+      path: "/dev-testing";
+      fullPath: "/dev-testing";
+      preLoaderRoute: typeof DevTestingImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/preview": {
+      id: "/preview";
+      path: "/preview";
+      fullPath: "/preview";
+      preLoaderRoute: typeof PreviewImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/signature-dev": {
+      id: "/signature-dev";
+      path: "/signature-dev";
+      fullPath: "/signature-dev";
+      preLoaderRoute: typeof SignatureDevImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
 // Create and export the route tree
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/dev-testing': typeof DevTestingRoute
-  '/preview': typeof PreviewRoute
-  '/signature-dev': typeof SignatureDevRoute
+  "/": typeof IndexRoute;
+  "/dev-testing": typeof DevTestingRoute;
+  "/preview": typeof PreviewRoute;
+  "/signature-dev": typeof SignatureDevRoute;
 }
 
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/dev-testing': typeof DevTestingRoute
-  '/preview': typeof PreviewRoute
-  '/signature-dev': typeof SignatureDevRoute
+  "/": typeof IndexRoute;
+  "/dev-testing": typeof DevTestingRoute;
+  "/preview": typeof PreviewRoute;
+  "/signature-dev": typeof SignatureDevRoute;
 }
 
 export interface FileRoutesById {
-  __root__: typeof rootRoute
-  '/': typeof IndexRoute
-  '/dev-testing': typeof DevTestingRoute
-  '/preview': typeof PreviewRoute
-  '/signature-dev': typeof SignatureDevRoute
+  __root__: typeof rootRoute;
+  "/": typeof IndexRoute;
+  "/dev-testing": typeof DevTestingRoute;
+  "/preview": typeof PreviewRoute;
+  "/signature-dev": typeof SignatureDevRoute;
 }
 
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dev-testing' | '/preview' | '/signature-dev'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dev-testing' | '/preview' | '/signature-dev'
-  id: '__root__' | '/' | '/dev-testing' | '/preview' | '/signature-dev'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: "/" | "/dev-testing" | "/preview" | "/signature-dev";
+  fileRoutesByTo: FileRoutesByTo;
+  to: "/" | "/dev-testing" | "/preview" | "/signature-dev";
+  id: "__root__" | "/" | "/dev-testing" | "/preview" | "/signature-dev";
+  fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DevTestingRoute: typeof DevTestingRoute
-  PreviewRoute: typeof PreviewRoute
-  SignatureDevRoute: typeof SignatureDevRoute
+  IndexRoute: typeof IndexRoute;
+  DevTestingRoute: typeof DevTestingRoute;
+  PreviewRoute: typeof PreviewRoute;
+  SignatureDevRoute: typeof SignatureDevRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -122,11 +122,11 @@ const rootRouteChildren: RootRouteChildren = {
   DevTestingRoute: DevTestingRoute,
   PreviewRoute: PreviewRoute,
   SignatureDevRoute: SignatureDevRoute,
-}
+};
 
 export const routeTree = rootRoute
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
 
 /* ROUTE_MANIFEST_START
 {
