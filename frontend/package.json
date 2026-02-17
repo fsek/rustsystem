@@ -3,14 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3000",
-    "start": "vite --port 3000",
+    "dev": "vite",
+    "start": "vite",
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
     "format": "biome format --write src"
   },
   "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
     "@tailwindcss/vite": "^4.1.8",
     "@tanstack/match-sorter-utils": "^8.19.4",
     "@tanstack/react-router": "^1.114.3",

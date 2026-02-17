@@ -12,7 +12,8 @@ use zkryptium::{
 use rand::{rng, seq::SliceRandom};
 
 use api_core::{APIErrorCode, APIResult};
-use rustsystem_proof::{BallotMetaData, Choice, Provider, Sha256Provider};
+
+use crate::proof::{BallotMetaData, Choice, Provider, Sha256Provider};
 
 use crate::UUuid;
 

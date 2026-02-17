@@ -15,10 +15,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "src/**/*-test.{ts,tsx}"],
   },
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    proxy: {
+      "/api": "http://localhost:3000",
     },
   },
   build: {
