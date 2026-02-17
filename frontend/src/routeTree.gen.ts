@@ -11,10 +11,17 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as PreviewImport } from './routes/preview'
 import { Route as DevTestingImport } from './routes/dev-testing'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
+
+const PreviewRoute = PreviewImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const DevTestingRoute = DevTestingImport.update({
   id: '/dev-testing',
@@ -46,6 +53,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevTestingImport
       parentRoute: typeof rootRoute
     }
+    '/preview': {
+      id: '/preview'
+      path: '/preview'
+      fullPath: '/preview'
+      preLoaderRoute: typeof PreviewImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -54,36 +68,41 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
+  '/preview': typeof PreviewRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
+  '/preview': typeof PreviewRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
+  '/preview': typeof PreviewRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dev-testing'
+  fullPaths: '/' | '/dev-testing' | '/preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dev-testing'
-  id: '__root__' | '/' | '/dev-testing'
+  to: '/' | '/dev-testing' | '/preview'
+  id: '__root__' | '/' | '/dev-testing' | '/preview'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevTestingRoute: typeof DevTestingRoute
+  PreviewRoute: typeof PreviewRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevTestingRoute: DevTestingRoute,
+  PreviewRoute: PreviewRoute,
 }
 
 export const routeTree = rootRoute
@@ -97,7 +116,8 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/dev-testing"
+        "/dev-testing",
+        "/preview"
       ]
     },
     "/": {
@@ -105,6 +125,9 @@ export const routeTree = rootRoute
     },
     "/dev-testing": {
       "filePath": "dev-testing.tsx"
+    },
+    "/preview": {
+      "filePath": "preview.tsx"
     }
   }
 }
