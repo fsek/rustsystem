@@ -11,6 +11,8 @@
     "format": "biome format --write src"
   },
   "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
     "@tailwindcss/vite": "^4.1.8",
     "@tanstack/match-sorter-utils": "^8.19.4",
     "@tanstack/react-router": "^1.114.3",

@@ -11,11 +11,18 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as SignatureDevImport } from './routes/signature-dev'
 import { Route as PreviewImport } from './routes/preview'
 import { Route as DevTestingImport } from './routes/dev-testing'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
+
+const SignatureDevRoute = SignatureDevImport.update({
+  id: '/signature-dev',
+  path: '/signature-dev',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const PreviewRoute = PreviewImport.update({
   id: '/preview',
@@ -60,6 +67,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PreviewImport
       parentRoute: typeof rootRoute
     }
+    '/signature-dev': {
+      id: '/signature-dev'
+      path: '/signature-dev'
+      fullPath: '/signature-dev'
+      preLoaderRoute: typeof SignatureDevImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -69,12 +83,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
   '/preview': typeof PreviewRoute
+  '/signature-dev': typeof SignatureDevRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
   '/preview': typeof PreviewRoute
+  '/signature-dev': typeof SignatureDevRoute
 }
 
 export interface FileRoutesById {
@@ -82,14 +98,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dev-testing': typeof DevTestingRoute
   '/preview': typeof PreviewRoute
+  '/signature-dev': typeof SignatureDevRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dev-testing' | '/preview'
+  fullPaths: '/' | '/dev-testing' | '/preview' | '/signature-dev'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dev-testing' | '/preview'
-  id: '__root__' | '/' | '/dev-testing' | '/preview'
+  to: '/' | '/dev-testing' | '/preview' | '/signature-dev'
+  id: '__root__' | '/' | '/dev-testing' | '/preview' | '/signature-dev'
   fileRoutesById: FileRoutesById
 }
 
@@ -97,12 +114,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DevTestingRoute: typeof DevTestingRoute
   PreviewRoute: typeof PreviewRoute
+  SignatureDevRoute: typeof SignatureDevRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DevTestingRoute: DevTestingRoute,
   PreviewRoute: PreviewRoute,
+  SignatureDevRoute: SignatureDevRoute,
 }
 
 export const routeTree = rootRoute
@@ -117,7 +136,8 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/dev-testing",
-        "/preview"
+        "/preview",
+        "/signature-dev"
       ]
     },
     "/": {
@@ -128,6 +148,9 @@ export const routeTree = rootRoute
     },
     "/preview": {
       "filePath": "preview.tsx"
+    },
+    "/signature-dev": {
+      "filePath": "signature-dev.tsx"
     }
   }
 }
