@@ -3,4 +3,6 @@
 	--color-secondary: rgb(8, 131, 149);
 	--color-accent: rgb(122, 178, 178);
 	--color-surface: rgb(235, 244, 246);
+	--color-background: white;
+	--color-shadow: rgba(0, 0, 0, 0.08);
 }

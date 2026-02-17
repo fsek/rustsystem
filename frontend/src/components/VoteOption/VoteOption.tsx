@@ -35,7 +35,7 @@ export function VoteOption({ size, color, label, selected = false, onClick, clas
 			style={
 				selected
 					? { border: `2px solid ${colorVar}`, backgroundColor: "var(--color-surface)" }
-					: { border: "2px solid var(--color-accent)", backgroundColor: "white" }
+					: { border: "2px solid var(--color-accent)", backgroundColor: "var(--color-background)" }
 			}
 			aria-pressed={selected}
 		>

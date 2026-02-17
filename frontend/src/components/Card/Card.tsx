@@ -29,8 +29,12 @@ export function Card({ size, color, title, children, className = "" }: CardProps
 	const colorVar = COLOR_VAR[color];
 	return (
 		<div
-			className={`${p} ${rounded} bg-white shadow-sm ${className}`}
-			style={{ border: `1.5px solid ${colorVar}` }}
+			className={`${p} ${rounded} ${className}`}
+			style={{
+				backgroundColor: "var(--color-background)",
+				border: `1.5px solid ${colorVar}`,
+				boxShadow: "0 1px 4px var(--color-shadow)",
+			}}
 		>
 			{title && (
 				<p className={`${titleCls} mb-1`} style={{ color: colorVar }}>

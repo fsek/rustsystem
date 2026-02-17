@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Alert } from "@/components/Alert/Alert";
 import { Badge } from "@/components/Badge/Badge";
@@ -95,19 +95,29 @@ function SizedStart({ label, children }: { label: string; children: ReactNode })
 
 // ─── Color palette ───────────────────────────────────────────────────────────
 
-const PALETTE_SWATCHES = [
-	{ label: "Primary", color: "var(--color-primary)", value: "rgb(9, 99, 126)", textColor: "white" },
-	{ label: "Secondary", color: "var(--color-secondary)", value: "rgb(8, 131, 149)", textColor: "white" },
-	{ label: "Accent", color: "var(--color-accent)", value: "rgb(122, 178, 178)", textColor: "white" },
-	{
-		label: "Surface",
-		color: "var(--color-surface)",
-		value: "rgb(235, 244, 246)",
-		textColor: "var(--color-primary)",
-	},
+const PALETTE_VARS = [
+	{ label: "Primary", cssVar: "--color-primary" },
+	{ label: "Secondary", cssVar: "--color-secondary" },
+	{ label: "Accent", cssVar: "--color-accent" },
+	{ label: "Surface", cssVar: "--color-surface" },
+	{ label: "Background", cssVar: "--color-background" },
 ];
 
+function readCSSVar(name: string): string {
+	return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function ColorPalette() {
+	// Re-render whenever a theme is applied so live CSS variable values are shown.
+	const [, tick] = useState(0);
+	useEffect(() => {
+		function onThemeChange() {
+			tick((n) => n + 1);
+		}
+		window.addEventListener("fsek:theme-change", onThemeChange);
+		return () => window.removeEventListener("fsek:theme-change", onThemeChange);
+	}, []);
+
 	return (
 		<section className="mb-16">
 			<h2
@@ -117,18 +127,20 @@ function ColorPalette() {
 				Color Palette
 			</h2>
 			<div className="flex gap-6 flex-wrap">
-				{PALETTE_SWATCHES.map((s) => (
-					<div key={s.label} className="flex flex-col items-center gap-2">
+				{PALETTE_VARS.map((s) => (
+					<div key={s.label} className="flex flex-col items-start gap-1.5">
 						<div
-							className="w-28 h-28 rounded-2xl shadow-sm flex items-end p-3"
-							style={{ backgroundColor: s.color }}
-						>
-							<span className="text-xs font-mono leading-tight" style={{ color: s.textColor, opacity: 0.85 }}>
-								{s.value}
-							</span>
-						</div>
+							className="w-28 h-28 rounded-2xl"
+							style={{
+								backgroundColor: `var(${s.cssVar})`,
+								boxShadow: "0 1px 4px var(--color-shadow)",
+							}}
+						/>
 						<span className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
 							{s.label}
+						</span>
+						<span className="text-xs font-mono" style={{ color: "var(--color-secondary)" }}>
+							{readCSSVar(s.cssVar)}
 						</span>
 					</div>
 				))}
@@ -377,7 +389,7 @@ function VoteSections() {
 
 function Preview() {
 	return (
-		<div className="min-h-screen p-10 bg-white">
+		<div className="min-h-screen p-10" style={{ backgroundColor: "var(--color-background)" }}>
 			<h1 className="text-4xl font-black mb-1" style={{ color: "var(--color-primary)" }}>
 				Component Preview
 			</h1>
