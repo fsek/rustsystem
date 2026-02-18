@@ -1,66 +1,33 @@
 import { useEffect, useRef, useState } from "react";
+import themeData from "@/themes.json";
 
 export interface Theme {
   name: string;
   primaryColor: string;
-  vars: Record<string, string>;
+  vars: {
+    primary: string;
+    support: string;
+    accent: string;
+    pageBg: string;
+    surface: string;
+    border: string;
+    textPrimary: string;
+    textSecondary: string;
+    buttonPrimaryBg: string;
+    buttonPrimaryText: string;
+    buttonSecondaryBg: string;
+    buttonSecondaryText: string;
+    linearGrad: string;
+    radialGrad: string;
+  };
 }
 
-export const THEMES: Theme[] = [
-  {
-    name: "Ocean Light",
-    primaryColor: "rgb(9, 99, 126)",
-    vars: {
-      "--color-primary": "rgb(9, 99, 126)",
-      "--color-secondary": "rgb(8, 131, 149)",
-      "--color-accent": "rgb(122, 178, 178)",
-      "--color-surface": "rgb(235, 244, 246)",
-      "--color-background": "white",
-      "--color-shadow": "rgba(0, 0, 0, 0.08)",
-    },
-  },
-  {
-    name: "Ocean Dark",
-    primaryColor: "rgb(44, 116, 179)",
-    vars: {
-      "--color-primary": "rgb(44, 116, 179)",
-      "--color-secondary": "rgb(20, 66, 114)",
-      "--color-accent": "rgb(32, 82, 149)",
-      "--color-surface": "rgb(10, 38, 71)",
-      "--color-background": "rgb(6, 20, 50)",
-      "--color-shadow": "rgba(44, 116, 179, 0.25)",
-    },
-  },
-  {
-    name: "FSEK Light",
-    primaryColor: "rgb(229, 137, 10)",
-    vars: {
-      "--color-primary": "rgb(229, 137, 10)",
-      "--color-secondary": "rgb(157, 92, 13)",
-      "--color-accent": "rgb(247, 208, 138)",
-      "--color-surface": "rgb(250, 250, 250)",
-      "--color-background": "white",
-      "--color-shadow": "rgba(0, 0, 0, 0.08)",
-    },
-  },
-  {
-    name: "FSEK Dark",
-    primaryColor: "rgb(253, 112, 20)",
-    vars: {
-      "--color-primary": "rgb(253, 112, 20)",
-      "--color-secondary": "rgb(57, 62, 70)",
-      "--color-accent": "rgb(238, 238, 238)",
-      "--color-surface": "rgb(34, 40, 49)",
-      "--color-background": "rgb(22, 27, 34)",
-      "--color-shadow": "rgba(253, 112, 20, 0.2)",
-    },
-  },
-];
+export const THEMES: Theme[] = themeData;
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   for (const [key, value] of Object.entries(theme.vars)) {
-    root.style.setProperty(key, value);
+    root.style.setProperty(`--${key}`, value);
   }
   window.dispatchEvent(new CustomEvent("fsek:theme-change"));
 }
@@ -108,14 +75,14 @@ export function ThemeButton() {
         aria-haspopup="listbox"
         aria-expanded={open}
         className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors"
-        style={{ color: "var(--color-primary)" }}
+        style={{ color: "var(--textPrimary)" }}
         onMouseEnter={(e) =>
-          ((e.currentTarget as HTMLElement).style.backgroundColor =
-            "var(--color-surface)")
+        ((e.currentTarget as HTMLElement).style.backgroundColor =
+          "var(--surface)")
         }
         onMouseLeave={(e) =>
-          ((e.currentTarget as HTMLElement).style.backgroundColor =
-            "transparent")
+        ((e.currentTarget as HTMLElement).style.backgroundColor =
+          "transparent")
         }
       >
         {/* Palette icon */}
@@ -155,10 +122,10 @@ export function ThemeButton() {
         <ul
           role="listbox"
           aria-label="Select theme"
-          className="absolute right-0 top-full mt-2 w-48 rounded-xl py-1.5"
+          className="absolute right-0 top-full mt-2 w-48 rounded-xl py-1.5 overflow-y-auto max-h-80"
           style={{
-            backgroundColor: "var(--color-surface)",
-            boxShadow: "0 4px 12px var(--color-shadow)",
+            backgroundColor: "var(--surface)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px var(--border)",
           }}
         >
           {THEMES.map((theme) => {
@@ -169,19 +136,19 @@ export function ThemeButton() {
                   type="button"
                   className="w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors flex items-center gap-2.5"
                   style={{
-                    color: "var(--color-primary)",
+                    color: "var(--textPrimary)",
                     backgroundColor: isSelected
-                      ? "var(--color-surface)"
+                      ? "var(--surface)"
                       : "transparent",
                     fontWeight: isSelected ? 600 : 400,
                   }}
                   onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLElement).style.backgroundColor =
-                      "var(--color-surface)")
+                  ((e.currentTarget as HTMLElement).style.backgroundColor =
+                    "var(--surface)")
                   }
                   onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLElement).style.backgroundColor =
-                      isSelected ? "var(--color-surface)" : "transparent")
+                  ((e.currentTarget as HTMLElement).style.backgroundColor =
+                    isSelected ? "var(--surface)" : "transparent")
                   }
                   onClick={() => selectTheme(theme)}
                 >

@@ -1,6 +1,6 @@
 import { useImperativeHandle, useState } from "react";
 import type { Ref } from "react";
-import type { Color, Size } from "../types";
+import type { Color, Size, TextColor } from "../types";
 import { VoteOption } from "../VoteOption/VoteOption";
 
 export interface VoteSectionHandle {
@@ -10,6 +10,7 @@ export interface VoteSectionHandle {
 export interface VoteSectionProps {
   size: Size;
   color: Color;
+  textColor?: TextColor;
   options: string[];
   className?: string;
   ref?: Ref<VoteSectionHandle>;
@@ -18,6 +19,7 @@ export interface VoteSectionProps {
 export function VoteSection({
   size,
   color,
+  textColor = "textPrimary",
   options,
   className = "",
   ref,
@@ -47,6 +49,7 @@ export function VoteSection({
           key={option}
           size={size}
           color={color}
+          textColor={textColor}
           label={option}
           selected={selected.includes(option)}
           onClick={() => toggle(option)}

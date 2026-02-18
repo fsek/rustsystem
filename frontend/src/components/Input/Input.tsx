@@ -1,9 +1,11 @@
 import type { InputHTMLAttributes } from "react";
-import type { Color, Size } from "../types";
+import type React from "react";
+import type { Color, Size, TextColor } from "../types";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   size: Size;
   color: Color;
+  textColor?: TextColor;
 }
 
 const SIZE_CLASSES: Record<Size, string> = {
@@ -16,27 +18,31 @@ const SIZE_CLASSES: Record<Size, string> = {
 };
 
 const COLOR_VAR: Record<Color, string> = {
-  primary: "var(--color-primary)",
-  secondary: "var(--color-secondary)",
-  accent: "var(--color-accent)",
+  primary: "var(--primary)",
+  secondary: "var(--support)",
+  accent: "var(--accent)",
 };
 
 export function Input({
   size,
   color,
+  textColor = "textPrimary",
   className = "",
   style,
   ...props
 }: InputProps) {
   return (
     <input
-      className={`block outline-none ${SIZE_CLASSES[size]} ${className}`}
-      style={{
-        border: `1.5px solid ${COLOR_VAR[color]}`,
-        backgroundColor: "var(--color-surface)",
-        color: "var(--color-primary)",
-        ...style,
-      }}
+      className={`fsek-input block transition-all duration-200 ${SIZE_CLASSES[size]} ${className}`}
+      style={
+        {
+          "--input-focus-color": COLOR_VAR[color],
+          border: `1.5px solid ${COLOR_VAR[color]}`,
+          backgroundColor: "var(--surface)",
+          color: `var(--${textColor})`,
+          ...style,
+        } as React.CSSProperties
+      }
       {...props}
     />
   );

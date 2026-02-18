@@ -1,8 +1,22 @@
 @theme {
-  --color-primary: rgb(9, 99, 126);
-  --color-secondary: rgb(8, 131, 149);
-  --color-accent: rgb(122, 178, 178);
-  --color-surface: rgb(235, 244, 246);
-  --color-background: white;
-  --color-shadow: rgba(0, 0, 0, 0.08);
+  --primary: rgb(247, 139, 72);
+  --support: #bebebe;
+  --accent: #eb7125;
+  --pageBg: #f8fafc;
+  --surface: #ffffff;
+  --border: rgba(15, 23, 42, 0.12);
+  --textPrimary: #0f172a;
+  --textSecondary: #475569;
+  --buttonPrimaryBg: rgb(247, 139, 72);
+  --buttonPrimaryText: #0f172a;
+  --buttonSecondaryBg: #e2e8f0;
+  --buttonSecondaryText: #0f172a;
+  --linearGrad: linear-gradient(135deg,
+      #eb7125 0%,
+      rgb(247, 139, 72) 45%,
+      #ffffff 100%);
+  --radialGrad: radial-gradient(circle at center,
+      rgb(247, 139, 72) 0%,
+      #eb7125 50%,
+      #ffffff 100%);
 }

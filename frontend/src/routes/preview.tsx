@@ -10,13 +10,13 @@ import { Spinner } from "@/components/Spinner/Spinner";
 import { VoteOption } from "@/components/VoteOption/VoteOption";
 import { VoteSection } from "@/components/VoteSection/VoteSection";
 import type { VoteSectionHandle } from "@/components/VoteSection/VoteSection";
-import type { Color, Size } from "@/components/types";
+import type { ButtonColor, Color, Size, TextColor } from "@/components/types";
 
 export const Route = createFileRoute("/preview")({
   component: Preview,
 });
 
-// ─── Color / size axes ───────────────────────────────────────────────────────
+// ─── Axes ────────────────────────────────────────────────────────────────────
 
 const COLOR_ROWS: { key: Color; label: string }[] = [
   { key: "primary", label: "Primary" },
@@ -24,12 +24,34 @@ const COLOR_ROWS: { key: Color; label: string }[] = [
   { key: "accent", label: "Accent" },
 ];
 
+const TEXT_ROWS: { key: TextColor; label: string }[] = [
+  { key: "textPrimary", label: "T1" },
+  { key: "textSecondary", label: "T2" },
+];
+
+// 6 rows: each Color × each TextColor
+const COMBINED_ROWS = COLOR_ROWS.flatMap(
+  ({ key: colorKey, label: colorLabel }) =>
+    TEXT_ROWS.map(({ key: textKey, label: textLabel }) => ({
+      colorKey,
+      textKey,
+      label: `${colorLabel.slice(0, 3)} / ${textLabel}`,
+    })),
+);
+
+const BUTTON_ROWS: { key: ButtonColor; label: string }[] = [
+  { key: "buttonPrimary", label: "Primary" },
+  { key: "buttonSecondary", label: "Secondary" },
+  { key: "linearGrad", label: "Linear" },
+  { key: "radialGrad", label: "Radial" },
+];
+
 const SIZES: { key: Size; label: string }[] = [
-  { key: "s", label: "Small" },
-  { key: "sm", label: "Med-S" },
-  { key: "m", label: "Med" },
-  { key: "ml", label: "Med-L" },
-  { key: "l", label: "Large" },
+  { key: "s", label: "S" },
+  { key: "sm", label: "SM" },
+  { key: "m", label: "M" },
+  { key: "ml", label: "ML" },
+  { key: "l", label: "L" },
   { key: "xl", label: "XL" },
 ];
 
@@ -41,8 +63,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2
         className="text-2xl font-bold mb-6 pb-2"
         style={{
-          color: "var(--color-primary)",
-          borderBottom: "2px solid var(--color-surface)",
+          color: "var(--textPrimary)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         {title}
@@ -67,7 +89,7 @@ function ColorRow({
     >
       <span
         className="text-xs font-semibold uppercase tracking-wider w-20 shrink-0 pt-1"
-        style={{ color: "var(--color-secondary)" }}
+        style={{ color: "var(--textSecondary)" }}
       >
         {label}
       </span>
@@ -82,7 +104,7 @@ function Sized({ label, children }: { label: string; children: ReactNode }) {
       {children}
       <span
         className="text-xs text-center block"
-        style={{ color: "var(--color-accent)" }}
+        style={{ color: "var(--accent)" }}
       >
         {label}
       </span>
@@ -102,7 +124,7 @@ function SizedStart({
       {children}
       <span
         className="text-xs text-center block"
-        style={{ color: "var(--color-accent)" }}
+        style={{ color: "var(--accent)" }}
       >
         {label}
       </span>
@@ -113,11 +135,14 @@ function SizedStart({
 // ─── Color palette ───────────────────────────────────────────────────────────
 
 const PALETTE_VARS = [
-  { label: "Primary", cssVar: "--color-primary" },
-  { label: "Secondary", cssVar: "--color-secondary" },
-  { label: "Accent", cssVar: "--color-accent" },
-  { label: "Surface", cssVar: "--color-surface" },
-  { label: "Background", cssVar: "--color-background" },
+  { label: "Primary", cssVar: "--primary" },
+  { label: "Support", cssVar: "--support" },
+  { label: "Accent", cssVar: "--accent" },
+  { label: "Surface", cssVar: "--surface" },
+  { label: "Page BG", cssVar: "--pageBg" },
+  { label: "Border", cssVar: "--border" },
+  { label: "Btn Primary", cssVar: "--buttonPrimaryBg" },
+  { label: "Btn Secondary", cssVar: "--buttonSecondaryBg" },
 ];
 
 function readCSSVar(name: string): string {
@@ -127,7 +152,6 @@ function readCSSVar(name: string): string {
 }
 
 function ColorPalette() {
-  // Re-render whenever a theme is applied so live CSS variable values are shown.
   const [, tick] = useState(0);
   useEffect(() => {
     function onThemeChange() {
@@ -142,8 +166,8 @@ function ColorPalette() {
       <h2
         className="text-2xl font-bold mb-6 pb-2"
         style={{
-          color: "var(--color-primary)",
-          borderBottom: "2px solid var(--color-surface)",
+          color: "var(--textPrimary)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         Color Palette
@@ -155,18 +179,18 @@ function ColorPalette() {
               className="w-28 h-28 rounded-2xl"
               style={{
                 backgroundColor: `var(${s.cssVar})`,
-                boxShadow: "0 1px 4px var(--color-shadow)",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
               }}
             />
             <span
               className="text-sm font-semibold"
-              style={{ color: "var(--color-primary)" }}
+              style={{ color: "var(--textPrimary)" }}
             >
               {s.label}
             </span>
             <span
               className="text-xs font-mono"
-              style={{ color: "var(--color-secondary)" }}
+              style={{ color: "var(--textSecondary)" }}
             >
               {readCSSVar(s.cssVar)}
             </span>
@@ -177,7 +201,7 @@ function ColorPalette() {
   );
 }
 
-// ─── Per-component width hints for the preview grid ─────────────────────────
+// ─── Per-component width hints ────────────────────────────────────────────────
 
 const INPUT_WIDTHS: Record<Size, string> = {
   s: "w-24",
@@ -206,12 +230,12 @@ const VOTE_WIDTHS: Record<Size, string> = {
   xl: "w-64",
 };
 
-// ─── Component sections ──────────────────────────────────────────────────────
+// ─── Component sections ───────────────────────────────────────────────────────
 
 function ButtonsFilled() {
   return (
     <Section title="Buttons — Filled">
-      {COLOR_ROWS.map((row) => (
+      {BUTTON_ROWS.map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
             <Sized key={s.key} label={s.label}>
@@ -229,7 +253,7 @@ function ButtonsFilled() {
 function ButtonsOutline() {
   return (
     <Section title="Buttons — Outline">
-      {COLOR_ROWS.map((row) => (
+      {BUTTON_ROWS.slice(0, 2).map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
             <Sized key={s.key} label={s.label}>
@@ -247,11 +271,11 @@ function ButtonsOutline() {
 function Badges() {
   return (
     <Section title="Badges">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label}>
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow key={`${row.colorKey}-${row.textKey}`} label={row.label}>
           {SIZES.map((s) => (
             <Sized key={s.key} label={s.label}>
-              <Badge size={s.key} color={row.key}>
+              <Badge size={s.key} color={row.colorKey} textColor={row.textKey}>
                 Badge
               </Badge>
             </Sized>
@@ -265,13 +289,18 @@ function Badges() {
 function Inputs() {
   return (
     <Section title="Inputs">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label} align="start">
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow
+          key={`${row.colorKey}-${row.textKey}`}
+          label={row.label}
+          align="start"
+        >
           {SIZES.map((s) => (
             <SizedStart key={s.key} label={s.label}>
               <Input
                 size={s.key}
-                color={row.key}
+                color={row.colorKey}
+                textColor={row.textKey}
                 placeholder="Value..."
                 className={INPUT_WIDTHS[s.key]}
                 readOnly
@@ -303,11 +332,15 @@ function Spinners() {
 function Alerts() {
   return (
     <Section title="Alerts">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label} align="start">
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow
+          key={`${row.colorKey}-${row.textKey}`}
+          label={row.label}
+          align="start"
+        >
           {SIZES.map((s) => (
             <SizedStart key={s.key} label={s.label}>
-              <Alert size={s.key} color={row.key}>
+              <Alert size={s.key} color={row.colorKey} textColor={row.textKey}>
                 Alert message
               </Alert>
             </SizedStart>
@@ -321,13 +354,18 @@ function Alerts() {
 function Cards() {
   return (
     <Section title="Cards">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label} align="start">
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow
+          key={`${row.colorKey}-${row.textKey}`}
+          label={row.label}
+          align="start"
+        >
           {SIZES.map((s) => (
             <SizedStart key={s.key} label={s.label}>
               <Card
                 size={s.key}
-                color={row.key}
+                color={row.colorKey}
+                textColor={row.textKey}
                 title="Card title"
                 className={CARD_WIDTHS[s.key]}
               >
@@ -341,14 +379,15 @@ function Cards() {
   );
 }
 
-// Stateful wrapper so individual VoteOptions are clickable in the preview
 function TogglableVoteOption({
   size,
   color,
+  textColor,
   className,
 }: {
   size: Size;
   color: Color;
+  textColor: TextColor;
   className?: string;
 }) {
   const [selected, setSelected] = useState(false);
@@ -356,6 +395,7 @@ function TogglableVoteOption({
     <VoteOption
       size={size}
       color={color}
+      textColor={textColor}
       label={selected ? "Selected" : "Click me"}
       selected={selected}
       onClick={() => setSelected((s) => !s)}
@@ -367,13 +407,18 @@ function TogglableVoteOption({
 function VoteOptions() {
   return (
     <Section title="Vote Options">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label} align="start">
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow
+          key={`${row.colorKey}-${row.textKey}`}
+          label={row.label}
+          align="start"
+        >
           {SIZES.map((s) => (
             <SizedStart key={s.key} label={s.label}>
               <TogglableVoteOption
                 size={s.key}
-                color={row.key}
+                color={row.colorKey}
+                textColor={row.textKey}
                 className={VOTE_WIDTHS[s.key]}
               />
             </SizedStart>
@@ -384,8 +429,15 @@ function VoteOptions() {
   );
 }
 
-// Demo wrapper that reads the selection via ref
-function VoteSectionDemo({ size, color }: { size: Size; color: Color }) {
+function VoteSectionDemo({
+  size,
+  color,
+  textColor,
+}: {
+  size: Size;
+  color: Color;
+  textColor: TextColor;
+}) {
   const ref = useRef<VoteSectionHandle>(null);
   const [result, setResult] = useState<string[] | null>(null);
   return (
@@ -394,13 +446,14 @@ function VoteSectionDemo({ size, color }: { size: Size; color: Color }) {
         ref={ref}
         size={size}
         color={color}
+        textColor={textColor}
         options={["In favor", "Against", "Abstain"]}
         className={VOTE_WIDTHS[size]}
       />
       <button
         type="button"
         className="text-xs underline cursor-pointer text-left"
-        style={{ color: "var(--color-secondary)" }}
+        style={{ color: "var(--textSecondary)" }}
         onClick={() => setResult(ref.current?.getSelected() ?? [])}
       >
         Read selection
@@ -408,7 +461,7 @@ function VoteSectionDemo({ size, color }: { size: Size; color: Color }) {
       {result !== null && (
         <p
           className="text-xs font-mono"
-          style={{ color: "var(--color-primary)" }}
+          style={{ color: "var(--textPrimary)" }}
         >
           {result.length ? result.join(", ") : "(none)"}
         </p>
@@ -420,11 +473,19 @@ function VoteSectionDemo({ size, color }: { size: Size; color: Color }) {
 function VoteSections() {
   return (
     <Section title="Vote Section">
-      {COLOR_ROWS.map((row) => (
-        <ColorRow key={row.key} label={row.label} align="start">
+      {COMBINED_ROWS.map((row) => (
+        <ColorRow
+          key={`${row.colorKey}-${row.textKey}`}
+          label={row.label}
+          align="start"
+        >
           {SIZES.map((s) => (
             <SizedStart key={s.key} label={s.label}>
-              <VoteSectionDemo size={s.key} color={row.key} />
+              <VoteSectionDemo
+                size={s.key}
+                color={row.colorKey}
+                textColor={row.textKey}
+              />
             </SizedStart>
           ))}
         </ColorRow>
@@ -433,22 +494,22 @@ function VoteSections() {
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Preview() {
   return (
     <div
       className="min-h-screen p-10"
-      style={{ backgroundColor: "var(--color-background)" }}
+      style={{ backgroundColor: "var(--pageBg)" }}
     >
       <h1
         className="text-4xl font-black mb-1"
-        style={{ color: "var(--color-primary)" }}
+        style={{ color: "var(--textPrimary)" }}
       >
         Component Preview
       </h1>
-      <p className="mb-14 text-sm" style={{ color: "var(--color-secondary)" }}>
-        FSEK · Design system — 6 sizes × 3 color variants
+      <p className="mb-14 text-sm" style={{ color: "var(--textSecondary)" }}>
+        FSEK · Design system — 6 sizes × 3 colors × 2 text weights
       </p>
 
       <ColorPalette />

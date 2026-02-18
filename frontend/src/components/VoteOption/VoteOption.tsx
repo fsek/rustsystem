@@ -1,8 +1,9 @@
-import type { Color, Size } from "../types";
+import type { Color, Size, TextColor } from "../types";
 
 export interface VoteOptionProps {
   size: Size;
   color: Color;
+  textColor?: TextColor;
   label: string;
   selected?: boolean;
   onClick?: () => void;
@@ -58,14 +59,15 @@ const SIZE_CLASSES: Record<
 };
 
 const COLOR_VAR: Record<Color, string> = {
-  primary: "var(--color-primary)",
-  secondary: "var(--color-secondary)",
-  accent: "var(--color-accent)",
+  primary: "var(--primary)",
+  secondary: "var(--support)",
+  accent: "var(--accent)",
 };
 
 export function VoteOption({
   size,
   color,
+  textColor = "textPrimary",
   label,
   selected = false,
   onClick,
@@ -77,26 +79,28 @@ export function VoteOption({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center ${gap} ${p} ${rounded} w-full cursor-pointer transition-colors text-left ${className}`}
+      className={`flex items-center ${gap} ${p} ${rounded} w-full cursor-pointer transition-all duration-200 text-left hover:scale-[1.01] ${className}`}
       style={
         selected
           ? {
-              border: `2px solid ${colorVar}`,
-              backgroundColor: "var(--color-surface)",
-            }
+            border: `2px solid ${colorVar}`,
+            backgroundColor: "var(--surface)",
+            boxShadow: `0 0 0 3px color-mix(in srgb, ${colorVar} 20%, transparent), 0 2px 8px rgba(0,0,0,0.3)`,
+          }
           : {
-              border: "2px solid var(--color-accent)",
-              backgroundColor: "var(--color-background)",
-            }
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--surface)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          }
       }
       aria-pressed={selected}
     >
       <div
-        className={`${checkbox} rounded flex items-center justify-center shrink-0`}
+        className={`${checkbox} rounded flex items-center justify-center shrink-0 transition-all duration-200`}
         style={
           selected
             ? { backgroundColor: colorVar, border: `2px solid ${colorVar}` }
-            : { border: "2px solid var(--color-accent)" }
+            : { border: "1px solid var(--border)" }
         }
       >
         {selected && (
@@ -112,8 +116,8 @@ export function VoteOption({
         )}
       </div>
       <span
-        className={`${text} font-medium`}
-        style={{ color: "var(--color-primary)", opacity: selected ? 1 : 0.6 }}
+        className={`${text} font-semibold transition-opacity duration-200`}
+        style={{ color: `var(--${textColor})`, opacity: selected ? 1 : 0.65 }}
       >
         {label}
       </span>

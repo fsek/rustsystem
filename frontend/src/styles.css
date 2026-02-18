@@ -1,2 +1,9 @@
 @import "tailwindcss";
 @import "./colors.css";
+
+.fsek-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb,
+      var(--input-focus-color, var(--primary)) 20%,
+      transparent);
+}

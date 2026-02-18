@@ -16,9 +16,9 @@ const SIZE_CLASSES: Record<Size, string> = {
 };
 
 const COLOR_VAR: Record<Color, string> = {
-  primary: "var(--color-primary)",
-  secondary: "var(--color-secondary)",
-  accent: "var(--color-accent)",
+  primary: "var(--primary)",
+  secondary: "var(--support)",
+  accent: "var(--accent)",
 };
 
 export function Spinner({ size, color, className = "" }: SpinnerProps) {
@@ -26,23 +26,19 @@ export function Spinner({ size, color, className = "" }: SpinnerProps) {
   return (
     <svg
       className={`animate-spin ${SIZE_CLASSES[size]} ${className}`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
       viewBox="0 0 24 24"
+      fill="none"
       aria-label="Loading"
     >
       <circle
-        className="opacity-25"
         cx="12"
         cy="12"
         r="10"
         stroke={colorVar}
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill={colorVar}
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray="44 16"
+        className="opacity-90"
       />
     </svg>
   );

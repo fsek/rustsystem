@@ -1,0 +1,282 @@
+[
+  {
+    "name": "F-sektionen Light",
+    "primaryColor": "rgb(247, 139, 72)",
+    "vars": {
+      "primary": "rgb(247, 139, 72)",
+      "support": "#BEBEBE",
+      "accent": "#EB7125",
+      "pageBg": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "border": "rgba(15,23,42,0.12)",
+      "textPrimary": "#0F172A",
+      "textSecondary": "#475569",
+      "buttonPrimaryBg": "rgb(247, 139, 72)",
+      "buttonPrimaryText": "#0F172A",
+      "buttonSecondaryBg": "#E2E8F0",
+      "buttonSecondaryText": "#0F172A",
+      "linearGrad": "linear-gradient(135deg, #EB7125 0%, rgb(247, 139, 72) 45%, #FFFFFF 100%)",
+      "radialGrad": "radial-gradient(circle at center, rgb(247, 139, 72) 0%, #EB7125 50%, #FFFFFF 100%)"
+    }
+  },
+  {
+    "name": "F-sektionen Dark",
+    "primaryColor": "rgb(247, 139, 72)",
+    "vars": {
+      "primary": "rgb(247, 139, 72)",
+      "support": "#BEBEBE",
+      "accent": "#EB7125",
+      "pageBg": "#0B0F14",
+      "surface": "#121924",
+      "border": "rgba(255,255,255,0.10)",
+      "textPrimary": "#F8FAFC",
+      "textSecondary": "#CBD5E1",
+      "buttonPrimaryBg": "#EB7125",
+      "buttonPrimaryText": "#0B0F14",
+      "buttonSecondaryBg": "#1F2937",
+      "buttonSecondaryText": "#F8FAFC",
+      "linearGrad": "linear-gradient(135deg, rgb(247, 139, 72) 0%, #EB7125 45%, #121924 100%)",
+      "radialGrad": "radial-gradient(circle at center, rgb(247, 139, 72) 0%, #EB7125 50%, #121924 100%)"
+    }
+  },
+  {
+    "name": "Ocean Light",
+    "primaryColor": "#0EA5E9",
+    "vars": {
+      "primary": "#0EA5E9",
+      "support": "#38BDF8",
+      "accent": "#22D3EE",
+      "pageBg": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "border": "rgba(15,23,42,0.12)",
+      "textPrimary": "#0F172A",
+      "textSecondary": "#334155",
+      "buttonPrimaryBg": "#0EA5E9",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#E2E8F0",
+      "buttonSecondaryText": "#0F172A",
+      "linearGrad": "linear-gradient(135deg, #0EA5E9 0%, #38BDF8 50%, #22D3EE 100%)",
+      "radialGrad": "radial-gradient(circle at center, #22D3EE 0%, #38BDF8 50%, #0EA5E9 100%)"
+    }
+  },
+  {
+    "name": "Ocean Dark",
+    "primaryColor": "#0EA5E9",
+    "vars": {
+      "primary": "#0EA5E9",
+      "support": "#38BDF8",
+      "accent": "#22D3EE",
+      "pageBg": "#020617",
+      "surface": "#0B1220",
+      "border": "rgba(255,255,255,0.1)",
+      "textPrimary": "#F9FAFB",
+      "textSecondary": "#C7D2FE",
+      "buttonPrimaryBg": "#0EA5E9",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#1E293B",
+      "buttonSecondaryText": "#E0F2FE",
+      "linearGrad": "linear-gradient(135deg, #0EA5E9 0%, #38BDF8 50%, #22D3EE 100%)",
+      "radialGrad": "radial-gradient(circle at center, #22D3EE 0%, #38BDF8 50%, #0EA5E9 100%)"
+    }
+  },
+  {
+    "name": "Nord Light",
+    "primaryColor": "#5E81AC",
+    "vars": {
+      "primary": "#5E81AC",
+      "support": "#81A1C1",
+      "accent": "#88C0D0",
+      "pageBg": "#ECEFF4",
+      "surface": "#FFFFFF",
+      "border": "rgba(46,52,64,0.12)",
+      "textPrimary": "#2E3440",
+      "textSecondary": "#4C566A",
+      "buttonPrimaryBg": "#5E81AC",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#E5E9F0",
+      "buttonSecondaryText": "#2E3440",
+      "linearGrad": "linear-gradient(135deg, #5E81AC 0%, #81A1C1 50%, #88C0D0 100%)",
+      "radialGrad": "radial-gradient(circle at center, #88C0D0 0%, #81A1C1 50%, #5E81AC 100%)"
+    }
+  },
+  {
+    "name": "Nord Dark",
+    "primaryColor": "#88C0D0",
+    "vars": {
+      "primary": "#88C0D0",
+      "support": "#81A1C1",
+      "accent": "#5E81AC",
+      "pageBg": "#2E3440",
+      "surface": "#3B4252",
+      "border": "rgba(236,239,244,0.12)",
+      "textPrimary": "#ECEFF4",
+      "textSecondary": "#D8DEE9",
+      "buttonPrimaryBg": "#88C0D0",
+      "buttonPrimaryText": "#2E3440",
+      "buttonSecondaryBg": "#434C5E",
+      "buttonSecondaryText": "#ECEFF4",
+      "linearGrad": "linear-gradient(135deg, #88C0D0 0%, #81A1C1 50%, #5E81AC 100%)",
+      "radialGrad": "radial-gradient(circle at center, #5E81AC 0%, #81A1C1 50%, #88C0D0 100%)"
+    }
+  },
+  {
+    "name": "GitHub Light",
+    "primaryColor": "#0969DA",
+    "vars": {
+      "primary": "#0969DA",
+      "support": "#1F6FEB",
+      "accent": "#54AEFF",
+      "pageBg": "#F6F8FA",
+      "surface": "#FFFFFF",
+      "border": "rgba(27,31,36,0.15)",
+      "textPrimary": "#1F2328",
+      "textSecondary": "#57606A",
+      "buttonPrimaryBg": "#2DA44E",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#EFF2F5",
+      "buttonSecondaryText": "#1F2328",
+      "linearGrad": "linear-gradient(135deg, #0969DA 0%, #1F6FEB 50%, #54AEFF 100%)",
+      "radialGrad": "radial-gradient(circle at center, #54AEFF 0%, #1F6FEB 50%, #0969DA 100%)"
+    }
+  },
+  {
+    "name": "GitHub Dark",
+    "primaryColor": "#2F81F7",
+    "vars": {
+      "primary": "#2F81F7",
+      "support": "#58A6FF",
+      "accent": "#79C0FF",
+      "pageBg": "#0D1117",
+      "surface": "#161B22",
+      "border": "rgba(240,246,252,0.1)",
+      "textPrimary": "#E6EDF3",
+      "textSecondary": "#8B949E",
+      "buttonPrimaryBg": "#238636",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#21262D",
+      "buttonSecondaryText": "#E6EDF3",
+      "linearGrad": "linear-gradient(135deg, #2F81F7 0%, #58A6FF 50%, #79C0FF 100%)",
+      "radialGrad": "radial-gradient(circle at center, #79C0FF 0%, #58A6FF 50%, #2F81F7 100%)"
+    }
+  },
+  {
+    "name": "Catppuccin Latte",
+    "primaryColor": "#1E66F5",
+    "vars": {
+      "primary": "#1E66F5",
+      "support": "#7287FD",
+      "accent": "#04A5E5",
+      "pageBg": "#EFF1F5",
+      "surface": "#FFFFFF",
+      "border": "rgba(76,79,105,0.15)",
+      "textPrimary": "#4C4F69",
+      "textSecondary": "#6C6F85",
+      "buttonPrimaryBg": "#1E66F5",
+      "buttonPrimaryText": "#FFFFFF",
+      "buttonSecondaryBg": "#E6E9EF",
+      "buttonSecondaryText": "#4C4F69",
+      "linearGrad": "linear-gradient(135deg, #1E66F5 0%, #7287FD 50%, #04A5E5 100%)",
+      "radialGrad": "radial-gradient(circle at center, #04A5E5 0%, #7287FD 50%, #1E66F5 100%)"
+    }
+  },
+  {
+    "name": "Catppuccin Mocha",
+    "primaryColor": "#89B4FA",
+    "vars": {
+      "primary": "#89B4FA",
+      "support": "#CBA6F7",
+      "accent": "#94E2D5",
+      "pageBg": "#1E1E2E",
+      "surface": "#313244",
+      "border": "rgba(205,214,244,0.1)",
+      "textPrimary": "#CDD6F4",
+      "textSecondary": "#BAC2DE",
+      "buttonPrimaryBg": "#89B4FA",
+      "buttonPrimaryText": "#1E1E2E",
+      "buttonSecondaryBg": "#45475A",
+      "buttonSecondaryText": "#CDD6F4",
+      "linearGrad": "linear-gradient(135deg, #89B4FA 0%, #CBA6F7 50%, #94E2D5 100%)",
+      "radialGrad": "radial-gradient(circle at center, #94E2D5 0%, #CBA6F7 50%, #89B4FA 100%)"
+    }
+  },
+  {
+    "name": "Sunrise",
+    "primaryColor": "#FB7185",
+    "vars": {
+      "primary": "#FB7185",
+      "support": "#FCD34D",
+      "accent": "#F97316",
+      "pageBg": "#FFFBF5",
+      "surface": "#FFFFFF",
+      "border": "rgba(15,23,42,0.12)",
+      "textPrimary": "#0F172A",
+      "textSecondary": "#475569",
+      "buttonPrimaryBg": "#FB7185",
+      "buttonPrimaryText": "#0F172A",
+      "buttonSecondaryBg": "#FFE4E6",
+      "buttonSecondaryText": "#9F1239",
+      "linearGrad": "linear-gradient(135deg, #FB7185 0%, #FCD34D 50%, #F97316 100%)",
+      "radialGrad": "radial-gradient(circle at center, #F97316 0%, #FCD34D 50%, #FB7185 100%)"
+    }
+  },
+  {
+    "name": "Dracula Crimson",
+    "primaryColor": "#E11D48",
+    "vars": {
+      "primary": "#E11D48",
+      "support": "#BE123C",
+      "accent": "#F87171",
+      "pageBg": "#1C1B22",
+      "surface": "#262530",
+      "border": "rgba(255,255,255,0.08)",
+      "textPrimary": "#F8F5F7",
+      "textSecondary": "#D1CCD6",
+      "buttonPrimaryBg": "#E11D48",
+      "buttonPrimaryText": "#0B0A0F",
+      "buttonSecondaryBg": "#3A3646",
+      "buttonSecondaryText": "#F8F5F7",
+      "linearGrad": "linear-gradient(135deg, #7F1D1D 0%, #BE123C 50%, #E11D48 100%)",
+      "radialGrad": "radial-gradient(circle at center, #F87171 0%, #BE123C 50%, #7F1D1D 100%)"
+    }
+  },
+  {
+    "name": "Solarized Dark",
+    "primaryColor": "#268BD2",
+    "vars": {
+      "primary": "#268BD2",
+      "support": "#2AA198",
+      "accent": "#B58900",
+      "pageBg": "#002B36",
+      "surface": "#073642",
+      "border": "rgba(147,161,161,0.15)",
+      "textPrimary": "#EEE8D5",
+      "textSecondary": "#93A1A1",
+      "buttonPrimaryBg": "#268BD2",
+      "buttonPrimaryText": "#002B36",
+      "buttonSecondaryBg": "#073642",
+      "buttonSecondaryText": "#EEE8D5",
+      "linearGrad": "linear-gradient(135deg, #268BD2 0%, #2AA198 50%, #B58900 100%)",
+      "radialGrad": "radial-gradient(circle at center, #B58900 0%, #2AA198 50%, #268BD2 100%)"
+    }
+  },
+  {
+    "name": "Navy",
+    "primaryColor": "#0F172A",
+    "vars": {
+      "primary": "#0F172A",
+      "support": "#1E293B",
+      "accent": "#38BDF8",
+      "pageBg": "#020617",
+      "surface": "#0F172A",
+      "border": "rgba(255,255,255,0.08)",
+      "textPrimary": "#F8FAFC",
+      "textSecondary": "#CBD5E1",
+      "buttonPrimaryBg": "#38BDF8",
+      "buttonPrimaryText": "#020617",
+      "buttonSecondaryBg": "#1E293B",
+      "buttonSecondaryText": "#E2E8F0",
+      "linearGrad": "linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #38BDF8 100%)",
+      "radialGrad": "radial-gradient(circle at center, #38BDF8 0%, #1E293B 50%, #0F172A 100%)"
+    }
+  }
+]

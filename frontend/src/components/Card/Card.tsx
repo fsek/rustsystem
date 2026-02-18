@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import type { Color, Size } from "../types";
+import type { Color, Size, TextColor } from "../types";
 
 export interface CardProps {
   size: Size;
   color: Color;
+  textColor?: TextColor;
   title?: string;
   children?: ReactNode;
   className?: string;
@@ -52,14 +53,15 @@ const SIZE_CLASSES: Record<
 };
 
 const COLOR_VAR: Record<Color, string> = {
-  primary: "var(--color-primary)",
-  secondary: "var(--color-secondary)",
-  accent: "var(--color-accent)",
+  primary: "var(--primary)",
+  secondary: "var(--support)",
+  accent: "var(--accent)",
 };
 
 export function Card({
   size,
   color,
+  textColor = "textPrimary",
   title,
   children,
   className = "",
@@ -70,17 +72,30 @@ export function Card({
     <div
       className={`${p} ${rounded} ${className}`}
       style={{
-        backgroundColor: "var(--color-background)",
-        border: `1.5px solid ${colorVar}`,
-        boxShadow: "0 1px 4px var(--color-shadow)",
+        background: `linear-gradient(135deg, var(--pageBg) 0%, var(--surface) 100%)`,
+        border: `1px solid color-mix(in srgb, ${colorVar} 30%, transparent)`,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2)",
       }}
     >
       {title && (
-        <p className={`${titleCls} mb-1`} style={{ color: colorVar }}>
-          {title}
-        </p>
+        <div className="mb-2">
+          <p className={`${titleCls}`} style={{ color: colorVar }}>
+            {title}
+          </p>
+          <div
+            className="mt-1.5"
+            style={{
+              height: "1px",
+              backgroundColor: `color-mix(in srgb, ${colorVar} 20%, transparent)`,
+            }}
+          />
+        </div>
       )}
-      {children && <div className={bodyCls}>{children}</div>}
+      {children && (
+        <div className={bodyCls} style={{ color: `var(--${textColor})` }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

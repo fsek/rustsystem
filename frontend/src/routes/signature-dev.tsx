@@ -118,7 +118,10 @@ function SignatureDev() {
     clearVoteData(); // new meeting → fresh slate
 
     try {
-      addLog("POST /api/create-meeting", { title: "Dev Test Meeting", host_name: "Dev Host" });
+      addLog("POST /api/create-meeting", {
+        title: "Dev Test Meeting",
+        host_name: "Dev Host",
+      });
       const ids = await createMeeting("Dev Test Meeting", "Dev Host");
       addLog("Meeting created", ids);
       setSession(ids);
@@ -145,7 +148,11 @@ function SignatureDev() {
     };
 
     try {
-      addLog("POST /api/host/start-vote", { name: "Dev Vote Round", shuffle: false, metadata });
+      addLog("POST /api/host/start-vote", {
+        name: "Dev Vote Round",
+        shuffle: false,
+        metadata,
+      });
       await startVoteRound("Dev Vote Round", false, metadata);
       addLog("Vote round started", "(empty)");
       setStartVoteStatus("success");
@@ -249,7 +256,7 @@ function SignatureDev() {
   return (
     <div
       className="max-w-3xl mx-auto p-8 flex flex-col gap-8"
-      style={{ color: "var(--color-primary)" }}
+      style={{ color: "var(--textPrimary)" }}
     >
       <div>
         <h1 className="text-3xl font-bold">Blind Signature Dev</h1>
@@ -279,7 +286,7 @@ function SignatureDev() {
           <div className="flex items-center gap-4 flex-wrap">
             <Button
               size="m"
-              color="primary"
+              color="buttonPrimary"
               onClick={handleCreateMeeting}
               disabled={meetingStatus === "loading"}
               data-testid="btn-create-meeting"
@@ -317,7 +324,7 @@ function SignatureDev() {
           <div className="flex items-center gap-4 flex-wrap">
             <Button
               size="m"
-              color="secondary"
+              color="buttonSecondary"
               onClick={handleStartVote}
               disabled={startVoteStatus === "loading" || !hasSession}
               data-testid="btn-start-vote"
@@ -333,7 +340,7 @@ function SignatureDev() {
             </Button>
             <Button
               size="m"
-              color="accent"
+              color="buttonSecondary"
               onClick={handleEndRound}
               disabled={endRoundStatus === "loading" || !hasSession}
               data-testid="btn-end-round"
@@ -383,7 +390,7 @@ function SignatureDev() {
           <div className="flex items-center gap-4 flex-wrap">
             <Button
               size="m"
-              color="primary"
+              color="buttonPrimary"
               onClick={handleRegister}
               disabled={
                 regStatus === "loading" || !hasSession || !hasVoteActive
@@ -400,7 +407,12 @@ function SignatureDev() {
               )}
             </Button>
             {hasRegistration && (
-              <Button size="m" color="accent" onClick={handleClearToken} data-testid="btn-clear-token">
+              <Button
+                size="m"
+                color="buttonSecondary"
+                onClick={handleClearToken}
+                data-testid="btn-clear-token"
+              >
                 Clear token
               </Button>
             )}
@@ -452,7 +464,7 @@ function SignatureDev() {
           <div className="flex items-center gap-4 flex-wrap">
             <Button
               size="m"
-              color="secondary"
+              color="buttonPrimary"
               onClick={handleSubmit}
               disabled={voteStatus === "loading" || !hasRegistration}
               data-testid="btn-submit"
@@ -494,7 +506,7 @@ function SignatureDev() {
                 </span>
                 <pre
                   className="text-xs p-3 rounded overflow-x-auto"
-                  style={{ background: "var(--color-surface)" }}
+                  style={{ background: "var(--surface)" }}
                 >
                   {entry.data}
                 </pre>

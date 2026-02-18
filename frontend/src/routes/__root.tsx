@@ -7,7 +7,7 @@ export const Route = createRootRoute({
       <Navbar />
       <div
         className="pt-18 min-h-screen"
-        style={{ backgroundColor: "var(--color-background)" }}
+        style={{ backgroundColor: "var(--pageBg)" }}
       >
         <Outlet />
       </div>

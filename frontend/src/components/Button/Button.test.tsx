@@ -1,14 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { Button } from "./Button";
-import type { Color, Size } from "../types";
+import type { ButtonColor, Size } from "../types";
 
 const SIZES: Size[] = ["s", "sm", "m", "ml", "l", "xl"];
-const COLORS: Color[] = ["primary", "secondary", "accent"];
+const COLORS: ButtonColor[] = [
+  "buttonPrimary",
+  "buttonSecondary",
+  "linearGrad",
+  "radialGrad",
+];
 
 describe("Button", () => {
   it("renders children", () => {
     render(
-      <Button size="m" color="primary">
+      <Button size="m" color="buttonPrimary">
         Click me
       </Button>,
     );
@@ -17,7 +22,7 @@ describe("Button", () => {
 
   it("renders a <button> element", () => {
     const { container } = render(
-      <Button size="m" color="primary">
+      <Button size="m" color="buttonPrimary">
         Btn
       </Button>,
     );
@@ -26,7 +31,7 @@ describe("Button", () => {
 
   it("applies filled style by default", () => {
     const { container } = render(
-      <Button size="m" color="primary">
+      <Button size="m" color="buttonPrimary">
         Btn
       </Button>,
     );
@@ -36,7 +41,7 @@ describe("Button", () => {
 
   it("applies outline style when variant is outline", () => {
     const { container } = render(
-      <Button size="m" color="primary" variant="outline">
+      <Button size="m" color="buttonPrimary" variant="outline">
         Btn
       </Button>,
     );
@@ -47,7 +52,7 @@ describe("Button", () => {
 
   it.each(SIZES)("renders size %s without error", (size) => {
     const { container } = render(
-      <Button size={size} color="primary">
+      <Button size={size} color="buttonPrimary">
         Btn
       </Button>,
     );
@@ -65,7 +70,7 @@ describe("Button", () => {
 
   it("forwards HTML button props", () => {
     const { container } = render(
-      <Button size="m" color="primary" disabled>
+      <Button size="m" color="buttonPrimary" disabled>
         Btn
       </Button>,
     );
@@ -75,7 +80,7 @@ describe("Button", () => {
 
   it("passes className through", () => {
     const { container } = render(
-      <Button size="m" color="primary" className="extra-class">
+      <Button size="m" color="buttonPrimary" className="extra-class">
         Btn
       </Button>,
     );
