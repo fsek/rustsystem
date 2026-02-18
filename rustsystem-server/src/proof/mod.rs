@@ -70,69 +70,6 @@ impl RegistrationSuccessResponse {
     }
 }
 
-pub struct WASMRegistrationResponse {
-    rejected: Option<RegistrationReject>,
-    accepted: Option<RegistrationSuccessResponse>,
-}
-impl WASMRegistrationResponse {
-    pub fn new() -> Self {
-        Self {
-            rejected: None,
-            accepted: None,
-        }
-    }
-    pub fn into_response(self) -> Result<RegistrationSuccessResponse, RegistrationReject> {
-        if let Some(rejected) = self.rejected {
-            Err(rejected)
-        } else if let Some(res) = self.accepted {
-            Ok(res)
-        } else {
-            Err(RegistrationReject::Empty)
-        }
-    }
-
-    pub fn signature(&self) -> Option<BlindSignature<BbsBls12381Sha256>> {
-        Some(self.accepted.as_ref()?.signature.clone())
-    }
-
-    pub fn metadata(&self) -> Option<BallotMetaData> {
-        Some(self.accepted.as_ref()?.metadata.clone())
-    }
-
-    pub fn is_valid(&self) -> bool {
-        if let Some(_) = self.rejected {
-            true
-        } else if let Some(_) = self.accepted {
-            true
-        } else {
-            false
-        }
-    }
-    pub fn is_successful(&self) -> bool {
-        if let Some(_) = self.accepted {
-            true
-        } else {
-            false
-        }
-    }
-}
-impl From<RegistrationSuccessResponse> for WASMRegistrationResponse {
-    fn from(value: RegistrationSuccessResponse) -> Self {
-        Self {
-            accepted: Some(value),
-            rejected: None,
-        }
-    }
-}
-impl From<RegistrationReject> for WASMRegistrationResponse {
-    fn from(value: RegistrationReject) -> Self {
-        Self {
-            rejected: Some(value),
-            accepted: None,
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ValidationReject {
     InvalidMetaData,
