@@ -260,11 +260,13 @@ function SignatureDev() {
 
       {/* Restored-from-storage banner */}
       {restoredFromStorage && (
-        <Alert size="sm" color="secondary">
-          Registration token recovered from browser storage. Submit your vote
-          below, or click <strong>Clear token</strong> when done (e.g. on a
-          shared computer).
-        </Alert>
+        <div data-testid="alert-restored">
+          <Alert size="sm" color="secondary">
+            Registration token recovered from browser storage. Submit your vote
+            below, or click <strong>Clear token</strong> when done (e.g. on a
+            shared computer).
+          </Alert>
+        </div>
       )}
 
       {/* Step 1 – create meeting */}
@@ -280,6 +282,7 @@ function SignatureDev() {
               color="primary"
               onClick={handleCreateMeeting}
               disabled={meetingStatus === "loading"}
+              data-testid="btn-create-meeting"
             >
               {meetingStatus === "loading" ? (
                 <span className="flex items-center gap-2">
@@ -317,6 +320,7 @@ function SignatureDev() {
               color="secondary"
               onClick={handleStartVote}
               disabled={startVoteStatus === "loading" || !hasSession}
+              data-testid="btn-start-vote"
             >
               {startVoteStatus === "loading" ? (
                 <span className="flex items-center gap-2">
@@ -332,6 +336,7 @@ function SignatureDev() {
               color="accent"
               onClick={handleEndRound}
               disabled={endRoundStatus === "loading" || !hasSession}
+              data-testid="btn-end-round"
             >
               {endRoundStatus === "loading" ? (
                 <span className="flex items-center gap-2">
@@ -383,6 +388,7 @@ function SignatureDev() {
               disabled={
                 regStatus === "loading" || !hasSession || !hasVoteActive
               }
+              data-testid="btn-register"
             >
               {regStatus === "loading" ? (
                 <span className="flex items-center gap-2">
@@ -394,7 +400,7 @@ function SignatureDev() {
               )}
             </Button>
             {hasRegistration && (
-              <Button size="m" color="accent" onClick={handleClearToken}>
+              <Button size="m" color="accent" onClick={handleClearToken} data-testid="btn-clear-token">
                 Clear token
               </Button>
             )}
@@ -440,6 +446,7 @@ function SignatureDev() {
               placeholder="e.g. 0  or  0,1  or leave empty"
               value={choiceInput}
               onChange={(e) => setChoiceInput(e.target.value)}
+              data-testid="input-choice"
             />
           </div>
           <div className="flex items-center gap-4 flex-wrap">
@@ -448,6 +455,7 @@ function SignatureDev() {
               color="secondary"
               onClick={handleSubmit}
               disabled={voteStatus === "loading" || !hasRegistration}
+              data-testid="btn-submit"
             >
               {voteStatus === "loading" ? (
                 <span className="flex items-center gap-2">

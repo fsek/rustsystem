@@ -174,6 +174,38 @@ export async function endVoteRound(): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
+// ─── Tally ────────────────────────────────────────────────────────────────────
+
+/** Score map from candidate name → vote count, plus a blank-vote count. */
+export interface TallyResult {
+  score: Record<string, number>;
+  blank: number;
+}
+
+/**
+ * POST /api/host/tally — close the active vote round and compute results.
+ *
+ * Transitions the server from Voting → Tally state. Throws on non-2xx.
+ */
+export async function tally(): Promise<TallyResult> {
+  const res = await apiFetch("/api/host/tally", { method: "POST" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return data as TallyResult;
+}
+
+/**
+ * GET /api/host/get-tally — retrieve the last computed tally without changing state.
+ *
+ * Throws on non-2xx (e.g. HTTP 410 when no tally has been computed yet).
+ */
+export async function getTally(): Promise<TallyResult> {
+  const res = await apiFetch("/api/host/get-tally", { method: "GET" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return data as TallyResult;
+}
+
 // ─── Registration ─────────────────────────────────────────────────────────────
 
 export interface RegisterResult {

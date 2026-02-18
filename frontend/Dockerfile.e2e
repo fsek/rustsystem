@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/playwright:v1.58.2-noble
+
+# Install pnpm
+RUN npm install -g pnpm@9
+
+WORKDIR /app
+
+# Copy dependency manifests first so Docker can cache the install layer.
+# This layer is only invalidated when package.json or the lockfile changes.
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the source.
+COPY . .
+
+# Default command: run all e2e tests.
+CMD ["pnpm", "test:e2e"]

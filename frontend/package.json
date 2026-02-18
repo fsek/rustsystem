@@ -8,6 +8,8 @@
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:docker": "bash scripts/run-e2e-docker.sh",
     "format": "biome format --write src"
   },
   "dependencies": {
@@ -25,8 +27,16 @@
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.1.8"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "@tailwindcss/oxide",
+      "esbuild"
+    ]
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.58.2",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/react": "^19.0.8",
