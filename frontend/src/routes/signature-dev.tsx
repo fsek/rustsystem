@@ -6,39 +6,25 @@ import { Input } from "@/components/Input/Input";
 import { Alert } from "@/components/Alert/Alert";
 import { Spinner } from "@/components/Spinner/Spinner";
 import {
-  generateToken,
-  buildBallot,
-  uuidToBytes,
   type RegistrationSuccessResponse,
   type GeneratedToken,
-  type BallotMetaData,
-  type CommitmentJson,
-  type ProofContext,
 } from "@/signatures/signatures";
+import {
+  type SessionIds,
+  API_BASE,
+  loadVoteData,
+  saveVoteData,
+  clearVoteData,
+  createMeeting,
+  startVoteRound,
+  endVoteRound,
+  registerVoter,
+  submitVote,
+} from "@/signatures/voteSession";
 
 export const Route = createFileRoute("/signature-dev")({
   component: SignatureDev,
 });
-
-// ─── API base URL ─────────────────────────────────────────────────────────────
-// Set VITE_API_ENDPOINT at build time (e.g. https://server.fsek.studentorg.lu.se).
-// Defaults to "" so that relative /api/... paths are used in development (Vite proxy).
-const API_BASE = (import.meta.env.VITE_API_ENDPOINT ?? "").replace(/\/$/, "");
-
-function apiUrl(path: string): string {
-  return `${API_BASE}${path}`;
-}
-
-async function apiFetch(
-  path: string,
-  init: RequestInit = {},
-): Promise<Response> {
-  return fetch(apiUrl(path), {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,83 +34,6 @@ interface LogEntry {
   id: number;
   label: string;
   data: string;
-}
-
-interface SessionIds {
-  uuuid: string; // voter/user UUID
-  muuid: string; // meeting UUID
-}
-
-// ─── localStorage persistence ─────────────────────────────────────────────────
-//
-// Security model:
-//   • `token` and `blindFactor` are the voter's one-time anonymous credentials.
-//     They must never be sent to the server until vote submission, and must
-//     survive page refreshes / browser restarts so the user can still vote.
-//
-//   • localStorage is readable by any JavaScript on the same origin.
-//     An XSS attack could steal the token. Mitigations applied here:
-//       1. Auto-clear on successful vote submission — the token is spent anyway.
-//       2. Clear when the vote round changes — the old registration is invalid.
-//       3. "Clear token" button for shared/public computers.
-//     Additionally, the site should enforce a strict Content-Security-Policy
-//     header to reduce XSS surface (a server-side concern).
-//
-//   • Stealing the token lets an attacker submit a vote INSTEAD of the user
-//     (bearer-credential misuse), but it does NOT break vote anonymity:
-//     the server still cannot link a submitted ballot to any voter identity.
-//     That guarantee is structural (blind signature), not secret-dependent.
-//
-//   • Encrypting the payload at rest (SubtleCrypto + user passphrase) would
-//     further reduce XSS risk, but adds significant UX friction and is
-//     considered overkill for a first version of this voting system.
-//     It should, however, be considered for a future update.
-
-const STORAGE_KEY = "fsek-dev-vote-session";
-
-interface StoredVoteData {
-  muuid: string;
-  uuuid: string;
-  // Uint8Arrays are not JSON-serialisable; store as plain number[] instead.
-  token: number[];
-  blindFactor: number[];
-  // The remaining fields are plain JSON objects.
-  commitmentJson: CommitmentJson;
-  context: ProofContext;
-  signature: unknown;
-  metadata: BallotMetaData;
-}
-
-function loadVoteData(): StoredVoteData | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredVoteData;
-  } catch {
-    return null;
-  }
-}
-
-function saveVoteData(
-  ids: SessionIds,
-  token: GeneratedToken,
-  reg: RegistrationSuccessResponse,
-): void {
-  const data: StoredVoteData = {
-    muuid: ids.muuid,
-    uuuid: ids.uuuid,
-    token: Array.from(token.token),
-    blindFactor: Array.from(token.blindFactor),
-    commitmentJson: token.commitmentJson,
-    context: token.context,
-    signature: reg.signature,
-    metadata: reg.metadata,
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function clearVoteData(): void {
-  localStorage.removeItem(STORAGE_KEY);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -208,24 +117,10 @@ function SignatureDev() {
     setRestoredFromStorage(false);
     clearVoteData(); // new meeting → fresh slate
 
-    const body = { title: "Dev Test Meeting", host_name: "Dev Host" };
-
     try {
-      addLog("POST /api/create-meeting", body);
-      const res = await apiFetch("/api/create-meeting", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      addLog(`Response (HTTP ${res.status})`, data);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      // CreateMeetingResponse: { uuuid, muuid }
-      // Despite the confusing Rust type aliases, the JSON field names are correct:
-      // uuuid = voter/user UUID of the host, muuid = meeting UUID
-      const ids: SessionIds = { uuuid: data.uuuid, muuid: data.muuid };
+      addLog("POST /api/create-meeting", { title: "Dev Test Meeting", host_name: "Dev Host" });
+      const ids = await createMeeting("Dev Test Meeting", "Dev Host");
+      addLog("Meeting created", ids);
       setSession(ids);
       setMeetingStatus("success");
     } catch (err) {
@@ -243,28 +138,16 @@ function SignatureDev() {
     setRestoredFromStorage(false);
     clearVoteData(); // new vote round → prior registration is invalid
 
-    const body = {
-      name: "Dev Vote Round",
-      shuffle: false,
-      metadata: {
-        candidates: ["Option A", "Option B", "Option C"],
-        max_choices: 1,
-        protocol_version: 1,
-      },
+    const metadata = {
+      candidates: ["Option A", "Option B", "Option C"],
+      max_choices: 1,
+      protocol_version: 1,
     };
 
     try {
-      addLog("POST /api/host/start-vote", body);
-      const res = await apiFetch("/api/host/start-vote", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : "(empty)";
-      addLog(`Response (HTTP ${res.status})`, data);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      addLog("POST /api/host/start-vote", { name: "Dev Vote Round", shuffle: false, metadata });
+      await startVoteRound("Dev Vote Round", false, metadata);
+      addLog("Vote round started", "(empty)");
       setStartVoteStatus("success");
     } catch (err) {
       addLog("Error", String(err));
@@ -285,34 +168,12 @@ function SignatureDev() {
     setStoredRegResponse(null);
 
     try {
-      const voterBytes = uuidToBytes(session.uuuid);
-      const meetingBytes = uuidToBytes(session.muuid);
-      const tokenData = generateToken(voterBytes, meetingBytes);
-
-      const body = {
-        context: tokenData.context,
-        commitment: tokenData.commitmentJson,
-      };
-
-      addLog("POST /api/voter/register", {
-        context: tokenData.context,
-        commitment: "(commitment_with_proof)",
-      });
-
-      const res = await apiFetch("/api/voter/register", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      addLog(`Response (HTTP ${res.status})`, data);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const regResponse = data as RegistrationSuccessResponse;
-      setStoredToken(tokenData);
+      addLog("POST /api/voter/register", "(generating blind commitment…)");
+      const { token, regResponse } = await registerVoter(session);
+      addLog("Registration response", regResponse);
+      setStoredToken(token);
       setStoredRegResponse(regResponse);
-      saveVoteData(session, tokenData, regResponse); // persist to localStorage
+      saveVoteData(session, token, regResponse); // persist to localStorage
       setRegStatus("success");
     } catch (err) {
       addLog("Error", String(err));
@@ -335,35 +196,18 @@ function SignatureDev() {
         choiceInput.trim() === ""
           ? null
           : choiceInput.split(",").map((s) => {
-              const n = parseInt(s.trim(), 10);
-              if (Number.isNaN(n)) throw new Error(`Invalid index: "${s}"`);
-              return n;
-            });
-
-      const ballot = buildBallot(
-        storedRegResponse.metadata,
-        choice,
-        storedToken.token,
-        storedToken.blindFactor,
-        storedRegResponse.signature,
-      );
+            const n = parseInt(s.trim(), 10);
+            if (Number.isNaN(n)) throw new Error(`Invalid index: "${s}"`);
+            return n;
+          });
 
       addLog("POST /api/voter/submit", {
         metadata: storedRegResponse.metadata,
         choice,
-        json_bytes: JSON.stringify(ballot).length,
       });
 
-      const res = await apiFetch("/api/voter/submit", {
-        method: "POST",
-        body: JSON.stringify(ballot),
-      });
-
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : "(empty — vote accepted)";
-      addLog(`Response (HTTP ${res.status})`, data);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await submitVote(storedToken, storedRegResponse, choice);
+      addLog("Vote accepted", "(empty — vote accepted)");
 
       // Token is spent — clear it immediately so it cannot be reused
       clearVoteData();
@@ -386,15 +230,8 @@ function SignatureDev() {
 
     try {
       addLog("DELETE /api/host/end-vote-round", null);
-      const res = await apiFetch("/api/host/end-vote-round", {
-        method: "DELETE",
-      });
-
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : "(empty)";
-      addLog(`Response (HTTP ${res.status})`, data);
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await endVoteRound();
+      addLog("Vote round ended", "(empty)");
       setStartVoteStatus("idle");
       setEndRoundStatus("success");
     } catch (err) {
