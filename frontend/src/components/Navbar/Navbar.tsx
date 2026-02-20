@@ -11,9 +11,13 @@ export function Navbar() {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <span className="text-2xl font-bold" style={{ color: "var(--primary)" }}>
+      <a
+        className="text-2xl font-bold"
+        style={{ color: "var(--primary)" }}
+        href="/"
+      >
         Rustsystem
-      </span>
+      </a>
 
       <div className="ml-auto">
         <ThemeButton />

@@ -71,11 +71,11 @@ function DevTesting() {
         h.map((e) =>
           e.id === id
             ? {
-                ...e,
-                status: 0,
-                response: String(err),
-                pending: false,
-              }
+              ...e,
+              status: 0,
+              response: String(err),
+              pending: false,
+            }
             : e,
         ),
       );

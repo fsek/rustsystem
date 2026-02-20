@@ -2,7 +2,8 @@ import type { InputHTMLAttributes } from "react";
 import type React from "react";
 import type { Color, Size, TextColor } from "../types";
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps
+  extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   size: Size;
   color: Color;
   textColor?: TextColor;
@@ -33,7 +34,7 @@ export function Input({
 }: InputProps) {
   return (
     <input
-      className={`fsek-input block transition-all duration-200 ${SIZE_CLASSES[size]} ${className}`}
+      className={`fsek-input block transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${SIZE_CLASSES[size]} ${className}`}
       style={
         {
           "--input-focus-color": COLOR_VAR[color],

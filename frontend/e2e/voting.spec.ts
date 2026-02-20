@@ -39,7 +39,9 @@ async function goto(page: Page) {
  */
 async function createMeeting(page: Page) {
   await page.getByTestId("btn-create-meeting").click();
-  await expect(page.getByRole("alert").filter({ hasText: "Meeting ready" })).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Meeting ready" }),
+  ).toBeVisible();
 }
 
 /**
@@ -47,7 +49,9 @@ async function createMeeting(page: Page) {
  */
 async function startVote(page: Page) {
   await page.getByTestId("btn-start-vote").click();
-  await expect(page.getByRole("alert").filter({ hasText: "Vote round active" })).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Vote round active" }),
+  ).toBeVisible();
 }
 
 /**

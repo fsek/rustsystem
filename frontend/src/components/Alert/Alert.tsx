@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Color, Size, TextColor } from "../types";
 
 export interface AlertProps {
@@ -7,6 +7,8 @@ export interface AlertProps {
   textColor?: TextColor;
   children: ReactNode;
   className?: string;
+  dismissible?: boolean;
+  onDismiss?: () => void;
 }
 
 const SIZE_CLASSES: Record<
@@ -69,9 +71,15 @@ export function Alert({
   textColor = "textPrimary",
   children,
   className = "",
+  dismissible = false,
+  onDismiss,
 }: AlertProps) {
+  const [dismissed, setDismissed] = useState(false);
   const { text, py, px, gap, icon } = SIZE_CLASSES[size];
   const colorVar = COLOR_VAR[color];
+
+  if (dismissed) return null;
+
   return (
     <div
       className={`flex items-start ${gap} ${py} ${px} rounded-lg ${className}`}
@@ -96,11 +104,33 @@ export function Alert({
         />
       </svg>
       <div
-        className={`${text} font-medium`}
+        className={`${text} font-medium flex-1`}
         style={{ color: `var(--${textColor})` }}
       >
         {children}
       </div>
+      {dismissible && (
+        <button
+          type="button"
+          onClick={() => {
+            setDismissed(true);
+            onDismiss?.();
+          }}
+          aria-label="Dismiss"
+          className={`${icon} shrink-0 opacity-60 hover:opacity-100 transition-opacity`}
+          style={{ color: colorVar }}
+        >
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            width="1em"
+            height="1em"
+            aria-hidden="true"
+          >
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

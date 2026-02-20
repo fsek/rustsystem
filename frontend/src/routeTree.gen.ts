@@ -13,7 +13,11 @@
 import { Route as rootRoute } from "./routes/__root";
 import { Route as SignatureDevImport } from "./routes/signature-dev";
 import { Route as PreviewImport } from "./routes/preview";
+import { Route as MeetingImport } from "./routes/meeting";
+import { Route as LoginImport } from "./routes/login";
 import { Route as DevTestingImport } from "./routes/dev-testing";
+import { Route as CreateMeetingImport } from "./routes/create-meeting";
+import { Route as AdminImport } from "./routes/admin";
 import { Route as IndexImport } from "./routes/index";
 
 // Create/Update Routes
@@ -30,9 +34,33 @@ const PreviewRoute = PreviewImport.update({
   getParentRoute: () => rootRoute,
 } as any);
 
+const MeetingRoute = MeetingImport.update({
+  id: "/meeting",
+  path: "/meeting",
+  getParentRoute: () => rootRoute,
+} as any);
+
+const LoginRoute = LoginImport.update({
+  id: "/login",
+  path: "/login",
+  getParentRoute: () => rootRoute,
+} as any);
+
 const DevTestingRoute = DevTestingImport.update({
   id: "/dev-testing",
   path: "/dev-testing",
+  getParentRoute: () => rootRoute,
+} as any);
+
+const CreateMeetingRoute = CreateMeetingImport.update({
+  id: "/create-meeting",
+  path: "/create-meeting",
+  getParentRoute: () => rootRoute,
+} as any);
+
+const AdminRoute = AdminImport.update({
+  id: "/admin",
+  path: "/admin",
   getParentRoute: () => rootRoute,
 } as any);
 
@@ -53,11 +81,39 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof IndexImport;
       parentRoute: typeof rootRoute;
     };
+    "/admin": {
+      id: "/admin";
+      path: "/admin";
+      fullPath: "/admin";
+      preLoaderRoute: typeof AdminImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/create-meeting": {
+      id: "/create-meeting";
+      path: "/create-meeting";
+      fullPath: "/create-meeting";
+      preLoaderRoute: typeof CreateMeetingImport;
+      parentRoute: typeof rootRoute;
+    };
     "/dev-testing": {
       id: "/dev-testing";
       path: "/dev-testing";
       fullPath: "/dev-testing";
       preLoaderRoute: typeof DevTestingImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/login": {
+      id: "/login";
+      path: "/login";
+      fullPath: "/login";
+      preLoaderRoute: typeof LoginImport;
+      parentRoute: typeof rootRoute;
+    };
+    "/meeting": {
+      id: "/meeting";
+      path: "/meeting";
+      fullPath: "/meeting";
+      preLoaderRoute: typeof MeetingImport;
       parentRoute: typeof rootRoute;
     };
     "/preview": {
@@ -81,14 +137,22 @@ declare module "@tanstack/react-router" {
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/admin": typeof AdminRoute;
+  "/create-meeting": typeof CreateMeetingRoute;
   "/dev-testing": typeof DevTestingRoute;
+  "/login": typeof LoginRoute;
+  "/meeting": typeof MeetingRoute;
   "/preview": typeof PreviewRoute;
   "/signature-dev": typeof SignatureDevRoute;
 }
 
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/admin": typeof AdminRoute;
+  "/create-meeting": typeof CreateMeetingRoute;
   "/dev-testing": typeof DevTestingRoute;
+  "/login": typeof LoginRoute;
+  "/meeting": typeof MeetingRoute;
   "/preview": typeof PreviewRoute;
   "/signature-dev": typeof SignatureDevRoute;
 }
@@ -96,30 +160,67 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRoute;
   "/": typeof IndexRoute;
+  "/admin": typeof AdminRoute;
+  "/create-meeting": typeof CreateMeetingRoute;
   "/dev-testing": typeof DevTestingRoute;
+  "/login": typeof LoginRoute;
+  "/meeting": typeof MeetingRoute;
   "/preview": typeof PreviewRoute;
   "/signature-dev": typeof SignatureDevRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/dev-testing" | "/preview" | "/signature-dev";
+  fullPaths:
+    | "/"
+    | "/admin"
+    | "/create-meeting"
+    | "/dev-testing"
+    | "/login"
+    | "/meeting"
+    | "/preview"
+    | "/signature-dev";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/dev-testing" | "/preview" | "/signature-dev";
-  id: "__root__" | "/" | "/dev-testing" | "/preview" | "/signature-dev";
+  to:
+    | "/"
+    | "/admin"
+    | "/create-meeting"
+    | "/dev-testing"
+    | "/login"
+    | "/meeting"
+    | "/preview"
+    | "/signature-dev";
+  id:
+    | "__root__"
+    | "/"
+    | "/admin"
+    | "/create-meeting"
+    | "/dev-testing"
+    | "/login"
+    | "/meeting"
+    | "/preview"
+    | "/signature-dev";
   fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  AdminRoute: typeof AdminRoute;
+  CreateMeetingRoute: typeof CreateMeetingRoute;
   DevTestingRoute: typeof DevTestingRoute;
+  LoginRoute: typeof LoginRoute;
+  MeetingRoute: typeof MeetingRoute;
   PreviewRoute: typeof PreviewRoute;
   SignatureDevRoute: typeof SignatureDevRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  CreateMeetingRoute: CreateMeetingRoute,
   DevTestingRoute: DevTestingRoute,
+  LoginRoute: LoginRoute,
+  MeetingRoute: MeetingRoute,
   PreviewRoute: PreviewRoute,
   SignatureDevRoute: SignatureDevRoute,
 };
@@ -135,7 +236,11 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
+        "/admin",
+        "/create-meeting",
         "/dev-testing",
+        "/login",
+        "/meeting",
         "/preview",
         "/signature-dev"
       ]
@@ -143,8 +248,20 @@ export const routeTree = rootRoute
     "/": {
       "filePath": "index.tsx"
     },
+    "/admin": {
+      "filePath": "admin.tsx"
+    },
+    "/create-meeting": {
+      "filePath": "create-meeting.tsx"
+    },
     "/dev-testing": {
       "filePath": "dev-testing.tsx"
+    },
+    "/login": {
+      "filePath": "login.tsx"
+    },
+    "/meeting": {
+      "filePath": "meeting.tsx"
     },
     "/preview": {
       "filePath": "preview.tsx"

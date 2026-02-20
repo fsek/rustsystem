@@ -85,6 +85,21 @@ export interface StoredVoteData {
 //     It should, however, be considered for a future update.
 
 const STORAGE_KEY = "fsek-vote-session";
+const SESSION_IDS_KEY = "fsek-session-ids";
+
+export function saveSessionIds(ids: SessionIds): void {
+  localStorage.setItem(SESSION_IDS_KEY, JSON.stringify(ids));
+}
+
+export function loadSessionIds(): SessionIds | null {
+  try {
+    const raw = localStorage.getItem(SESSION_IDS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SessionIds;
+  } catch {
+    return null;
+  }
+}
 
 export function loadVoteData(): StoredVoteData | null {
   try {

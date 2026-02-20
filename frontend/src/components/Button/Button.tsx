@@ -54,20 +54,20 @@ export function Button({
   const colorStyle =
     variant === "filled"
       ? {
-        background: BG_VAR[color],
-        color: TEXT_VAR[color],
-        boxShadow: `0 2px 8px color-mix(in srgb, ${accentVar} 35%, transparent)`,
-      }
+          background: BG_VAR[color],
+          color: TEXT_VAR[color],
+          boxShadow: `0 2px 8px color-mix(in srgb, ${accentVar} 35%, transparent)`,
+        }
       : {
-        border: `2px solid ${accentVar}`,
-        color: accentVar,
-        backgroundColor: "transparent",
-      };
+          border: `2px solid ${accentVar}`,
+          color: accentVar,
+          backgroundColor: "transparent",
+        };
 
   return (
     <button
       type="button"
-      className={`cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 hover:opacity-90 ${variant === "outline" ? "hover:bg-[var(--surface)]" : ""} ${SIZE_CLASSES[size]} ${className}`}
+      className={`cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:translate-y-0 disabled:pointer-events-none ${variant === "outline" ? "hover:bg-[var(--surface)]" : ""} ${SIZE_CLASSES[size]} ${className}`}
       style={{ ...colorStyle, ...style }}
       {...props}
     >
