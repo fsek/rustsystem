@@ -1,5 +1,5 @@
 [workspace]
-members = [ "rustsystem-server", "rustsystem-proof", "frontend/rustsystem-client" , "rustsystem-server-api/api-derive", "rustsystem-server-api/api-core"]
+members = [ "rustsystem-server", "rustsystem-server-api/api-derive", "rustsystem-server-api/api-core"]
 resolver = "3"
 
 [workspace.dependencies]

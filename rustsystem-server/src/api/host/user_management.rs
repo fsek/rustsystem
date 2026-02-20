@@ -196,25 +196,7 @@ impl APIHandler for RemoveAll {
         } = request;
 
         if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
-            // Collect all non-host voter UUIDs
-            let non_host_uuids: Vec<_> = meeting
-                .voters
-                .iter()
-                .filter_map(
-                    |(uuid, voter)| {
-                        if !voter.is_host { Some(*uuid) } else { None }
-                    },
-                )
-                .collect();
-
-            // Reset login for each non-host voter (kick them out)
-            for user_uuid in non_host_uuids {
-                if let Some(mut user) = meeting.voters.remove(&user_uuid) {
-                    user.logged_in = false;
-                    let new_uuuid = UUuid::new_v4();
-                    meeting.voters.insert(new_uuuid, user);
-                }
-            }
+            meeting.voters.retain(|_uuid, voter| voter.is_host);
 
             Ok(())
         } else {

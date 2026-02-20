@@ -12,6 +12,10 @@ use invite_watch::InviteWatch;
 
 pub mod auth;
 
+pub mod close_meeting;
+use close_meeting::CloseMeeting;
+
+
 pub mod state;
 use state::{EndVoteRound, GetTally, StartVote, Tally};
 
@@ -36,4 +40,5 @@ pub fn host_routes() -> Router<AppState> {
         .route("/remove-all", delete(RemoveAll::handler))
         .route("/remove-voter", delete(RemoveVoter::handler))
         .route("/reset-login", post(ResetLogin::handler))
+        .route("/close-meeting", delete(CloseMeeting::handler))
 }

@@ -201,8 +201,21 @@ impl FromRequestParts<AppState> for AuthUser {
         )
         .map_err(|_| <AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
 
+        // Verify the user still exists in the meeting. This implicitly revokes
+        // tokens whenever a voter is removed or the meeting is closed — no
+        // separate blocklist is needed. The block scope drops the lock guard
+        // before we return so we don't hold it any longer than necessary.
+        {
+            let meetings = state.meetings.lock().await;
+            let meeting = meetings
+                .get(&token_data.claims.muuid)
+                .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
+            if !meeting.voters.contains_key(&token_data.claims.uuuid) {
+                return Err(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize());
+            }
+        }
+
         Ok(AuthUser {
-            // TODO: Error handling
             uuuid: token_data.claims.uuuid,
             muuid: token_data.claims.muuid,
             is_host: token_data.claims.is_host,
