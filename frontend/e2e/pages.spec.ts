@@ -719,3 +719,134 @@ test.describe("/admin — voter login notification", () => {
     await voterCtx.close();
   });
 });
+
+// ─── Stress test ──────────────────────────────────────────────────────────────
+
+test.describe("stress test", () => {
+  test("100 voters, 10 options: 10% opt1 / 20% opt2 / 30% opt3 / 40% blank", async ({
+    browser,
+  }, testInfo) => {
+    testInfo.setTimeout(5 * 60 * 1_000); // 5 minutes
+
+    const N = 100;
+    const N_OPT1 = 10; //  10 %
+    const N_OPT2 = 20; //  20 %
+    const N_OPT3 = 30; //  30 %
+    const N_BLANK = 40; // 40 %
+    const BATCH = 5; // concurrent browser contexts per wave
+
+    const OPTIONS = Array.from({ length: 10 }, (_, i) => `Option ${i + 1}`);
+
+    // ── 1. Create meeting ──────────────────────────────────────────────────
+    const hostCtx = await browser.newContext();
+    const hostPage = await hostCtx.newPage();
+    await createMeetingViaUI(hostPage, "Stress Test", "Host");
+
+    // ── 2. Add 1000 voters via API (all parallel) ─────────────────────────
+    // hostPage.request shares the host session cookie automatically.
+    const inviteLinks = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        hostPage.request
+          .fetch("/api/host/new-voter", {
+            method: "POST",
+            data: JSON.stringify({
+              voterName: `Voter ${i + 1}`,
+              isHost: false,
+            }),
+            headers: { "Content-Type": "application/json" },
+          })
+          .then((r) => r.json() as Promise<{ inviteLink: string }>)
+          .then((d) => d.inviteLink),
+      ),
+    );
+
+    // ── 3. Log in all voters in batches ───────────────────────────────────
+    // Each voter gets its own context for an isolated cookie jar.
+    // We navigate to the invite link which triggers the frontend /login page,
+    // which calls the backend and redirects to /meeting on success.
+    const voterPages: Page[] = [];
+    for (let i = 0; i < N; i += BATCH) {
+      const batch = inviteLinks.slice(i, i + BATCH);
+      const pages = await Promise.all(
+        batch.map(async (link) => {
+          const ctx = await browser.newContext();
+          const p = await ctx.newPage();
+          await p.goto(link);
+          await p.waitForURL("**/meeting");
+          return p;
+        }),
+      );
+      voterPages.push(...pages);
+    }
+
+    // ── 4. Start vote round with 10 options ───────────────────────────────
+    await hostPage.getByPlaceholder("e.g. Board election").fill("Stress Vote");
+    for (let i = 0; i < 3; i++) {
+      await hostPage.getByPlaceholder(`Option ${i + 1}`).fill(OPTIONS[i]);
+    }
+    // The form starts with 3 slots; click "+ Add option" for the remaining 7.
+    for (let i = 3; i < OPTIONS.length; i++) {
+      await hostPage.getByText("+ Add option").click();
+      await hostPage.getByPlaceholder(`Option ${i + 1}`).fill(OPTIONS[i]);
+    }
+    await hostPage.getByRole("button", { name: "Start vote round" }).click();
+    await expect(hostPage.getByText("Voting open")).toBeVisible();
+
+    // ── 5. All voters cast their votes in batches ─────────────────────────
+    const assignments: Array<string | null> = [
+      ...Array<string>(N_OPT1).fill("Option 1"),
+      ...Array<string>(N_OPT2).fill("Option 2"),
+      ...Array<string>(N_OPT3).fill("Option 3"),
+      ...Array<null>(N_BLANK).fill(null),
+    ];
+
+    async function castVote(p: Page, choice: string | null) {
+      // Click register; WASM runs async and then shows candidate buttons.
+      await p.getByRole("button", { name: "Register to vote" }).click();
+      if (choice !== null) {
+        // Playwright waits for the button to become visible (registration done).
+        await p.getByRole("button", { name: choice, exact: true }).click();
+        await p.getByRole("button", { name: "Submit vote" }).click();
+      } else {
+        // Blank vote is available alongside the candidates after registration.
+        await p.getByRole("button", { name: "Blank vote" }).click();
+      }
+      await expect(
+        p.getByRole("alert").filter({ hasText: "submitted anonymously" }),
+      ).toBeVisible({ timeout: 30_000 });
+    }
+
+    // Wrap each call in a thunk so we can control when execution starts.
+    const tasks = voterPages.map((p, i) => () => castVote(p, assignments[i]));
+    for (let i = 0; i < tasks.length; i += BATCH) {
+      await Promise.all(tasks.slice(i, i + BATCH).map((fn) => fn()));
+    }
+
+    // ── 6. Tally and verify the results ───────────────────────────────────
+    await tallyFromAdmin(hostPage);
+
+    // Blank votes are shown as a separate paragraph beneath the tally bars.
+    await expect(hostPage.getByText("Blank votes: 40")).toBeVisible();
+
+    // Each TallyBar is a div.flex.flex-col.gap-1 containing the candidate
+    // name and its vote count as siblings in a justify-between flex row.
+    // We filter to the bar whose name matches and verify the count within it.
+    async function expectTallyCount(name: string, count: number) {
+      const bar = hostPage
+        .locator("div.flex.flex-col.gap-1")
+        .filter({ has: hostPage.getByText(name, { exact: true }) });
+      await expect(bar.getByText(String(count))).toBeVisible();
+    }
+
+    await expectTallyCount("Option 1", 10);
+    await expectTallyCount("Option 2", 20);
+    await expectTallyCount("Option 3", 30);
+
+    // ── 7. Cleanup ────────────────────────────────────────────────────────
+    await closeMeetingFromPage(hostPage);
+    await Promise.all([
+      hostCtx.close(),
+      ...voterPages.map((p) => p.context().close()),
+    ]);
+  });
+});
