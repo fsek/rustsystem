@@ -1,35 +1,31 @@
 ARG API_ENDPOINT=https://rosta.fsektionen.se
-
-# Stage 1: Build the WebAssembly client
-FROM rust:1.91-bullseye AS wasm-builder
-RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-WORKDIR /app
-COPY . .
-WORKDIR /app/frontend/rustsystem-client
-ARG API_ENDPOINT
-RUN wasm-pack build --target web -d ../src/pkg
+# NOTE: SALT_HEX is different from the value in .env. This value is not secret, only used to maintain uniqueness. It's purposefully different from the development value in order to maintain uniqueness in production.
+ARG SALT_HEX=fa592f8bf54e9e6710f9e63699651c9d 
+ARG KEYGEN_ITERATIONS=200000
 
 # Stage 2: Build the frontend
 FROM node:24-bullseye AS frontend-builder
 RUN npm install -g pnpm
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
-COPY frontend/rustsystem-client/Cargo.toml ./rustsystem-client/
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ .
-COPY --from=wasm-builder /app/frontend/src/pkg ./src/pkg
 ARG API_ENDPOINT
+ARG SALT_HEX
+ARG KEYGEN_ITERATIONS
 RUN pnpm run build
 RUN ls
+
 # Stage 3: Build the Rust backend
 FROM rust:1.91-bullseye AS backend-builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY rustsystem-server/ ./rustsystem-server/
-COPY rustsystem-proof/ ./rustsystem-proof/
 COPY rustsystem-server-api/ ./rustsystem-server-api/
-COPY frontend/rustsystem-client/ ./frontend/rustsystem-client/
+COPY decrypt-tally/ ./decrypt-tally/
 ARG API_ENDPOINT
+ARG SALT_HEX
+ARG KEYGEN_ITERATIONS
 RUN cargo build --release --bin rustsystem-server
 
 # Stage 4: Runtime image
