@@ -417,9 +417,11 @@ const DOWNLOAD_FORMATS = [
 function TallyDownloadButton({
   tally,
   voteName,
+  participants,
 }: {
   tally: TallyResult;
   voteName: string;
+  participants: string[];
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -444,19 +446,19 @@ function TallyDownloadButton({
     let content: string | ArrayBuffer;
     switch (fmt.ext) {
       case "json":
-        content = tallyToJson(tally);
+        content = tallyToJson(tally, participants);
         break;
       case "yaml":
-        content = tallyToYaml(tally);
+        content = tallyToYaml(tally, participants);
         break;
       case "toml":
-        content = tallyToToml(tally);
+        content = tallyToToml(tally, participants);
         break;
       case "ron":
-        content = tallyToRon(tally);
+        content = tallyToRon(tally, participants);
         break;
       case "bson":
-        content = tallyToBson(tally);
+        content = tallyToBson(tally, participants);
         break;
     }
     const blob = new Blob([content], { type: fmt.mime });
@@ -569,6 +571,7 @@ function HostVoteRoundPanel({
   voteState,
   progress,
   tallyResult,
+  participants,
   onStart,
   onTally,
   onEndRound,
@@ -576,6 +579,7 @@ function HostVoteRoundPanel({
   voteState: VoteState;
   progress: VoteProgress | null;
   tallyResult: TallyResult | null;
+  participants: string[];
   onStart: (
     name: string,
     opts: string[],
@@ -858,6 +862,7 @@ function HostVoteRoundPanel({
                 <TallyDownloadButton
                   tally={tallyResult}
                   voteName={progress?.voteName ?? "tally"}
+                  participants={participants}
                 />
               )}
             </div>
@@ -1174,6 +1179,7 @@ function Admin() {
             voteState={voteState}
             progress={voteProgress}
             tallyResult={tallyResult}
+            participants={voters.map((v) => v.name)}
             onStart={handleStartVote}
             onTally={handleTally}
             onEndRound={handleEndRound}

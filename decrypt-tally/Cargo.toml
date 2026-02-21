@@ -1,0 +1,11 @@
+[package]
+name = "decrypt-tally"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+chacha20poly1305 = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+base64 = "0.22.1"

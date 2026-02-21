@@ -16,6 +16,7 @@ pub mod tokens;
 pub mod voting;
 
 mod proof;
+pub mod tally_encrypt;
 
 use uuid::Uuid;
 

@@ -2,8 +2,8 @@ use api_derive::APIEndpointError;
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::time::SystemTime;
+use std::{collections::HashMap, fs};
 use tracing::{error, info};
 
 use crate::{
@@ -20,6 +20,7 @@ use api_core::{APIErrorCode, APIHandler, APIResult};
 pub struct CreateMeetingRequest {
     pub title: String,
     pub host_name: String,
+    pub pub_key: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,6 +34,10 @@ pub struct CreateMeetingResponse {
 pub enum CreateMeetingError {
     #[api(code = APIErrorCode::Other, status=500)]
     Other,
+    #[api(code = APIErrorCode::Other, status=500)]
+    CreateDirFailed,
+    #[api(code = APIErrorCode::Other, status=500)]
+    WriteKeyFailed,
 }
 
 /// Endpoint for creating a new meeting resource
@@ -89,6 +94,17 @@ impl APIHandler for CreateMeeting {
                 locked: false,
             },
         );
+
+        // Write public key to per-meeting directory
+        let meeting_dir = format!("meetings/{muuid}");
+        if let Err(e) = fs::create_dir_all(&meeting_dir) {
+            error!("Failed to create meeting directory {meeting_dir}: {e}");
+            return Err(CreateMeetingError::CreateDirFailed);
+        }
+        if let Err(e) = fs::write(format!("{meeting_dir}/pub_key.pem"), &query.pub_key) {
+            error!("Failed to write pub_key.pem for meeting {muuid}: {e}");
+            return Err(CreateMeetingError::WriteKeyFailed);
+        }
 
         // Remove dead meetings
         let mut dead_muuids = Vec::new();

@@ -30,6 +30,10 @@ export default defineConfig({
       "/api": "http://localhost:3000",
     },
   },
+  define: {
+    "import.meta.env.SALT_HEX": JSON.stringify(process.env.SALT_HEX),
+    "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(process.env.KEYGEN_ITERATIONS),
+  },
   build: {
     outDir: "dist",
   },

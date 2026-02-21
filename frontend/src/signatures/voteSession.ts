@@ -51,12 +51,20 @@ export interface SessionIds {
 export interface StoredVoteData {
   muuid: string;
   uuuid: string;
+  /** Vote-round name at registration time, used to detect stale data. */
+  voteName: string | null;
   token: number[];
   blindFactor: number[];
   commitmentJson: CommitmentJson;
   context: ProofContext;
   signature: unknown;
   metadata: BallotMetaData;
+}
+
+/** Persisted after a successful vote submission so a reload shows "done". */
+export interface VotedRecord {
+  muuid: string;
+  voteName: string | null;
 }
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
@@ -86,6 +94,7 @@ export interface StoredVoteData {
 
 const STORAGE_KEY = "fsek-vote-session";
 const SESSION_IDS_KEY = "fsek-session-ids";
+const VOTED_KEY = "fsek-vote-done";
 
 export function saveSessionIds(ids: SessionIds): void {
   localStorage.setItem(SESSION_IDS_KEY, JSON.stringify(ids));
@@ -115,10 +124,12 @@ export function saveVoteData(
   ids: SessionIds,
   token: GeneratedToken,
   reg: RegistrationSuccessResponse,
+  voteName: string | null,
 ): void {
   const data: StoredVoteData = {
     muuid: ids.muuid,
     uuuid: ids.uuuid,
+    voteName,
     token: Array.from(token.token),
     blindFactor: Array.from(token.blindFactor),
     commitmentJson: token.commitmentJson,
@@ -127,6 +138,24 @@ export function saveVoteData(
     metadata: reg.metadata,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+export function saveVotedRecord(muuid: string, voteName: string | null): void {
+  localStorage.setItem(VOTED_KEY, JSON.stringify({ muuid, voteName }));
+}
+
+export function loadVotedRecord(): VotedRecord | null {
+  try {
+    const raw = localStorage.getItem(VOTED_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as VotedRecord;
+  } catch {
+    return null;
+  }
+}
+
+export function clearVotedRecord(): void {
+  localStorage.removeItem(VOTED_KEY);
 }
 
 export function clearVoteData(): void {
@@ -144,10 +173,11 @@ export function clearVoteData(): void {
 export async function createMeeting(
   title: string,
   hostName: string,
+  pubKey: string,
 ): Promise<SessionIds> {
   const res = await apiFetch("/api/create-meeting", {
     method: "POST",
-    body: JSON.stringify({ title, host_name: hostName }),
+    body: JSON.stringify({ title, host_name: hostName, pub_key: pubKey }),
   });
 
   const data = await res.json();

@@ -122,7 +122,7 @@ function SignatureDev() {
         title: "Dev Test Meeting",
         host_name: "Dev Host",
       });
-      const ids = await createMeeting("Dev Test Meeting", "Dev Host");
+      const ids = await createMeeting("Dev Test Meeting", "Dev Host", "dev-test-key");
       addLog("Meeting created", ids);
       setSession(ids);
       setMeetingStatus("success");
@@ -180,7 +180,7 @@ function SignatureDev() {
       addLog("Registration response", regResponse);
       setStoredToken(token);
       setStoredRegResponse(regResponse);
-      saveVoteData(session, token, regResponse); // persist to localStorage
+      saveVoteData(session, token, regResponse, null); // persist to localStorage
       setRegStatus("success");
     } catch (err) {
       addLog("Error", String(err));

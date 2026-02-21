@@ -126,8 +126,8 @@ export class TestClient {
 
   // ── Wrappers around voteSession functions ─────────────────────────────────
 
-  createMeeting(title = "Test Meeting", hostName = "Test Host") {
-    return this.withSession(() => _createMeeting(title, hostName));
+  createMeeting(title = "Test Meeting", hostName = "Test Host", pubKey = "test-key") {
+    return this.withSession(() => _createMeeting(title, hostName, pubKey));
   }
 
   startVoteRound(

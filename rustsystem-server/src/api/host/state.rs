@@ -11,6 +11,7 @@ use api_core::{APIErrorCode, APIHandler, APIResult};
 
 use crate::{
     AppState,
+    tally_encrypt::save_encrypted_tally,
     vote_auth::{self, TallyError},
 };
 
@@ -156,6 +157,20 @@ impl APIHandler for GetTally {
 
         if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
             if let Some(tally) = meeting.vote_auth.get_last_tally() {
+                if let Err(e) = save_encrypted_tally(
+                    &auth.muuid,
+                    tally,
+                    meeting
+                        .voters
+                        .iter()
+                        .map(|(_k, v)| v.name.clone())
+                        .collect(),
+                ) {
+                    tracing::error!(
+                        "Failed to save encrypted tally for meeting {}: {e}",
+                        auth.muuid
+                    );
+                }
                 Ok(Json(tally.clone()))
             } else {
                 Err(GetTallyError::NoTallyAvailable)

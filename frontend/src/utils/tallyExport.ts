@@ -2,8 +2,8 @@ import type { TallyResult } from "@/signatures/voteSession";
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
 
-export function tallyToJson(tally: TallyResult): string {
-  return JSON.stringify(tally, null, 2);
+export function tallyToJson(tally: TallyResult, participants: string[]): string {
+  return JSON.stringify({ ...tally, participants }, null, 2);
 }
 
 // ─── YAML ─────────────────────────────────────────────────────────────────────
@@ -21,12 +21,16 @@ function yamlQuote(s: string): string {
   return s;
 }
 
-export function tallyToYaml(tally: TallyResult): string {
+export function tallyToYaml(tally: TallyResult, participants: string[]): string {
   const lines = ["score:"];
   for (const [k, v] of Object.entries(tally.score)) {
     lines.push(`  ${yamlQuote(k)}: ${v}`);
   }
   lines.push(`blank: ${tally.blank}`);
+  lines.push("participants:");
+  for (const name of participants) {
+    lines.push(`  - ${yamlQuote(name)}`);
+  }
   return lines.join("\n") + "\n";
 }
 
@@ -36,8 +40,14 @@ function tomlKey(s: string): string {
   return /^[A-Za-z0-9_-]+$/.test(s) ? s : JSON.stringify(s);
 }
 
-export function tallyToToml(tally: TallyResult): string {
-  const lines = [`blank = ${tally.blank}`, "", "[score]"];
+export function tallyToToml(tally: TallyResult, participants: string[]): string {
+  const participantsToml = `[${participants.map((n) => JSON.stringify(n)).join(", ")}]`;
+  const lines = [
+    `blank = ${tally.blank}`,
+    `participants = ${participantsToml}`,
+    "",
+    "[score]",
+  ];
   for (const [k, v] of Object.entries(tally.score)) {
     lines.push(`${tomlKey(k)} = ${v}`);
   }
@@ -46,11 +56,12 @@ export function tallyToToml(tally: TallyResult): string {
 
 // ─── RON ──────────────────────────────────────────────────────────────────────
 
-export function tallyToRon(tally: TallyResult): string {
+export function tallyToRon(tally: TallyResult, participants: string[]): string {
   const entries = Object.entries(tally.score)
     .map(([k, v]) => `        ${JSON.stringify(k)}: ${v}`)
     .join(",\n");
-  return `TallyResult(\n    score: {\n${entries},\n    },\n    blank: ${tally.blank},\n)\n`;
+  const participantsRon = participants.map((n) => JSON.stringify(n)).join(", ");
+  return `TallyResult(\n    score: {\n${entries},\n    },\n    blank: ${tally.blank},\n    participants: [${participantsRon}],\n)\n`;
 }
 
 // ─── BSON ─────────────────────────────────────────────────────────────────────
@@ -82,13 +93,33 @@ function bsonCString(s: string): Uint8Array {
   return concatU8([new TextEncoder().encode(s), new Uint8Array([0])]);
 }
 
-function bsonDoc(
-  entries: Array<[string, number | Record<string, number>]>,
-): Uint8Array {
+function bsonStringValue(s: string): Uint8Array {
+  const encoded = new TextEncoder().encode(s);
+  return concatU8([bsonInt32(encoded.length + 1), encoded, new Uint8Array([0])]);
+}
+
+type BsonValue = number | Record<string, number> | string[];
+
+function bsonDoc(entries: Array<[string, BsonValue]>): Uint8Array {
   const elems: Uint8Array[] = [];
   for (const [key, value] of entries) {
     const k = bsonCString(key);
-    if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      // BSON array: encoded as a document with keys "0", "1", "2", …
+      const arrElems: Uint8Array[] = [];
+      for (let i = 0; i < value.length; i++) {
+        arrElems.push(
+          concatU8([
+            new Uint8Array([0x02]),
+            bsonCString(String(i)),
+            bsonStringValue(value[i]),
+          ]),
+        );
+      }
+      const arrBody = concatU8([...arrElems, new Uint8Array([0x00])]);
+      const arrDoc = concatU8([bsonInt32(4 + arrBody.length), arrBody]);
+      elems.push(concatU8([new Uint8Array([0x04]), k, arrDoc]));
+    } else if (typeof value === "object") {
       elems.push(
         concatU8([new Uint8Array([0x03]), k, bsonDoc(Object.entries(value))]),
       );
@@ -106,9 +137,10 @@ function bsonDoc(
   return concatU8([bsonInt32(4 + body.length), body]);
 }
 
-export function tallyToBson(tally: TallyResult): ArrayBuffer {
+export function tallyToBson(tally: TallyResult, participants: string[]): ArrayBuffer {
   return bsonDoc([
     ["score", tally.score],
     ["blank", tally.blank],
+    ["participants", participants],
   ]).buffer;
 }
