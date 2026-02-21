@@ -2,11 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar/Navbar";
 import { VotePanel, type VoteState } from "@/components/VotePanel/VotePanel";
-import {
-  apiUrl,
-  loadSessionIds,
-  type SessionIds,
-} from "@/signatures/voteSession";
+import { apiUrl } from "@/signatures/voteSession";
 import { fetchVoteProgress } from "@/api/host";
 
 export const Route = createFileRoute("/meeting")({
@@ -16,12 +12,9 @@ export const Route = createFileRoute("/meeting")({
 function MeetingPage() {
   const [voteState, setVoteState] = useState<VoteState>("Creation");
   const [voteName, setVoteName] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionIds | null>(null);
 
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
-    setSession(loadSessionIds());
-
     fetchVoteProgress()
       .then((p) => {
         setVoteName(p.voteName);
@@ -67,7 +60,6 @@ function MeetingPage() {
           <VotePanel
             key={voteName ?? "vote"}
             voteState={voteState}
-            session={session}
             voteName={voteName}
           />
         </div>

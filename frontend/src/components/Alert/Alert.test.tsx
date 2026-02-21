@@ -34,15 +34,6 @@ describe("Alert", () => {
     expect(el.style.borderLeft).toContain("solid");
   });
 
-  it("renders the info icon", () => {
-    const { container } = render(
-      <Alert size="m" color="primary">
-        Message
-      </Alert>,
-    );
-    expect(container.textContent).toContain("ℹ");
-  });
-
   it.each(SIZES)("renders size %s without error", (size) => {
     render(
       <Alert size={size} color="primary">

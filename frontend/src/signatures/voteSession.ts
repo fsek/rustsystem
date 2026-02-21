@@ -61,7 +61,6 @@ export interface StoredVoteData {
   metadata: BallotMetaData;
 }
 
-
 // ─── localStorage persistence ─────────────────────────────────────────────────
 //
 // Security model:
@@ -88,20 +87,12 @@ export interface StoredVoteData {
 //     It should, however, be considered for a future update.
 
 const STORAGE_KEY = "fsek-vote-session";
-const SESSION_IDS_KEY = "fsek-session-ids";
 
-export function saveSessionIds(ids: SessionIds): void {
-  localStorage.setItem(SESSION_IDS_KEY, JSON.stringify(ids));
-}
+export async function getSessionIds(): Promise<SessionIds> {
+  const res = await apiFetch("/api/session-ids");
+  const { uuuid, muuid } = await res.json();
 
-export function loadSessionIds(): SessionIds | null {
-  try {
-    const raw = localStorage.getItem(SESSION_IDS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionIds;
-  } catch {
-    return null;
-  }
+  return { uuuid, muuid };
 }
 
 export function loadVoteData(): StoredVoteData | null {

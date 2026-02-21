@@ -1,5 +1,8 @@
 use crate::AppState;
-use axum::{Router, routing::post};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 use api_core::APIHandler;
 
@@ -9,8 +12,8 @@ use create_meeting::CreateMeeting;
 pub mod login;
 use login::Login;
 
-pub mod auth;
-use auth::AuthMeeting;
+pub mod session_ids;
+use session_ids::SessionIds;
 
 pub mod voter;
 use voter::voter_routes;
@@ -25,7 +28,7 @@ use common::common_routes;
 pub fn api_routes() -> Router<AppState> {
     Router::new()
         .route("/create-meeting", post(CreateMeeting::handler))
-        .route("/auth-meeting", post(AuthMeeting::handler))
+        .route("/session-ids", get(SessionIds::handler))
         .route("/login", post(Login::handler))
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())

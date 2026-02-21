@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Alert } from "@/components/Alert/Alert";
-import { apiFetch, saveSessionIds } from "@/signatures/voteSession";
+import { apiFetch } from "@/signatures/voteSession";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -64,7 +64,6 @@ function LoginPage() {
       }
 
       if (res.ok) {
-        saveSessionIds({ muuid, uuuid });
         if (claimsHost) {
           nav({ to: "/admin" });
         } else {

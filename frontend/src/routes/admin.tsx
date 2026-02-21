@@ -14,9 +14,7 @@ import {
   tally as tallyVote,
   getTally,
   endVoteRound,
-  loadSessionIds,
   type TallyResult,
-  type SessionIds,
 } from "@/signatures/voteSession";
 import {
   fetchVoterList,
@@ -898,7 +896,6 @@ function Admin() {
   // Ref so the SSE closure always reads the current qrInfo without re-subscribing.
   const qrInfoRef = useRef(qrInfo);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [session, setSession] = useState<SessionIds | null>(null);
 
   useEffect(() => {
     qrInfoRef.current = qrInfo;
@@ -916,7 +913,6 @@ function Admin() {
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
-      setSession(loadSessionIds());
       try {
         const [voterList, progress] = await Promise.all([
           fetchVoterList(),
@@ -1184,11 +1180,10 @@ function Admin() {
             onTally={handleTally}
             onEndRound={handleEndRound}
           />
-          {voteState === "Voting" && session && (
+          {voteState === "Voting" && (
             <VotePanel
               key={voteProgress?.voteName ?? "vote"}
               voteState={voteState}
-              session={session}
               voteName={voteProgress?.voteName}
             />
           )}

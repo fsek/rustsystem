@@ -11,7 +11,7 @@ import {
   saveVoteData,
   loadVoteData,
   clearVoteData,
-  type SessionIds,
+  getSessionIds,
 } from "@/signatures/voteSession";
 import type {
   RegistrationSuccessResponse,
@@ -22,7 +22,6 @@ export type VoteState = "Creation" | "Voting" | "Tally";
 
 export interface VotePanelProps {
   voteState: VoteState;
-  session: SessionIds | null;
   voteName?: string | null;
 }
 
@@ -35,7 +34,7 @@ type VoterStatus =
   | "done" // vote successfully submitted
   | "no-token"; // registered on server but no local crypto data (other device)
 
-export function VotePanel({ voteState, session, voteName }: VotePanelProps) {
+export function VotePanel({ voteState, voteName }: VotePanelProps) {
   const [status, setStatus] = useState<VoterStatus>("idle");
   const [token, setToken] = useState<GeneratedToken | null>(null);
   const [regResponse, setRegResponse] =
@@ -128,7 +127,7 @@ export function VotePanel({ voteState, session, voteName }: VotePanelProps) {
   }, [voteState]);
 
   async function handleRegister() {
-    if (!session) return;
+    const session = await getSessionIds();
     setStatus("registering");
     setError(null);
     try {
@@ -241,7 +240,6 @@ export function VotePanel({ voteState, session, voteName }: VotePanelProps) {
                   color="buttonPrimary"
                   variant="filled"
                   onClick={handleRegister}
-                  disabled={!session}
                 >
                   Register to vote
                 </Button>

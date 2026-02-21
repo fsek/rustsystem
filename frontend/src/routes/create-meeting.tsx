@@ -6,7 +6,7 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import { Alert } from "@/components/Alert/Alert";
 import { Spinner } from "@/components/Spinner/Spinner";
-import { createMeeting, saveSessionIds } from "@/signatures/voteSession";
+import { createMeeting } from "@/signatures/voteSession";
 import {
   deriveEd25519PublicKeyFromPassword,
   x25519PublicKeyToPem,
@@ -132,12 +132,7 @@ function CreateMeetingPage() {
       console.log(SALT_HEX);
       console.log(ITERATIONS);
       console.log(password);
-      const ids = await createMeeting(
-        trimTitle,
-        trimHost,
-        x25519PublicKeyToPem(publicKey),
-      );
-      saveSessionIds(ids);
+      await createMeeting(trimTitle, trimHost, x25519PublicKeyToPem(publicKey));
       navigate({ to: "/admin" });
     } catch (err) {
       setError(String(err));
