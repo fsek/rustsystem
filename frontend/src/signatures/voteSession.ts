@@ -61,11 +61,6 @@ export interface StoredVoteData {
   metadata: BallotMetaData;
 }
 
-/** Persisted after a successful vote submission so a reload shows "done". */
-export interface VotedRecord {
-  muuid: string;
-  voteName: string | null;
-}
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
 //
@@ -94,7 +89,6 @@ export interface VotedRecord {
 
 const STORAGE_KEY = "fsek-vote-session";
 const SESSION_IDS_KEY = "fsek-session-ids";
-const VOTED_KEY = "fsek-vote-done";
 
 export function saveSessionIds(ids: SessionIds): void {
   localStorage.setItem(SESSION_IDS_KEY, JSON.stringify(ids));
@@ -138,24 +132,6 @@ export function saveVoteData(
     metadata: reg.metadata,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export function saveVotedRecord(muuid: string, voteName: string | null): void {
-  localStorage.setItem(VOTED_KEY, JSON.stringify({ muuid, voteName }));
-}
-
-export function loadVotedRecord(): VotedRecord | null {
-  try {
-    const raw = localStorage.getItem(VOTED_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as VotedRecord;
-  } catch {
-    return null;
-  }
-}
-
-export function clearVotedRecord(): void {
-  localStorage.removeItem(VOTED_KEY);
 }
 
 export function clearVoteData(): void {
@@ -249,6 +225,31 @@ export async function getTally(): Promise<TallyResult> {
   const data = await res.json();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return data as TallyResult;
+}
+
+// ─── Voter status queries ─────────────────────────────────────────────────────
+
+/**
+ * GET /api/voter/is-registered — returns true if the current voter (identified
+ * by their JWT) has already registered for the active vote round.
+ */
+export async function isRegistered(): Promise<boolean> {
+  const res = await apiFetch("/api/voter/is-registered");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/**
+ * POST /api/voter/is-submitted — returns true if the given blind signature has
+ * already been spent (i.e. the vote has gone through).
+ */
+export async function isSubmitted(signature: unknown): Promise<boolean> {
+  const res = await apiFetch("/api/voter/is-submitted", {
+    method: "POST",
+    body: JSON.stringify({ signature }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 // ─── Registration ─────────────────────────────────────────────────────────────

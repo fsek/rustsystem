@@ -13,7 +13,6 @@ pub mod vote_auth;
 use vote_auth::VoteAuthority;
 mod invite_auth;
 pub mod tokens;
-pub mod voting;
 
 mod proof;
 pub mod tally_encrypt;
