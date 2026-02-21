@@ -71,10 +71,7 @@ pub fn save_encrypted_tally(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let meeting_dir = format!("meetings/{muuid}");
     let pub_key_path = format!("{meeting_dir}/pub_key.pem");
-    let out_path = format!(
-        "{meeting_dir}/tally-{}.enc",
-        SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
-    );
+    let out_path = format!("{meeting_dir}/tally-{}.enc", chrono::offset::Local::now());
 
     let pem = std::fs::read_to_string(&pub_key_path)?;
     let pub_key =
