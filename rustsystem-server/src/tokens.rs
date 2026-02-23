@@ -1,12 +1,6 @@
-use std::{
-    fs::File,
-    io::{self, Error, Read, Write},
-    path::PathBuf,
-    time::{Duration, SystemTime},
-};
+use std::io;
 
-use api_core::{APIError, APIErrorCode};
-use api_derive::APIEndpointError;
+use api_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{
     Json,
     extract::FromRequestParts,
@@ -16,10 +10,8 @@ use axum_extra::extract::{
     CookieJar,
     cookie::{self, Cookie},
 };
-use base64::prelude::*;
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use time::{self, OffsetDateTime};
 use uuid::Uuid;
@@ -94,69 +86,8 @@ pub fn get_meeting_jwt(
     create_meeting_jwt(uuid, muid, is_host, secret)
 }
 
-const KEEPER_PATH: &str = "/tmp/rustsystem-secret";
-const SECRET_EXPITY_TIMEOUT: Duration = Duration::from_secs(30 * 24 * 3600);
-
-#[derive(Serialize, Deserialize)]
-struct SecretKeeper {
-    created: SystemTime,
-    encoded: String,
-}
-impl SecretKeeper {
-    pub fn new(created: SystemTime, encoded: String) -> Self {
-        Self { created, encoded }
-    }
-
-    pub fn expired(&self) -> io::Result<bool> {
-        if let Ok(duration_since) = self.created.elapsed() {
-            Ok(duration_since > SECRET_EXPITY_TIMEOUT)
-        } else {
-            Err(Error::other("Failed to get duration since secret creation"))
-        }
-    }
-
-    pub fn get_secret(&self) -> io::Result<[u8; 32]> {
-        if let Ok(secret) = BASE64_STANDARD.decode(&self.encoded) {
-            let mut res = [0u8; 32];
-            res.copy_from_slice(&secret);
-            Ok(res)
-        } else {
-            Err(Error::other("Failed to decode preexisting secret"))
-        }
-    }
-}
-
 pub fn get_secret() -> io::Result<[u8; 32]> {
-    let keeper_path = PathBuf::from(KEEPER_PATH);
-
-    if keeper_path.is_file() {
-        let mut keeper_file = File::open(keeper_path)?;
-        let mut keeper_buf = String::new();
-        keeper_file.read_to_string(&mut keeper_buf)?;
-        let keeper = serde_json::from_str::<SecretKeeper>(&keeper_buf)?;
-
-        if keeper.expired()? {
-            // Overwrite existing secret
-            generate_secret(keeper_file)
-        } else {
-            // Use preexisting secret
-            keeper.get_secret()
-        }
-    } else {
-        // generate new secret
-        generate_secret(File::create(KEEPER_PATH)?)
-    }
-}
-
-fn generate_secret(mut keeper_file: File) -> io::Result<[u8; 32]> {
-    let mut res = [0u8; 32];
-    rand::rng().fill(&mut res);
-
-    // Encode and write to a keeper file.
-    let encoded = BASE64_STANDARD.encode(res);
-    let keeper = SecretKeeper::new(SystemTime::now(), encoded);
-    keeper_file.write_all(serde_json::to_string(&keeper)?.as_bytes())?;
-    Ok(res)
+    api_core::secret::get_or_create_secret("/tmp/rustsystem-server-secret")
 }
 
 pub struct AuthUser {
@@ -165,21 +96,8 @@ pub struct AuthUser {
     pub is_host: bool,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "-" path = "-"))]
-pub enum AuthError {
-    #[api(code = APIErrorCode::AuthError, status = 401)]
-    AuthError,
-
-    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
-    InvalidUUuid,
-
-    #[api(code = APIErrorCode::InvalidMUuid, status = 400)]
-    InvalidMUuid,
-}
-
 impl FromRequestParts<AppState> for AuthUser {
-    type Rejection = (StatusCode, Json<APIError>);
+    type Rejection = (StatusCode, Json<APIErrorFinal>);
 
     async fn from_request_parts(
         parts: &mut Parts,
@@ -189,29 +107,53 @@ impl FromRequestParts<AppState> for AuthUser {
             .await
             .expect("infallible");
 
+        let endpoint = EndpointMeta {
+            method: api_core::Method::from(parts.method.clone()),
+            path: parts.uri.path().to_string(),
+        };
+
         let access_token = jar
             .get("access_token")
-            .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?
+            .ok_or(
+                APIError::from_error_code(APIErrorCode::AuthError)
+                    .finalize(endpoint.clone())
+                    .response(),
+            )?
             .value();
+
+        let state_guard = {
+            let guard = state
+                .read()
+                .map_err(|e| e.finalize(endpoint.clone()).response())?;
+            guard.clone()
+        };
 
         let token_data = decode::<MeetingClaims>(
             access_token,
-            &DecodingKey::from_secret(state.secret.as_ref()),
+            &DecodingKey::from_secret(state_guard.secret.as_ref()),
             &Validation::default(),
         )
-        .map_err(|_| <AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
+        .map_err(|_| {
+            APIError::from_error_code(APIErrorCode::AuthError)
+                .finalize(endpoint.clone())
+                .response()
+        })?;
 
         // Verify the user still exists in the meeting. This implicitly revokes
         // tokens whenever a voter is removed or the meeting is closed — no
         // separate blocklist is needed. The block scope drops the lock guard
         // before we return so we don't hold it any longer than necessary.
         {
-            let meetings = state.meetings.lock().await;
-            let meeting = meetings
-                .get(&token_data.claims.muuid)
-                .ok_or(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())?;
+            let meetings = state_guard.meetings.lock().await;
+            let meeting = meetings.get(&token_data.claims.muuid).ok_or(
+                APIError::from_error_code(APIErrorCode::AuthError)
+                    .finalize(endpoint.clone())
+                    .response(),
+            )?;
             if !meeting.voters.contains_key(&token_data.claims.uuuid) {
-                return Err(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize());
+                return Err(APIError::from_error_code(APIErrorCode::AuthError)
+                    .finalize(endpoint)
+                    .response());
             }
         }
 

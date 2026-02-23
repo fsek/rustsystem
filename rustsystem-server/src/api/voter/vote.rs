@@ -1,130 +1,52 @@
 use crate::proof::{
-    Ballot, BallotMetaData, BallotValidation, Choice, Provider, RegistrationSuccessResponse,
-    Sha256Provider, Sha256RegistrationInfo, Sha256ValidationInfo, ValidationInfo,
+    Ballot, BallotMetaData, BallotValidation, Choice, Provider, Sha256Provider,
+    Sha256ValidationInfo, ValidationInfo,
 };
-use api_derive::APIEndpointError;
+use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use tracing::{error, info};
 
-use api_core::{APIErrorCode, APIHandler, APIResult};
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::{
     AppState, api::common::common_responses::ensure_round, tokens::AuthUser, vote_auth::VoteRound,
 };
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/voter/register"))]
-pub enum RegisterError {
-    #[api(code = APIErrorCode::SignatureFailure, status = 500)]
-    SignatureFailure,
-    #[api(code = APIErrorCode::AlreadyRegistered, status = 409)]
-    AlreadyRegistered,
-
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
-    UUIDNotFound,
-    #[api(code = APIErrorCode::VotingInactive, status = 410)]
-    VoteInactive,
-}
-
-pub struct Register;
-impl APIHandler for Register {
-    type State = AppState;
-    type Request = (AuthUser, State<AppState>, Json<Sha256RegistrationInfo>);
-
-    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
-    type SuccessResponse = Json<RegistrationSuccessResponse>;
-    type ErrorResponse = RegisterError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let (auth, State(state), Json(body)) = request;
-        info!("Got register request");
-
-        let mut meetings = state.meetings.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
-            meeting_ok
-        } else {
-            return Err(RegisterError::MUIDNotFound);
-        };
-
-        if !meeting.voters.contains_key(&auth.uuuid) {
-            return Err(RegisterError::UUIDNotFound);
-        }
-
-        let vote_auth = meeting.get_auth();
-
-        let round = ensure_round(vote_auth, RegisterError::VoteInactive)?;
-
-        if round.is_registered(auth.uuuid) {
-            return Err(RegisterError::AlreadyRegistered);
-        }
-
-        if let Ok(signature) = Sha256Provider::sign_token(
-            body.commitment,
-            round.header().clone(),
-            round.keys().clone(),
-        ) {
-            round.register_user(auth.uuuid);
-            Ok(Json(RegistrationSuccessResponse::new(
-                signature,
-                round.metadata(),
-            )))
-        } else {
-            Err(RegisterError::SignatureFailure)
-        }
-    }
-}
-
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/voter/submit"))]
-pub enum SubmitError {
-    #[api(code = APIErrorCode::InvalidMetaData, status = 409)]
-    InvalidMetaData,
-    #[api(code = APIErrorCode::InvalidVoteLength, status = 409)]
-    InvalidVoteLength,
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-    #[api(code = APIErrorCode::VotingInactive, status = 410)]
-    VotingInactive,
-
-    #[api(code = APIErrorCode::SignatureInvalid, status = 401)]
-    SignatureInvalid,
-    #[api(code = APIErrorCode::SignatureExpired, status = 409)]
-    SignatureExpired,
-}
-
 pub struct Submit;
+#[async_trait]
 impl APIHandler for Submit {
     type State = AppState;
     type Request = (AuthUser, State<AppState>, Json<Ballot>);
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = ();
-    type ErrorResponse = SubmitError;
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/submit";
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(body)) = request;
         let metadata = body.get_metadata();
         let choice = body.get_choice();
         let validation = body.get_validation();
 
-        let mut meetings = state.meetings.lock().await;
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        let mut meetings = meetings_guard.lock().await;
         let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
             meeting_ok
         } else {
-            return Err(SubmitError::MUIDNotFound);
+            return Err(APIError::from_error_code(APIErrorCode::MUuidNotFound));
         };
 
         let vote_auth = meeting.get_auth();
 
-        let round = ensure_round(vote_auth, SubmitError::VotingInactive)?;
+        let round = ensure_round(vote_auth)?;
 
         if round.is_used(validation.get_signature()) {
-            return Err(SubmitError::SignatureExpired);
+            return Err(APIError::from_error_code(APIErrorCode::SignatureExpired));
         }
 
         validate_metadata(metadata.clone(), round)?;
@@ -143,19 +65,19 @@ impl APIHandler for Submit {
     }
 }
 
-fn validate_metadata(received: BallotMetaData, round: &VoteRound) -> APIResult<(), SubmitError> {
+fn validate_metadata(received: BallotMetaData, round: &VoteRound) -> Result<(), APIError> {
     if received == round.metadata() {
         Ok(())
     } else {
-        Err(SubmitError::InvalidMetaData)
+        Err(APIError::from_error_code(APIErrorCode::InvalidMetaData))
     }
 }
 
-fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> APIResult<(), SubmitError> {
+fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> Result<(), APIError> {
     if let Some(choices) = choice.as_ref()
         && choices.len() > round.metadata().get_max_choices()
     {
-        return Err(SubmitError::InvalidVoteLength);
+        return Err(APIError::from_error_code(APIErrorCode::InvalidVoteLength));
     }
 
     Ok(())
@@ -164,14 +86,14 @@ fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> APIResult<
 fn validate_signature(
     validation: &BallotValidation,
     round: &mut VoteRound,
-) -> APIResult<(), SubmitError> {
+) -> Result<(), APIError> {
     let info = Sha256ValidationInfo::from(validation.clone());
 
     if Sha256Provider::validate_token(
         info.get_proof(),
         round.header().clone(),
         info.token,
-        round.keys().public_key().clone(),
+        round.public_key().clone(),
         info.signature.clone(),
     )
     .is_ok()
@@ -181,6 +103,6 @@ fn validate_signature(
         Ok(())
     } else {
         error!("Validation Failure");
-        Err(SubmitError::SignatureInvalid)
+        Err(APIError::from_error_code(APIErrorCode::SignatureInvalid))
     }
 }

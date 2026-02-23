@@ -8,6 +8,7 @@ import { Spinner } from "@/components/Spinner/Spinner";
 import {
   type RegistrationSuccessResponse,
   type GeneratedToken,
+  type BallotMetaData,
 } from "@/signatures/signatures";
 import {
   type SessionIds,
@@ -46,6 +47,7 @@ function SignatureDev() {
   const [storedToken, setStoredToken] = useState<GeneratedToken | null>(null);
   const [storedRegResponse, setStoredRegResponse] =
     useState<RegistrationSuccessResponse | null>(null);
+  const [storedMetadata, setStoredMetadata] = useState<BallotMetaData | null>(null);
 
   // True when state was hydrated from localStorage rather than fresh registration
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
@@ -79,7 +81,6 @@ function SignatureDev() {
     });
     setStoredRegResponse({
       signature: stored.signature,
-      metadata: stored.metadata,
     });
     // Reflect the server state we assume is still valid
     setMeetingStatus("success");
@@ -102,6 +103,7 @@ function SignatureDev() {
     clearVoteData();
     setStoredToken(null);
     setStoredRegResponse(null);
+    setStoredMetadata(null);
     setRestoredFromStorage(false);
     setRegStatus("idle");
     // Session and vote-round status are server-side — leave them intact.
@@ -114,6 +116,7 @@ function SignatureDev() {
     setSession(null);
     setStoredToken(null);
     setStoredRegResponse(null);
+    setStoredMetadata(null);
     setRestoredFromStorage(false);
     clearVoteData(); // new meeting → fresh slate
 
@@ -138,10 +141,11 @@ function SignatureDev() {
     setStartVoteStatus("loading");
     setStoredToken(null);
     setStoredRegResponse(null);
+    setStoredMetadata(null);
     setRestoredFromStorage(false);
     clearVoteData(); // new vote round → prior registration is invalid
 
-    const metadata = {
+    const metadata: BallotMetaData = {
       candidates: ["Option A", "Option B", "Option C"],
       max_choices: 1,
       protocol_version: 1,
@@ -155,6 +159,7 @@ function SignatureDev() {
       });
       await startVoteRound("Dev Vote Round", false, metadata);
       addLog("Vote round started", "(empty)");
+      setStoredMetadata(metadata);
       setStartVoteStatus("success");
     } catch (err) {
       addLog("Error", String(err));
@@ -191,7 +196,7 @@ function SignatureDev() {
   // ─── Submit vote ──────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!storedToken || !storedRegResponse) {
+    if (!storedToken || !storedRegResponse || !storedMetadata) {
       addLog("Submit skipped", "Register first.");
       return;
     }
@@ -209,11 +214,11 @@ function SignatureDev() {
           });
 
       addLog("POST /api/voter/submit", {
-        metadata: storedRegResponse.metadata,
+        metadata: storedMetadata,
         choice,
       });
 
-      await submitVote(storedToken, storedRegResponse, choice);
+      await submitVote(storedToken, storedRegResponse, storedMetadata, choice);
       addLog("Vote accepted", "(empty — vote accepted)");
 
       // Token is spent — clear it immediately so it cannot be reused
@@ -232,6 +237,7 @@ function SignatureDev() {
     setEndRoundStatus("loading");
     setStoredToken(null);
     setStoredRegResponse(null);
+    setStoredMetadata(null);
     setRestoredFromStorage(false);
     clearVoteData(); // ending the round invalidates any prior registration
 
@@ -432,9 +438,9 @@ function SignatureDev() {
               </Alert>
             )}
           </div>
-          {storedRegResponse && (
+          {storedMetadata && (
             <p className="text-xs opacity-60 mt-1">
-              Metadata: {JSON.stringify(storedRegResponse.metadata)}
+              Metadata: {JSON.stringify(storedMetadata)}
             </p>
           )}
         </div>

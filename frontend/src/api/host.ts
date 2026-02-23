@@ -3,6 +3,7 @@
  */
 
 import { apiFetch } from "@/signatures/voteSession";
+import type { BallotMetaData } from "@/signatures/signatures";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ export interface VoteProgress {
   totalVotesCast: number;
   totalParticipants: number;
   voteName: string | null;
+  metadata: BallotMetaData | null;
 }
 
 // ─── Voter management ─────────────────────────────────────────────────────────

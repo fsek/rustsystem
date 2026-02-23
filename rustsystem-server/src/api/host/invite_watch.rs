@@ -1,6 +1,4 @@
-use std::{error::Error, fmt::Display};
-
-use api_derive::APIEndpointError;
+use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, State},
     http::StatusCode,
@@ -8,7 +6,7 @@ use axum::{
 };
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use api_core::{APIErrorCode, APIHandler, APIResult};
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::AppState;
 
@@ -20,45 +18,36 @@ pub struct InviteWatchRequest {
     state: State<AppState>,
 }
 
-#[derive(APIEndpointError, Debug)]
-#[api(endpoint(method = "GET", path = "/api/host/invite-watch"))]
-pub enum InviteWatchError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-}
-impl Display for InviteWatchError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-impl Error for InviteWatchError {}
-
 pub struct InviteWatch;
+#[async_trait]
 impl APIHandler for InviteWatch {
     type State = AppState;
     type Request = InviteWatchRequest;
 
+    const METHOD: Method = Method::Get;
+    const PATH: &'static str = "/invite-watch";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse =
-        Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, InviteWatchError>>>>;
-    type ErrorResponse = InviteWatchError;
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+        Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, APIError>>>>;
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let InviteWatchRequest {
             auth,
             state: State(state),
         } = request;
-        if let Some(meeting) = state.meetings.lock().await.get(&auth.muuid) {
+
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        if let Some(meeting) = meetings_guard.lock().await.get(&auth.muuid) {
             let state_rx = meeting.invite_auth.new_watcher();
 
             let upon_event = |new_state| {
                 if new_state {
-                    Some(Ok::<Event, InviteWatchError>(
-                        Event::default().data("Ready"),
-                    ))
+                    Some(Ok::<Event, APIError>(Event::default().data("Ready")))
                 } else {
-                    Some(Ok::<Event, InviteWatchError>(Event::default().data("Wait")))
+                    Some(Ok::<Event, APIError>(Event::default().data("Wait")))
                 }
             };
 
@@ -66,7 +55,7 @@ impl APIHandler for InviteWatch {
 
             Ok(Sse::new(stream))
         } else {
-            Err(InviteWatchError::MUIDNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }

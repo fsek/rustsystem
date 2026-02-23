@@ -1,9 +1,6 @@
-use axum::{
-    Router,
-    routing::{get, post},
-};
+use axum::Router;
 
-use api_core::APIHandler;
+use api_core::add_handler;
 
 use crate::AppState;
 
@@ -17,12 +14,12 @@ pub mod common_responses;
 
 // Routes at /api/common/...
 pub fn common_routes() -> Router<AppState> {
-    Router::new()
-        .route("/vote-state-watch", get(VoteStateWatch::handler))
-        .route("/vote-active", get(VoteActive::handler))
-        .route("/vote-progress", get(VoteProgress::handler))
-        .route("/vote-progress-watch", get(VoteProgressWatch::handler))
-        .route("/meeting-specs", get(MeetingSpecs::handler))
-        .route("/meeting-specs-watch", get(MeetingSpecsWatch::handler))
-        .route("/update-agenda", post(UpdateAgenda::handler))
+    let mut router = Router::new();
+    router = add_handler::<MeetingSpecs>(router);
+    router = add_handler::<MeetingSpecsWatch>(router);
+    router = add_handler::<VoteActive>(router);
+    router = add_handler::<VoteStateWatch>(router);
+    router = add_handler::<VoteProgress>(router);
+    router = add_handler::<VoteProgressWatch>(router);
+    router
 }

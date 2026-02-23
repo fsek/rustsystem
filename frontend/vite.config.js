@@ -27,12 +27,17 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": "http://localhost:3000",
+      "/api": "http://localhost:1443",
     },
   },
   define: {
     "import.meta.env.SALT_HEX": JSON.stringify(process.env.SALT_HEX),
-    "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(process.env.KEYGEN_ITERATIONS),
+    "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(
+      process.env.KEYGEN_ITERATIONS,
+    ),
+    "import.meta.env.VITE_TRUSTAUTH_ENDPOINT": process.env.VITE_TRUSTAUTH_ENDPOINT
+      ? JSON.stringify(process.env.VITE_TRUSTAUTH_ENDPOINT)
+      : undefined,
   },
   build: {
     outDir: "dist",

@@ -14,6 +14,7 @@ import {
   getSessionIds,
 } from "@/signatures/voteSession";
 import type {
+  BallotMetaData,
   RegistrationSuccessResponse,
   GeneratedToken,
 } from "@/signatures/signatures";
@@ -23,6 +24,7 @@ export type VoteState = "Creation" | "Voting" | "Tally";
 export interface VotePanelProps {
   voteState: VoteState;
   voteName?: string | null;
+  metadata?: BallotMetaData | null;
 }
 
 type VoterStatus =
@@ -34,7 +36,7 @@ type VoterStatus =
   | "done" // vote successfully submitted
   | "no-token"; // registered on server but no local crypto data (other device)
 
-export function VotePanel({ voteState, voteName }: VotePanelProps) {
+export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
   const [status, setStatus] = useState<VoterStatus>("idle");
   const [token, setToken] = useState<GeneratedToken | null>(null);
   const [regResponse, setRegResponse] =
@@ -97,7 +99,6 @@ export function VotePanel({ voteState, voteName }: VotePanelProps) {
         };
         const restoredReg = {
           signature: stored.signature,
-          metadata: stored.metadata,
         } as RegistrationSuccessResponse;
 
         setToken(restoredToken);
@@ -145,11 +146,11 @@ export function VotePanel({ voteState, voteName }: VotePanelProps) {
   }
 
   async function handleSubmit(blank = false) {
-    if (!token || !regResponse) return;
+    if (!token || !regResponse || !metadata) return;
     setStatus("submitting");
     setError(null);
     try {
-      await submitVote(token, regResponse, blank ? null : selected);
+      await submitVote(token, regResponse, metadata, blank ? null : selected);
       // Keep crypto data in localStorage so is-submitted can be verified on reload.
       setStatus("done");
     } catch (err) {
@@ -159,8 +160,8 @@ export function VotePanel({ voteState, voteName }: VotePanelProps) {
   }
 
   function toggleOption(idx: number) {
-    if (!regResponse) return;
-    const max = regResponse.metadata.max_choices;
+    if (!metadata) return;
+    const max = metadata.max_choices;
     setSelected((prev) => {
       if (prev.includes(idx)) return prev.filter((i) => i !== idx);
       if (max === 1) return [idx];
@@ -169,8 +170,8 @@ export function VotePanel({ voteState, voteName }: VotePanelProps) {
     });
   }
 
-  const candidates = regResponse?.metadata.candidates ?? [];
-  const maxChoices = regResponse?.metadata.max_choices ?? 1;
+  const candidates = metadata?.candidates ?? [];
+  const maxChoices = metadata?.max_choices ?? 1;
 
   return (
     <Panel title="Your Vote">

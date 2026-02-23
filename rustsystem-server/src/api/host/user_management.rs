@@ -1,5 +1,5 @@
-use api_core::{APIErrorCode, APIHandler};
-use api_derive::APIEndpointError;
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use async_trait::async_trait;
 use axum::{
     Json,
     extract::{FromRequest, State},
@@ -30,29 +30,25 @@ pub struct VoterListRequest {
     state: State<AppState>,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/host/voter-list"))]
-pub enum VoterListError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-}
-
 pub struct VoterList;
+#[async_trait]
 impl APIHandler for VoterList {
     type State = AppState;
     type Request = VoterListRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
-    // List of voters' information.
     type SuccessResponse = Json<Vec<VoterInfo>>;
-    type ErrorResponse = VoterListError;
 
-    async fn route(
-        request: Self::Request,
-    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    const METHOD: Method = Method::Get;
+    const PATH: &'static str = "/voter-list";
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let VoterListRequest { auth, state } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             Ok(Json(
                 meeting
                     .voters
@@ -71,7 +67,7 @@ impl APIHandler for VoterList {
                     .collect(),
             ))
         } else {
-            Err(VoterListError::MUuidNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }
@@ -81,38 +77,33 @@ pub struct VoterIdRequest {
     pub name: String,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/host/voter-id"))]
-pub enum VoterIdError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::VoterNameNotFound, status = 404)]
-    VoterNameNotFound,
-}
-
 pub struct VoterId;
+#[async_trait]
 impl APIHandler for VoterId {
     type State = AppState;
     type Request = (AuthHost, State<AppState>, Json<VoterIdRequest>);
+    type SuccessResponse = Json<UUuid>;
 
+    const METHOD: Method = Method::Get;
+    const PATH: &'static str = "/voter-id";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = Json<UUuid>;
-    type ErrorResponse = VoterIdError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(VoterIdRequest { name })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             if let Some((uuuid, _voter)) = meeting.voters.iter().find(|(_k, v)| v.name == name) {
                 Ok(Json(*uuuid))
             } else {
-                Err(VoterIdError::VoterNameNotFound)
+                Err(APIError::from_error_code(APIErrorCode::VoterNameNotFound))
             }
         } else {
-            Err(VoterIdError::MUuidNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }
@@ -122,40 +113,32 @@ pub struct RemoveVoterRequest {
     pub voter_uuuid: UUuid,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "DELETE", path = "/api/host/remove-voter"))]
-pub enum RemoveVoterError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
-    InvalidUUuid,
-    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
-    UUuidNotFound,
-}
-
 pub struct RemoveVoter;
+#[async_trait]
 impl APIHandler for RemoveVoter {
     type State = AppState;
     type Request = (AuthHost, State<AppState>, Json<RemoveVoterRequest>);
+    type SuccessResponse = ();
 
+    const METHOD: Method = Method::Delete;
+    const PATH: &'static str = "/remove-voter";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = ();
-    type ErrorResponse = RemoveVoterError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(RemoveVoterRequest { voter_uuuid })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             meeting
                 .voters
                 .remove(&voter_uuuid)
-                .ok_or(RemoveVoterError::UUuidNotFound)?;
+                .ok_or(APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
             Ok(())
         } else {
-            Err(RemoveVoterError::MUuidNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }
@@ -166,41 +149,33 @@ pub struct RemoveAllRequest {
     state: State<AppState>,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "DELETE", path = "/api/host/remove-all"))]
-pub enum RemoveAllError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
-    InvalidUUuid,
-    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
-    UUuidNotFound,
-}
-
 pub struct RemoveAll;
+#[async_trait]
 impl APIHandler for RemoveAll {
     type State = AppState;
     type Request = RemoveAllRequest;
+    type SuccessResponse = ();
 
+    const METHOD: Method = Method::Delete;
+    const PATH: &'static str = "/remove-all";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = ();
-    type ErrorResponse = RemoveAllError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let RemoveAllRequest {
             auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             meeting.voters.retain(|_uuid, voter| voter.is_host);
 
             Ok(())
         } else {
-            Err(RemoveAllError::MUuidNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }
@@ -210,33 +185,25 @@ pub struct ResetLoginRequest {
     pub user_uuuid: UUuid,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/host/reset-login"))]
-pub enum ResetLoginError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUuidNotFound,
-    #[api(code = APIErrorCode::InvalidUUuid, status = 400)]
-    InvalidUUuid,
-    #[api(code = APIErrorCode::UUuidNotFound, status = 404)]
-    UUuidNotFound,
-}
-
 pub struct ResetLogin;
+#[async_trait]
 impl APIHandler for ResetLogin {
     type State = AppState;
     type Request = (AuthHost, State<AppState>, Json<ResetLoginRequest>);
+    type SuccessResponse = Json<QrCodeResponse>;
 
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/reset-login";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = Json<QrCodeResponse>;
-    type ErrorResponse = ResetLoginError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> api_core::APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(ResetLoginRequest { user_uuuid })) = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             if let Some(mut user) = meeting.voters.remove(&user_uuuid) {
                 user.logged_in = false;
 
@@ -256,10 +223,10 @@ impl APIHandler for ResetLogin {
                     invite_link,
                 }))
             } else {
-                Err(ResetLoginError::UUuidNotFound)
+                Err(APIError::from_error_code(APIErrorCode::UUuidNotFound))
             }
         } else {
-            Err(ResetLoginError::MUuidNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }

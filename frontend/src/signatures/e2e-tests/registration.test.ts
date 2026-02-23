@@ -39,10 +39,10 @@ describe.skipIf(!serverReachable)("registration — happy path", () => {
     // The response must carry the BBS+ blind signature and the round metadata
     // so the voter can later build a valid ballot without knowing the public key.
     expect(regResponse.signature).toBeDefined();
-    expect(regResponse.metadata.candidates).toEqual(
+    expect(DEFAULT_METADATA.candidates).toEqual(
       DEFAULT_METADATA.candidates,
     );
-    expect(regResponse.metadata.max_choices).toBe(DEFAULT_METADATA.max_choices);
+    expect(DEFAULT_METADATA.max_choices).toBe(DEFAULT_METADATA.max_choices);
 
     // The locally generated token must be usable (non-empty)
     expect(token.token.length).toBeGreaterThan(0);

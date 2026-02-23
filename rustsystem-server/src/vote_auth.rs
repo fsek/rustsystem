@@ -1,23 +1,18 @@
-use api_derive::APIEndpointError;
+use api_core::APIError;
+use api_core::APIErrorCode;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch::{Receiver, Sender};
 use tracing::error;
 use tracing::warn;
 use zkryptium::{
-    keys::pair::KeyPair,
+    bbsplus::keys::BBSplusPublicKey,
     schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature},
 };
 
-use rand::{rng, seq::SliceRandom};
-
-use api_core::{APIErrorCode, APIResult};
-
-use crate::proof::{BallotMetaData, Choice, Provider, Sha256Provider};
+use crate::proof::{BallotMetaData, Choice};
 
 use crate::UUuid;
-
-pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
 pub type Header = Vec<u8>;
 
@@ -25,29 +20,13 @@ type Votes = Vec<Option<Choice>>;
 
 pub type TallyScore = HashMap<String, usize>;
 
-pub type TallyResult<T> = APIResult<T, TallyError>;
-
-#[derive(APIEndpointError, Debug)]
-#[api(endpoint(method = "POST", path = "/api/host/tally"))]
-pub enum TallyError {
-    // If an invalid vote has gotten to the point of tallying, there is something wrong inside of
-    // the server. This should NEVER happen. Invalid methods should be checked upon receival.
-    #[api(code = APIErrorCode::InvalidVoteMethod, status = 500)]
-    InvalidVoteMethod,
-    #[api(code = APIErrorCode::VotingInactive, status = 410)]
-    VotingInactive,
-
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Tally {
     pub score: TallyScore,
     pub blank: usize,
 }
 impl Tally {
-    fn tally(votes: Votes, candidates: &Vec<String>) -> TallyResult<Self> {
+    fn tally(votes: Votes, candidates: &Vec<String>) -> Result<Self, APIError> {
         let mut blank_votes = 0;
 
         let mut score = HashMap::new();
@@ -92,28 +71,18 @@ impl Clone for Tally {
 
 pub struct VoteRound {
     metadata: BallotMetaData,
-    keys: AuthenticationKeys,
+    public_key: BBSplusPublicKey,
     header: Header,
-    registered_voters: HashSet<UUuid>,
     expired_signatures: HashSet<[u8; 80]>,
     votes: Votes,
 }
 impl VoteRound {
-    pub fn keys(&self) -> &AuthenticationKeys {
-        &self.keys
+    pub fn public_key(&self) -> &BBSplusPublicKey {
+        &self.public_key
     }
 
     pub fn metadata(&self) -> BallotMetaData {
         self.metadata.clone()
-    }
-
-    pub fn register_user(&mut self, uuid: UUuid) {
-        self.registered_voters.insert(uuid);
-    }
-
-    /// Checks if a user has already registered for voting
-    pub fn is_registered(&self, uuid: UUuid) -> bool {
-        self.registered_voters.contains(&uuid)
     }
 
     pub fn is_used(&self, signature: &BlindSignature<BbsBls12381Sha256>) -> bool {
@@ -136,11 +105,7 @@ impl VoteRound {
         self.votes.len()
     }
 
-    pub fn get_registered_count(&self) -> usize {
-        self.registered_voters.len()
-    }
-
-    pub fn tally(self) -> TallyResult<Tally> {
+    pub fn tally(self) -> Result<Tally, APIError> {
         let votes = self.votes.clone();
         Tally::tally(votes, &self.metadata.get_candidates())
     }
@@ -195,25 +160,16 @@ impl VoteAuthority {
         *self.state_tx.borrow() == VoteState::Creation
     }
 
-    pub fn start_round(&mut self, mut metadata: BallotMetaData, shuffle: bool, header: String) {
-        if shuffle {
-            let mut candidates = metadata.get_candidates();
-            candidates.shuffle(&mut rng());
-            metadata.set_candidates(candidates);
-        }
-
-        let keys = Sha256Provider::generate_authentication_keys();
+    pub fn start_round(&mut self, metadata: BallotMetaData, header: String, public_key: BBSplusPublicKey) {
         let header_bytes = header.as_bytes().to_vec();
-        let registered_voters = HashSet::new();
         let expired_signatures = HashSet::new();
         if let Err(e) = self.state_tx.send(VoteState::Voting) {
             error!("{e}");
         }
         self.current_vote_name = Some(header.clone());
         self.round = Some(VoteRound {
-            keys,
+            public_key,
             header: header_bytes,
-            registered_voters,
             expired_signatures,
             metadata,
             votes: Vec::new(),
@@ -229,8 +185,12 @@ impl VoteAuthority {
     }
 
     // This is the function that should later handle the tallying of votes
-    pub fn finalize_round(&mut self) -> TallyResult<Tally> {
-        let res = self.round.take().ok_or(TallyError::VotingInactive)?.tally();
+    pub fn finalize_round(&mut self) -> Result<Tally, APIError> {
+        let res = self
+            .round
+            .take()
+            .ok_or(APIError::from_error_code(APIErrorCode::VotingInactive))?
+            .tally();
         if let Err(e) = self.state_tx.send(VoteState::Tally) {
             error!("{e}");
         }

@@ -4,6 +4,7 @@ import { Navbar } from "@/components/Navbar/Navbar";
 import { VotePanel, type VoteState } from "@/components/VotePanel/VotePanel";
 import { apiUrl } from "@/signatures/voteSession";
 import { fetchVoteProgress } from "@/api/host";
+import type { BallotMetaData } from "@/signatures/signatures";
 
 export const Route = createFileRoute("/meeting")({
   component: MeetingPage,
@@ -12,12 +13,14 @@ export const Route = createFileRoute("/meeting")({
 function MeetingPage() {
   const [voteState, setVoteState] = useState<VoteState>("Creation");
   const [voteName, setVoteName] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<BallotMetaData | null>(null);
 
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchVoteProgress()
       .then((p) => {
         setVoteName(p.voteName);
+        setMetadata(p.metadata);
         if (p.isTally) setVoteState("Tally");
         else if (p.isActive) setVoteState("Voting");
         else setVoteState("Creation");
@@ -34,14 +37,17 @@ function MeetingPage() {
       const raw = (e.data as string).replace(/^"|"$/g, "");
       if (raw === "Creation" || raw === "Voting" || raw === "Tally") {
         setVoteState(raw);
-        // Refresh vote name when a new round starts.
         if (raw === "Voting") {
           fetchVoteProgress()
-            .then((p) => setVoteName(p.voteName))
+            .then((p) => {
+              setVoteName(p.voteName);
+              setMetadata(p.metadata);
+            })
             .catch(console.error);
         }
         if (raw === "Creation") {
           setVoteName(null);
+          setMetadata(null);
         }
       }
     };
@@ -61,6 +67,7 @@ function MeetingPage() {
             key={voteName ?? "vote"}
             voteState={voteState}
             voteName={voteName}
+            metadata={metadata}
           />
         </div>
       </main>

@@ -1,4 +1,4 @@
-use api_derive::APIEndpointError;
+use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use crate::{
     vote_auth::VoteAuthority,
 };
 
-use api_core::{APIErrorCode, APIHandler, APIResult};
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateMeetingRequest {
@@ -29,44 +29,38 @@ pub struct CreateMeetingResponse {
     pub uuuid: MUuid,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/create-meeting"))]
-pub enum CreateMeetingError {
-    #[api(code = APIErrorCode::Other, status=500)]
-    Other,
-    #[api(code = APIErrorCode::Other, status=500)]
-    CreateDirFailed,
-    #[api(code = APIErrorCode::Other, status=500)]
-    WriteKeyFailed,
-}
-
 /// Endpoint for creating a new meeting resource
 ///
 /// Returns 201 CREATED upon success
 pub struct CreateMeeting;
+#[async_trait]
 impl APIHandler for CreateMeeting {
     type State = AppState;
     type Request = (CookieJar, State<AppState>, Json<CreateMeetingRequest>);
-
-    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
     type SuccessResponse = (CookieJar, Json<CreateMeetingResponse>);
-    type ErrorResponse = CreateMeetingError;
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/create-meeting";
+    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (jar, State(state), Json(query)) = request;
 
-        let (uuuid, muuid, jwt) = match new_meeting_jwt(&state.secret) {
+        let state_guard = {
+            let guard = state.read()?;
+            guard.clone()
+        };
+
+        let (uuuid, muuid, jwt) = match new_meeting_jwt(&state_guard.secret) {
             Ok(res) => res,
             Err(e) => {
                 error!("{e}");
-                return Err(CreateMeetingError::Other);
+                return Err(APIError::from_error_code(APIErrorCode::Other));
             }
         };
-        let new_cookie = new_cookie(jwt, state.is_secure);
+        let new_cookie = new_cookie(jwt, state_guard.is_secure);
 
         info!("Creating new meeting with id {muuid} and host {uuuid}");
-        let mut meetings = state.meetings.lock().await;
+        let mut meetings = state_guard.meetings.lock().await;
         let mut voters = HashMap::new();
         voters.insert(
             uuuid,
@@ -99,11 +93,11 @@ impl APIHandler for CreateMeeting {
         let meeting_dir = format!("meetings/{muuid}");
         if let Err(e) = fs::create_dir_all(&meeting_dir) {
             error!("Failed to create meeting directory {meeting_dir}: {e}");
-            return Err(CreateMeetingError::CreateDirFailed);
+            return Err(APIError::from_error_code(APIErrorCode::Other));
         }
         if let Err(e) = fs::write(format!("{meeting_dir}/pub_key.pem"), &query.pub_key) {
             error!("Failed to write pub_key.pem for meeting {muuid}: {e}");
-            return Err(CreateMeetingError::WriteKeyFailed);
+            return Err(APIError::from_error_code(APIErrorCode::Other));
         }
 
         // Remove dead meetings

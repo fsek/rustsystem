@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Alert } from "@/components/Alert/Alert";
-import { apiFetch } from "@/signatures/voteSession";
+import { apiFetch, trustAuthLogin } from "@/signatures/voteSession";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -64,6 +64,13 @@ function LoginPage() {
       }
 
       if (res.ok) {
+        try {
+          await trustAuthLogin(uuuid, muuid);
+        } catch {
+          setError("Could not reach the trustauth server. Check your connection.");
+          return;
+        }
+
         if (claimsHost) {
           nav({ to: "/admin" });
         } else {

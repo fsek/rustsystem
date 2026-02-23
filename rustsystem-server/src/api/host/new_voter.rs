@@ -1,4 +1,4 @@
-use api_derive::APIEndpointError;
+use async_trait::async_trait;
 use axum::Json;
 use axum::extract::FromRequest;
 
@@ -10,7 +10,7 @@ use qrcode::{EcLevel, QrCode};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use api_core::{APIErrorCode, APIHandler, APIResult};
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
 use uuid::Uuid;
 
 use crate::admin_auth::AdminCred;
@@ -31,35 +31,33 @@ pub struct StartInviteRequest {
     state: State<AppState>,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/host/start-invite"))]
-pub enum StartInviteError {
-    #[api(code = APIErrorCode::MUuidNotFound status = 404)]
-    MUIDNotFound,
-}
-
 pub struct StartInvite;
+#[async_trait]
 impl APIHandler for StartInvite {
     type State = AppState;
     type Request = StartInviteRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = ();
-    type ErrorResponse = StartInviteError;
 
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/start-invite";
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let StartInviteRequest {
             auth,
             state: State(state),
         } = request;
 
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             meeting.invite_auth.set_state(true);
             Ok(())
         } else {
-            Err(StartInviteError::MUIDNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }
@@ -78,28 +76,18 @@ pub struct NewVoterRequest {
     body: Json<NewVoterRequestBody>,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/host/new-voter"))]
-pub enum NewVoterError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-    #[api(code = APIErrorCode::NameTaken, status = 409)]
-    NameTaken,
-    #[api(code = APIErrorCode::InvalidState, status = 409)]
-    InvalidState,
-}
-
 pub struct NewVoter;
+#[async_trait]
 impl APIHandler for NewVoter {
     type State = AppState;
     type Request = NewVoterRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
     type SuccessResponse = Json<QrCodeResponse>;
-    type ErrorResponse = NewVoterError;
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/new-voter";
+    const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
+
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let NewVoterRequest {
             auth,
             state: State(state),
@@ -111,13 +99,19 @@ impl APIHandler for NewVoter {
         } = request;
 
         let new_uuuid = Uuid::new_v4();
-        if let Some(meeting) = state.meetings.lock().await.get_mut(&auth.muuid) {
+
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
             if meeting.locked {
-                return Err(NewVoterError::InvalidState);
+                return Err(APIError::from_error_code(APIErrorCode::InvalidState));
             }
 
             if meeting.has_voter_with_name(&voter_name) {
-                return Err(NewVoterError::NameTaken);
+                return Err(APIError::from_error_code(APIErrorCode::NameTaken));
             } else {
                 meeting.add_voter(voter_name, new_uuuid, is_host);
             }
@@ -134,7 +128,7 @@ impl APIHandler for NewVoter {
                 invite_link,
             }))
         } else {
-            Err(NewVoterError::MUIDNotFound)
+            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
         }
     }
 }

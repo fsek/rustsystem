@@ -81,7 +81,7 @@ describe.skipIf(!serverReachable)("submission — happy path", () => {
     const { token, regResponse } = await client.registerVoter(session);
 
     await expect(
-      client.submitVote(token, regResponse, [0, 2]),
+      client.submitVote(token, regResponse, [0, 2], multiMeta),
     ).resolves.toBeUndefined();
 
     const result = await client.tally();
@@ -105,7 +105,7 @@ describe.skipIf(!serverReachable)("submission — state constraints", () => {
     await client.endVoteRound(); // round is now closed
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,
@@ -125,7 +125,7 @@ describe.skipIf(!serverReachable)("submission — state constraints", () => {
     await client.tally();
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,
@@ -157,7 +157,7 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     );
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       freshToken.token, // ← wrong token (not the one that was signed)
       freshToken.blindFactor, // ← blind factor for the wrong token
@@ -182,7 +182,7 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
 
     const tamperedSignature = corruptSignature(regResponse.signature);
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,
@@ -208,10 +208,10 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    const { token } = await client.registerVoter(session);
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,
@@ -233,7 +233,7 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     await client.submitVote(token, regResponse, [0]); // first submission: OK
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,
@@ -281,7 +281,7 @@ describe.skipIf(!serverReachable)("submission — ballot validation", () => {
     const { token, regResponse } = await client.registerVoter(session);
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0, 1], // ← 2 choices for a max_choices=1 round
       token.token,
       token.blindFactor,
@@ -307,7 +307,7 @@ describe.skipIf(!serverReachable)("submission — authentication", () => {
     const { token, regResponse } = await authClient.registerVoter(session);
 
     const ballot = buildBallot(
-      regResponse.metadata,
+      DEFAULT_METADATA,
       [0],
       token.token,
       token.blindFactor,

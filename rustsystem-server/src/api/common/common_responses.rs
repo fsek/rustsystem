@@ -1,14 +1,11 @@
-use api_core::APIEndpointError;
+use api_core::{APIError, APIErrorCode};
 
 use crate::vote_auth::{VoteAuthority, VoteRound};
 
-pub fn ensure_round<E: APIEndpointError>(
-    vote_auth: &mut VoteAuthority,
-    err: E,
-) -> Result<&mut VoteRound, E> {
+pub fn ensure_round(vote_auth: &mut VoteAuthority) -> Result<&mut VoteRound, APIError> {
     if let Some(round) = vote_auth.round() {
         Ok(round)
     } else {
-        Err(err)
+        Err(APIError::from_error_code(APIErrorCode::VotingInactive))
     }
 }

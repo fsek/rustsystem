@@ -1,10 +1,7 @@
 use crate::AppState;
-use axum::{
-    Router,
-    routing::{get, post},
-};
+use axum::Router;
 
-use api_core::APIHandler;
+use api_core::add_handler;
 
 pub mod create_meeting;
 use create_meeting::CreateMeeting;
@@ -26,10 +23,11 @@ use common::common_routes;
 
 // Routes at /api/...
 pub fn api_routes() -> Router<AppState> {
-    Router::new()
-        .route("/create-meeting", post(CreateMeeting::handler))
-        .route("/session-ids", get(SessionIds::handler))
-        .route("/login", post(Login::handler))
+    let mut router = Router::new();
+    router = add_handler::<CreateMeeting>(router);
+    router = add_handler::<SessionIds>(router);
+    router = add_handler::<Login>(router);
+    router
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())
         .nest("/common", common_routes())

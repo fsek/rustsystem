@@ -348,7 +348,6 @@ export interface BallotMetaData {
 
 export interface RegistrationSuccessResponse {
   signature: unknown;
-  metadata: BallotMetaData;
 }
 
 export interface GeneratedToken {

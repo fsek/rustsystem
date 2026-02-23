@@ -1,10 +1,7 @@
-use api_core::APIError;
+use api_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{Json, extract::FromRequestParts, http::StatusCode};
 
-use crate::{
-    AppState, MUuid, UUuid,
-    tokens::{AuthError, AuthUser},
-};
+use crate::{AppState, MUuid, UUuid, tokens::AuthUser};
 
 pub struct AuthHost {
     pub uuuid: UUuid,
@@ -20,7 +17,7 @@ impl From<AuthUser> for AuthHost {
 }
 
 impl FromRequestParts<AppState> for AuthHost {
-    type Rejection = (StatusCode, Json<APIError>);
+    type Rejection = (StatusCode, Json<APIErrorFinal>);
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
@@ -30,7 +27,13 @@ impl FromRequestParts<AppState> for AuthHost {
         if user.is_host {
             Ok(user.into())
         } else {
-            Err(<AuthError as Into<APIError>>::into(AuthError::AuthError).finalize())
+            let endpoint = EndpointMeta {
+                method: api_core::Method::from(parts.method.clone()),
+                path: parts.uri.path().to_string(),
+            };
+            Err(APIError::from_error_code(APIErrorCode::AuthError)
+                .finalize(endpoint)
+                .response())
         }
     }
 }

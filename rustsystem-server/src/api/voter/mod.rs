@@ -1,19 +1,18 @@
-use axum::{Router, routing::{get, post}};
-use vote::{Register, Submit};
-use status::{IsRegistered, IsSubmitted};
+use axum::Router;
+use status::IsSubmitted;
+use vote::Submit;
 
-use api_core::APIHandler;
+use api_core::add_handler;
 
 use crate::AppState;
 
-mod vote;
 mod status;
+mod vote;
 
 // Routes at /api/voter/...
 pub fn voter_routes() -> Router<AppState> {
-    Router::new()
-        .route("/register", post(Register::handler))
-        .route("/submit", post(Submit::handler))
-        .route("/is-registered", get(IsRegistered::handler))
-        .route("/is-submitted", post(IsSubmitted::handler))
+    let mut router = Router::new();
+    router = add_handler::<Submit>(router);
+    router = add_handler::<IsSubmitted>(router);
+    router
 }

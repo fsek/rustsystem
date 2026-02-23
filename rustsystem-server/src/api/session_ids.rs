@@ -1,14 +1,14 @@
-use api_derive::APIEndpointError;
+use async_trait::async_trait;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use api_core::{APIErrorCode, APIHandler, APIResult};
+use api_core::{APIError, APIHandler, Method};
 
-use crate::{AppState, AuthUser, UUuid};
+use crate::{AppState, AuthUser};
 
 #[derive(FromRequest)]
 pub struct SessionIdsRequest {
@@ -22,25 +22,21 @@ pub struct SessionIdsResponse {
     muuid: String,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/session-ids"))]
-pub enum AuthMeetingError {}
-
 /// Endpoint for checking if the current user is authenticated for a given meeting
 ///
 /// Returns 200 OK upon success
 pub struct SessionIds;
+#[async_trait]
 impl APIHandler for SessionIds {
     type State = AppState;
     type Request = SessionIdsRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse = Json<SessionIdsResponse>;
-    type ErrorResponse = AuthMeetingError;
 
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    const METHOD: Method = Method::Get;
+    const PATH: &'static str = "/session-ids";
+    const SUCCESS_CODE: StatusCode = StatusCode::OK;
+
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let SessionIdsRequest { auth, _state } = request;
         Ok(Json(SessionIdsResponse {
             uuuid: auth.uuuid.to_string(),

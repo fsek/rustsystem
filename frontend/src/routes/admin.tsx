@@ -1185,6 +1185,7 @@ function Admin() {
               key={voteProgress?.voteName ?? "vote"}
               voteState={voteState}
               voteName={voteProgress?.voteName}
+              metadata={voteProgress?.metadata}
             />
           )}
         </div>

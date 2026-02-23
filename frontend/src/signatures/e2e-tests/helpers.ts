@@ -158,8 +158,9 @@ export class TestClient {
     token: GeneratedToken,
     regResponse: RegistrationSuccessResponse,
     choice: number[] | null,
+    metadata: BallotMetaData = DEFAULT_METADATA,
   ) {
-    return this.withSession(() => _submitVote(token, regResponse, choice));
+    return this.withSession(() => _submitVote(token, regResponse, metadata, choice));
   }
 
   /**

@@ -1,55 +1,14 @@
-use api_core::{APIErrorCode, APIHandler, APIResult};
-use api_derive::APIEndpointError;
+use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use async_trait::async_trait;
 use axum::{
     Json,
-    extract::{FromRequest, State},
+    extract::{State},
     http::StatusCode,
 };
 use serde::Deserialize;
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
 use crate::{AppState, tokens::AuthUser};
-
-// ─── IsRegistered ─────────────────────────────────────────────────────────────
-
-#[derive(FromRequest)]
-pub struct IsRegisteredRequest {
-    auth: AuthUser,
-    state: State<AppState>,
-}
-
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "GET", path = "/api/voter/is-registered"))]
-pub enum IsRegisteredError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-}
-
-pub struct IsRegistered;
-impl APIHandler for IsRegistered {
-    type State = AppState;
-    type Request = IsRegisteredRequest;
-
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
-    type SuccessResponse = Json<bool>;
-    type ErrorResponse = IsRegisteredError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
-        let IsRegisteredRequest { auth, state } = request;
-        let meetings = state.meetings.lock().await;
-        let meeting = meetings
-            .get(&auth.muuid)
-            .ok_or(IsRegisteredError::MUIDNotFound)?;
-        let registered = meeting
-            .vote_auth
-            .round_ref()
-            .map(|r| r.is_registered(auth.uuuid))
-            .unwrap_or(false);
-        Ok(Json(registered))
-    }
-}
 
 // ─── IsSubmitted ──────────────────────────────────────────────────────────────
 
@@ -58,31 +17,28 @@ pub struct IsSubmittedRequest {
     pub signature: BlindSignature<BbsBls12381Sha256>,
 }
 
-#[derive(APIEndpointError)]
-#[api(endpoint(method = "POST", path = "/api/voter/is-submitted"))]
-pub enum IsSubmittedError {
-    #[api(code = APIErrorCode::MUuidNotFound, status = 404)]
-    MUIDNotFound,
-}
-
 pub struct IsSubmitted;
+#[async_trait]
 impl APIHandler for IsSubmitted {
     type State = AppState;
     type Request = (AuthUser, State<AppState>, Json<IsSubmittedRequest>);
+    type SuccessResponse = Json<bool>;
 
+    const METHOD: Method = Method::Post;
+    const PATH: &'static str = "/is-submitted";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 
-    type SuccessResponse = Json<bool>;
-    type ErrorResponse = IsSubmittedError;
-
-    async fn route(
-        request: Self::Request,
-    ) -> APIResult<Self::SuccessResponse, Self::ErrorResponse> {
+    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(body)) = request;
-        let meetings = state.meetings.lock().await;
+        let meetings_guard = {
+            let guard = state.read()?;
+            guard.clone().meetings
+        };
+
+        let meetings = meetings_guard.lock().await;
         let meeting = meetings
             .get(&auth.muuid)
-            .ok_or(IsSubmittedError::MUIDNotFound)?;
+            .ok_or(APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
         let submitted = meeting
             .vote_auth
             .round_ref()

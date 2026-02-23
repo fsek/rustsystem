@@ -40,6 +40,41 @@ export async function apiFetch(
   });
 }
 
+// ─── TrustAuth fetch ──────────────────────────────────────────────────────────
+// Set VITE_TRUSTAUTH_ENDPOINT at build time to the trustauth origin visible from the browser
+// (e.g. http://localhost:2443 in dev, https://trustauth.fsektionen.se in prod).
+// Must use the same hostname as the server so that SameSite=Strict cookies are sent correctly.
+
+export const TRUSTAUTH_BASE = (
+  import.meta.env.VITE_TRUSTAUTH_ENDPOINT ?? ""
+).replace(/\/$/, "");
+
+export function trustAuthUrl(path: string): string {
+  return `${TRUSTAUTH_BASE}${path}`;
+}
+
+export async function trustAuthFetch(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(trustAuthUrl(path), {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    ...init,
+  });
+}
+
+export async function trustAuthLogin(
+  uuuid: string,
+  muuid: string,
+): Promise<void> {
+  const res = await trustAuthFetch("/api/login", {
+    method: "POST",
+    body: JSON.stringify({ uuuid, muuid }),
+  });
+  if (!res.ok) throw new Error(`TrustAuth login failed (HTTP ${res.status})`);
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface SessionIds {
@@ -58,7 +93,6 @@ export interface StoredVoteData {
   commitmentJson: CommitmentJson;
   context: ProofContext;
   signature: unknown;
-  metadata: BallotMetaData;
 }
 
 // ─── localStorage persistence ─────────────────────────────────────────────────
@@ -120,7 +154,6 @@ export function saveVoteData(
     commitmentJson: token.commitmentJson,
     context: token.context,
     signature: reg.signature,
-    metadata: reg.metadata,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -152,7 +185,9 @@ export async function createMeeting(
 
   // CreateMeetingResponse: { uuuid, muuid }
   // uuuid = voter/user UUID of the host, muuid = meeting UUID
-  return { uuuid: data.uuuid, muuid: data.muuid };
+  const ids: SessionIds = { uuuid: data.uuuid, muuid: data.muuid };
+  await trustAuthLogin(ids.uuuid, ids.muuid);
+  return ids;
 }
 
 /**
@@ -225,9 +260,10 @@ export async function getTally(): Promise<TallyResult> {
  * by their JWT) has already registered for the active vote round.
  */
 export async function isRegistered(): Promise<boolean> {
-  const res = await apiFetch("/api/voter/is-registered");
+  const res = await trustAuthFetch("/api/is-registered");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  let body = await res.json();
+  return body["isRegistered"];
 }
 
 /**
@@ -268,7 +304,7 @@ export async function registerVoter(
     commitment: token.commitmentJson,
   };
 
-  const res = await apiFetch("/api/voter/register", {
+  const res = await trustAuthFetch("/api/register", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -290,10 +326,11 @@ export async function registerVoter(
 export async function submitVote(
   storedToken: GeneratedToken,
   storedRegResponse: RegistrationSuccessResponse,
+  metadata: BallotMetaData,
   choice: number[] | null,
 ): Promise<void> {
   const ballot = buildBallot(
-    storedRegResponse.metadata,
+    metadata,
     choice,
     storedToken.token,
     storedToken.blindFactor,
