@@ -1,9 +1,6 @@
-use axum::{
-    Router,
-    routing::{delete, get, post},
-};
+use axum::Router;
 
-use rustsystem_core::APIHandler;
+use rustsystem_core::add_handler;
 
 use crate::AppState;
 
@@ -15,30 +12,54 @@ pub mod auth;
 pub mod close_meeting;
 use close_meeting::CloseMeeting;
 
+pub mod start_vote;
+use start_vote::StartVote;
 
-pub mod state;
-use state::{EndVoteRound, GetTally, StartVote, Tally};
+pub mod tally;
+use tally::Tally;
+
+pub mod get_tally;
+use get_tally::GetTally;
+
+pub mod end_vote_round;
+use end_vote_round::EndVoteRound;
 
 pub mod new_voter;
-use new_voter::{NewVoter, StartInvite};
+use new_voter::NewVoter;
 
-pub mod user_management;
-use user_management::{RemoveAll, RemoveVoter, ResetLogin, VoterId, VoterList};
+pub mod start_invite;
+use start_invite::StartInvite;
+
+pub mod voter_list;
+use voter_list::VoterList;
+
+pub mod voter_id;
+use voter_id::VoterId;
+
+pub mod remove_all;
+use remove_all::RemoveAll;
+
+pub mod remove_voter;
+use remove_voter::RemoveVoter;
+
+pub mod reset_login;
+use reset_login::ResetLogin;
 
 // Routes at /api/host/...
 pub fn host_routes() -> Router<AppState> {
-    Router::new()
-        .route("/start-vote", post(StartVote::handler))
-        .route("/end-vote-round", delete(EndVoteRound::handler))
-        .route("/tally", post(Tally::handler))
-        .route("/get-tally", get(GetTally::handler))
-        .route("/new-voter", post(NewVoter::handler))
-        .route("/start-invite", post(StartInvite::handler))
-        .route("/invite-watch", get(InviteWatch::handler))
-        .route("/voter-list", get(VoterList::handler))
-        .route("/voter-id", get(VoterId::handler))
-        .route("/remove-all", delete(RemoveAll::handler))
-        .route("/remove-voter", delete(RemoveVoter::handler))
-        .route("/reset-login", post(ResetLogin::handler))
-        .route("/close-meeting", delete(CloseMeeting::handler))
+    let mut router = Router::new();
+    router = add_handler::<StartVote>(router);
+    router = add_handler::<EndVoteRound>(router);
+    router = add_handler::<Tally>(router);
+    router = add_handler::<GetTally>(router);
+    router = add_handler::<NewVoter>(router);
+    router = add_handler::<StartInvite>(router);
+    router = add_handler::<InviteWatch>(router);
+    router = add_handler::<VoterList>(router);
+    router = add_handler::<VoterId>(router);
+    router = add_handler::<RemoveAll>(router);
+    router = add_handler::<RemoveVoter>(router);
+    router = add_handler::<ResetLogin>(router);
+    router = add_handler::<CloseMeeting>(router);
+    router
 }

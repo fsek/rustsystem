@@ -25,43 +25,6 @@ pub struct QrCodeResponse {
     pub invite_link: String,
 }
 
-#[derive(FromRequest)]
-pub struct StartInviteRequest {
-    auth: AuthHost,
-    state: State<AppState>,
-}
-
-pub struct StartInvite;
-#[async_trait]
-impl APIHandler for StartInvite {
-    type State = AppState;
-    type Request = StartInviteRequest;
-    type SuccessResponse = ();
-
-    const METHOD: Method = Method::Post;
-    const PATH: &'static str = "/start-invite";
-    const SUCCESS_CODE: StatusCode = StatusCode::OK;
-
-    async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
-        let StartInviteRequest {
-            auth,
-            state: State(state),
-        } = request;
-
-        let meetings_guard = {
-            let guard = state.read()?;
-            guard.clone().meetings
-        };
-
-        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
-            meeting.invite_auth.set_state(true);
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
-    }
-}
-
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NewVoterRequestBody {
@@ -100,12 +63,9 @@ impl APIHandler for NewVoter {
 
         let new_uuuid = Uuid::new_v4();
 
-        let meetings_guard = {
-            let guard = state.read()?;
-            guard.clone().meetings
-        };
+        let meetings = state.meetings()?;
 
-        if let Some(meeting) = meetings_guard.lock().await.get_mut(&auth.muuid) {
+        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
             if meeting.locked {
                 return Err(APIError::from_error_code(APIErrorCode::InvalidState));
             }
@@ -133,11 +93,6 @@ impl APIHandler for NewVoter {
     }
 }
 
-pub fn gen_qr_code(muuid: MUuid, uuuid: UUuid, admin_cred: Option<AdminCred>) -> String {
-    let (qr_svg, _) = gen_qr_code_with_link(muuid, uuuid, admin_cred);
-    qr_svg
-}
-
 pub fn gen_qr_code_with_link(
     muuid: MUuid,
     uuuid: UUuid,
@@ -155,7 +110,7 @@ pub fn gen_qr_code_with_link(
     info!("Creating QR code from {url}");
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)
-        .expect(&format!("Creation of QR code was unsuccessful. url: {url}"));
+        .unwrap_or_else(|_| panic!("Creation of QR code was unsuccessful. url: {url}"));
     let qr_svg = code.render::<svg::Color>().min_dimensions(200, 200).build();
     let qr_svg_base64 = format!(
         "data:image/svg+xml;base64,{}",

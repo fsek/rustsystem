@@ -27,12 +27,9 @@ impl APIHandler for CloseMeeting {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let CloseMeetingRequest { auth, state } = request;
 
-        let meetings_guard = {
-            let guard = state.read()?;
-            guard.clone().meetings
-        };
+        let meetings = state.meetings()?;
 
-        meetings_guard
+        meetings
             .lock()
             .await
             .remove(&auth.muuid)

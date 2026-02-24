@@ -12,8 +12,6 @@ use zkryptium::{
 
 use crate::proof::{BallotMetaData, Choice};
 
-use crate::UUuid;
-
 pub type Header = Vec<u8>;
 
 type Votes = Vec<Option<Choice>>;
@@ -26,7 +24,7 @@ pub struct Tally {
     pub blank: usize,
 }
 impl Tally {
-    fn tally(votes: Votes, candidates: &Vec<String>) -> Result<Self, APIError> {
+    fn compute(votes: Votes, candidates: &Vec<String>) -> Result<Self, APIError> {
         let mut blank_votes = 0;
 
         let mut score = HashMap::new();
@@ -107,7 +105,7 @@ impl VoteRound {
 
     pub fn tally(self) -> Result<Tally, APIError> {
         let votes = self.votes.clone();
-        Tally::tally(votes, &self.metadata.get_candidates())
+        Tally::compute(votes, &self.metadata.get_candidates())
     }
 }
 
@@ -194,11 +192,8 @@ impl VoteAuthority {
         if let Err(e) = self.state_tx.send(VoteState::Tally) {
             error!("{e}");
         }
-        match res {
-            Ok(ref tally) => {
-                self.last_tally = Some(tally.clone());
-            }
-            Err(_) => {}
+        if let Ok(ref tally) = res {
+            self.last_tally = Some(tally.clone());
         }
         res
     }

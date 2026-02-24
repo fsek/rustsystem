@@ -50,7 +50,6 @@ pub struct Voter {
 pub struct Meeting {
     title: String,
     start_time: SystemTime,
-    agenda: String,
     voters: HashMap<Uuid, Voter>,
     vote_auth: VoteAuthority,
     invite_auth: InviteAuthority,
@@ -120,13 +119,18 @@ impl AppState {
     pub fn read(&self) -> Result<RwLockReadGuard<'_, AppStateInternal>, APIError> {
         self.0
             .read()
-            .or_else(|_e| Err(APIError::from_error_code(APIErrorCode::StateCurrupt)))
+            .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
     }
 
     pub fn write(&self) -> Result<RwLockWriteGuard<'_, AppStateInternal>, APIError> {
         self.0
             .write()
-            .or_else(|_e| Err(APIError::from_error_code(APIErrorCode::StateCurrupt)))
+            .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
+    }
+
+    pub fn meetings(&self) -> Result<ActiveMeetings, APIError> {
+        let guard = self.read()?;
+        Ok(guard.meetings.clone())
     }
 
     pub async fn start_round_on_trustauth(

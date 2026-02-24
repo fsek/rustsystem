@@ -30,12 +30,8 @@ impl APIHandler for IsSubmitted {
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(body)) = request;
-        let meetings_guard = {
-            let guard = state.read()?;
-            guard.clone().meetings
-        };
-
-        let meetings = meetings_guard.lock().await;
+        let meetings_arc = state.meetings()?;
+        let meetings = meetings_arc.lock().await;
         let meeting = meetings
             .get(&auth.muuid)
             .ok_or(APIError::from_error_code(APIErrorCode::MUuidNotFound))?;

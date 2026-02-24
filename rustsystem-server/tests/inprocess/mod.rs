@@ -21,8 +21,10 @@ use rustsystem_server::api::{
     create_meeting::CreateMeetingRequest,
     host::{
         new_voter::NewVoterRequestBody,
-        state::StartVoteRequest,
-        user_management::{RemoveVoterRequest, ResetLoginRequest, VoterIdRequest},
+        start_vote::StartVoteRequest,
+        remove_voter::RemoveVoterRequest,
+        reset_login::ResetLoginRequest,
+        voter_id::VoterIdRequest,
     },
     login::LoginRequest,
 };

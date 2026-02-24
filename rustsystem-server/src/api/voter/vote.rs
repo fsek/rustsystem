@@ -29,12 +29,8 @@ impl APIHandler for Submit {
         let choice = body.get_choice();
         let validation = body.get_validation();
 
-        let meetings_guard = {
-            let guard = state.read()?;
-            guard.clone().meetings
-        };
-
-        let mut meetings = meetings_guard.lock().await;
+        let meetings_arc = state.meetings()?;
+        let mut meetings = meetings_arc.lock().await;
         let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
             meeting_ok
         } else {

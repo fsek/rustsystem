@@ -8,7 +8,7 @@ use crate::{
         voter_id, voter_list, voter_login,
     },
 };
-use rustsystem_server::api::host::user_management::VoterInfo;
+use rustsystem_server::api::host::voter_list::VoterInfo;
 
 #[tokio::test]
 async fn simple_list() {

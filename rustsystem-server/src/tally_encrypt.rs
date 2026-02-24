@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chacha20poly1305::{
     ChaCha20Poly1305, Key, Nonce,
@@ -45,7 +43,11 @@ fn encrypt_for_x25519(recipient_pub: [u8; 32], plaintext: &[u8]) -> Vec<u8> {
     hk.expand(b"rustsystem-tally-v1", &mut okm)
         .expect("HKDF-SHA256 expand: output length is valid");
 
+    // This is not ideal, but chacha20poly1305 depends on an older version of aead which depends on
+    // an older version of generic-array...
+    #[allow(deprecated)]
     let key = Key::from_slice(&okm[..32]);
+    #[allow(deprecated)]
     let nonce = Nonce::from_slice(&okm[32..44]);
 
     let ciphertext = ChaCha20Poly1305::new(key)

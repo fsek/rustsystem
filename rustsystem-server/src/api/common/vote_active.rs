@@ -11,43 +11,42 @@ use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use crate::{AppState, tokens::AuthUser};
 
 #[derive(FromRequest)]
-pub struct MeetingSpecsRequest {
+pub struct VoteActiveRequest {
     auth: AuthUser,
     state: State<AppState>,
 }
 
 #[derive(Serialize)]
-pub struct MeetingSpecsResponse {
-    title: String,
-    participants: usize,
+#[serde(rename_all = "camelCase")]
+pub struct VoteActiveResponse {
+    is_active: bool,
 }
 
-pub struct MeetingSpecs;
+pub struct VoteActive;
 #[async_trait]
-impl APIHandler for MeetingSpecs {
+impl APIHandler for VoteActive {
     type State = AppState;
-    type Request = MeetingSpecsRequest;
-    type SuccessResponse = Json<MeetingSpecsResponse>;
+    type Request = VoteActiveRequest;
 
     const METHOD: Method = Method::Get;
-    const PATH: &'static str = "/meeting-specs";
+    const PATH: &'static str = "/vote-active";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
+    type SuccessResponse = Json<VoteActiveResponse>;
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
-        let MeetingSpecsRequest {
+        let VoteActiveRequest {
             auth,
             state: State(state),
         } = request;
 
         let meetings = state.meetings()?;
 
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            Ok(Json(MeetingSpecsResponse {
-                title: meeting.title.clone(),
-                participants: meeting.voters.values().filter(|v| v.logged_in).count(),
-            }))
+        let res = if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
+            meeting.vote_auth.is_active()
         } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+            return Err(APIError::from_error_code(APIErrorCode::MUuidNotFound));
+        };
+
+        Ok(Json(VoteActiveResponse { is_active: res }))
     }
 }

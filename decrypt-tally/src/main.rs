@@ -13,10 +13,7 @@ use x25519_dalek::{PublicKey, StaticSecret};
 ///   30 2e  02 01 00  30 05  06 03 2b 65 6e  04 22  04 20  <32-byte key>
 /// The private scalar is simply the last 32 bytes.
 fn parse_x25519_pkcs8_pem(pem: &str) -> Option<[u8; 32]> {
-    let b64: String = pem
-        .lines()
-        .filter(|l| !l.starts_with("-----"))
-        .collect();
+    let b64: String = pem.lines().filter(|l| !l.starts_with("-----")).collect();
     let der = STANDARD.decode(b64.trim()).ok()?;
     if der.len() < 32 {
         return None;
@@ -41,7 +38,10 @@ fn main() {
 
     // Minimum: 32 (ephemeral pk) + 12 (nonce) + 16 (Poly1305 tag) = 60 bytes
     if encrypted.len() < 60 {
-        eprintln!("File too short to be a valid tally.enc ({} bytes)", encrypted.len());
+        eprintln!(
+            "File too short to be a valid tally.enc ({} bytes)",
+            encrypted.len()
+        );
         std::process::exit(1);
     }
 
@@ -57,6 +57,7 @@ fn main() {
 
     // Split the file: ephemeral_pk (32) ‖ nonce (12) ‖ ciphertext+tag
     let ephemeral_pk_bytes: [u8; 32] = encrypted[..32].try_into().unwrap();
+    #[allow(deprecated)]
     let nonce = Nonce::from_slice(&encrypted[32..44]);
     let ciphertext = &encrypted[44..];
 
@@ -72,6 +73,7 @@ fn main() {
     hk.expand(b"rustsystem-tally-v1", &mut key_bytes)
         .expect("HKDF-SHA256 expand: output length is valid");
 
+    #[allow(deprecated)]
     let key = Key::from_slice(&key_bytes);
 
     let plaintext = ChaCha20Poly1305::new(key)

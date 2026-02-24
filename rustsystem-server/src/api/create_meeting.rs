@@ -80,7 +80,6 @@ impl APIHandler for CreateMeeting {
             crate::Meeting {
                 title: query.title,
                 start_time: SystemTime::now(),
-                agenda: String::new(),
                 voters,
                 vote_auth,
                 invite_auth,

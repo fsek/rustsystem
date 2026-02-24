@@ -1,8 +1,7 @@
 use rustsystem_core::mtls::build_mtls_server_config;
 use axum_server::tls_rustls::RustlsConfig;
-use futures::FutureExt;
-use std::{net::SocketAddr, sync::Arc};
-use tracing::{info, level_filters::LevelFilter};
+use std::net::SocketAddr;
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
 use rustsystem_server::{app_internal, app_public, init_state};
@@ -36,6 +35,6 @@ async fn main() -> anyhow::Result<()> {
 
     let public_serve = axum_server::bind(addr_public).serve(app_public.into_make_service());
 
-    let (internal_res, public_res) = tokio::try_join!(internal_serve, public_serve)?;
+    tokio::try_join!(internal_serve, public_serve)?;
     Ok(())
 }
