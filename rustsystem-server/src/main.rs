@@ -19,9 +19,9 @@ async fn main() -> anyhow::Result<()> {
     let app_internal = app_internal(state);
 
     let tls_config = build_mtls_server_config(
-        "mtls/server/server.crt",
-        "mtls/server/server.key",
-        "mtls/ca/ca.crt",
+        include_bytes!("../../mtls/server/server.crt"),
+        include_bytes!("../../mtls/server/server.key"),
+        include_bytes!("../../mtls/ca/ca.crt"),
     )
     .unwrap();
 

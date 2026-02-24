@@ -1,4 +1,5 @@
-use std::{fs::File, io::BufReader, sync::Arc};
+use std::io::BufReader;
+use std::sync::Arc;
 
 use rustls::server::WebPkiClientVerifier;
 use rustls::{
@@ -7,31 +8,31 @@ use rustls::{
 };
 use rustls_pemfile::{certs, private_key};
 
-fn load_certs(path: &str) -> anyhow::Result<Vec<CertificateDer<'static>>> {
-    let mut reader = BufReader::new(File::open(path)?);
+fn load_certs(pem: &[u8]) -> anyhow::Result<Vec<CertificateDer<'static>>> {
+    let mut reader = BufReader::new(pem);
     let certs = certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
     Ok(certs)
 }
 
-fn load_private_key(path: &str) -> anyhow::Result<PrivateKeyDer<'static>> {
-    let mut reader = BufReader::new(File::open(path)?);
+fn load_private_key(pem: &[u8]) -> anyhow::Result<PrivateKeyDer<'static>> {
+    let mut reader = BufReader::new(pem);
     let key = private_key(&mut reader)?
-        .ok_or_else(|| anyhow::anyhow!("No private key found in {}", path))?;
+        .ok_or_else(|| anyhow::anyhow!("No private key found in PEM data"))?;
     Ok(key)
 }
 
-fn load_ca_store(ca_path: &str) -> anyhow::Result<RootCertStore> {
+fn load_ca_store(pem: &[u8]) -> anyhow::Result<RootCertStore> {
     let mut store = RootCertStore::empty();
-    for cert in load_certs(ca_path)? {
+    for cert in load_certs(pem)? {
         store.add(cert)?;
     }
     Ok(store)
 }
 
 pub fn build_mtls_server_config(
-    server_cert_pem: &str,
-    server_key_pem: &str,
-    ca_cert_pem: &str,
+    server_cert_pem: &[u8],
+    server_key_pem: &[u8],
+    ca_cert_pem: &[u8],
 ) -> anyhow::Result<rustls::ServerConfig> {
     let server_certs = load_certs(server_cert_pem)?;
     let server_key = load_private_key(server_key_pem)?;
@@ -39,7 +40,7 @@ pub fn build_mtls_server_config(
     let roots = Arc::new(load_ca_store(ca_cert_pem)?);
 
     // Require and verify client certificates against our CA.
-    let client_verifier = WebPkiClientVerifier::builder(roots).build()?; // :contentReference[oaicite:1]{index=1}
+    let client_verifier = WebPkiClientVerifier::builder(roots).build()?;
 
     let mut cfg = rustls::ServerConfig::builder()
         .with_client_cert_verifier(client_verifier)
@@ -51,17 +52,17 @@ pub fn build_mtls_server_config(
     Ok(cfg)
 }
 
-use std::fs;
-
-pub fn build_mtls_client(endpoint: &str) -> anyhow::Result<reqwest::Client> {
-    // Trust your internal CA
-    let ca_pem = fs::read("mtls/ca/ca.crt")?;
-    let ca = reqwest::Certificate::from_pem(&ca_pem)?;
+pub fn build_mtls_client(
+    ca_cert_pem: &[u8],
+    client_cert_pem: &[u8],
+    client_key_pem: &[u8],
+) -> anyhow::Result<reqwest::Client> {
+    let ca = reqwest::Certificate::from_pem(ca_cert_pem)?;
 
     // Combine client cert + key into one PEM buffer
     let mut identity_pem = Vec::new();
-    identity_pem.extend(fs::read(format!("mtls/{endpoint}/{endpoint}.crt"))?);
-    identity_pem.extend(fs::read(format!("mtls/{endpoint}/{endpoint}.key"))?);
+    identity_pem.extend_from_slice(client_cert_pem);
+    identity_pem.extend_from_slice(client_key_pem);
 
     let identity = reqwest::Identity::from_pem(&identity_pem)?;
 

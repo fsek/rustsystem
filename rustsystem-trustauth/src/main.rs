@@ -146,7 +146,11 @@ async fn main() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("Failed to load trustauth secret: {e}"))?;
     info!("Loaded trustauth secret");
 
-    let mtls_client = build_mtls_client("trustauth")?;
+    let mtls_client = build_mtls_client(
+        include_bytes!("../../mtls/ca/ca.crt"),
+        include_bytes!("../../mtls/trustauth/trustauth.crt"),
+        include_bytes!("../../mtls/trustauth/trustauth.key"),
+    )?;
 
     let state = AppState(Arc::new(AppStateInternal {
         secret,
@@ -191,9 +195,9 @@ async fn main() -> anyhow::Result<()> {
     let addr_internal = SocketAddr::from(([0, 0, 0, 0], 2444));
 
     let tls_config = build_mtls_server_config(
-        "mtls/trustauth/trustauth.crt",
-        "mtls/trustauth/trustauth.key",
-        "mtls/ca/ca.crt",
+        include_bytes!("../../mtls/trustauth/trustauth.crt"),
+        include_bytes!("../../mtls/trustauth/trustauth.key"),
+        include_bytes!("../../mtls/ca/ca.crt"),
     )
     .unwrap();
 

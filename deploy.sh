@@ -1,8 +1,13 @@
 #!/bin/bash
+set -euo pipefail
 
-(cd mtls || exit 1;
-  ./mkcerts.sh prod
-)
+cleanup() {
+    rm -rf mtls-prod
+}
+trap cleanup EXIT
+
+mkdir -p mtls-prod
+(cd mtls-prod && bash ../mtls/mkcerts.sh prod)
 
 docker build -t rustsystem-server -f Dockerfile.server .
 docker save rustsystem-server | pv | ssh -C felix@server.fsek.studentorg.lu.se docker load

@@ -171,7 +171,11 @@ pub fn init_state() -> anyhow::Result<AppState> {
         secret: get_secret()?,
         meetings: Arc::new(Mutex::new(HashMap::new())),
         is_secure,
-        trustauth_client: build_mtls_client("server")?,
+        trustauth_client: build_mtls_client(
+            include_bytes!("../../mtls/ca/ca.crt"),
+            include_bytes!("../../mtls/server/server.crt"),
+            include_bytes!("../../mtls/server/server.key"),
+        )?,
     }))))
 }
 
