@@ -29,14 +29,13 @@ import {
   getTally as _getTally,
   registerVoter as _registerVoter,
   submitVote as _submitVote,
+  getVoteData as _getVoteData,
   apiFetch,
   type SessionIds,
-  type RegisterResult,
+  type VoteData,
   type TallyResult,
 } from "../voteSession";
 import type {
-  GeneratedToken,
-  RegistrationSuccessResponse,
   BallotMetaData,
 } from "../signatures";
 
@@ -150,17 +149,20 @@ export class TestClient {
     return this.withSession(() => _getTally());
   }
 
-  registerVoter(session: SessionIds): Promise<RegisterResult> {
+  registerVoter(session: SessionIds): Promise<void> {
     return this.withSession(() => _registerVoter(session));
   }
 
+  getVoteData(): Promise<VoteData> {
+    return this.withSession(() => _getVoteData());
+  }
+
   submitVote(
-    token: GeneratedToken,
-    regResponse: RegistrationSuccessResponse,
+    voteData: VoteData,
     choice: number[] | null,
     metadata: BallotMetaData = DEFAULT_METADATA,
   ) {
-    return this.withSession(() => _submitVote(token, regResponse, metadata, choice));
+    return this.withSession(() => _submitVote(voteData, metadata, choice));
   }
 
   /**

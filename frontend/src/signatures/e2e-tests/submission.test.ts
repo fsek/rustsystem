@@ -38,10 +38,11 @@ describe.skipIf(!serverReachable)("submission — happy path", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     await expect(
-      client.submitVote(token, regResponse, [0]),
+      client.submitVote(voteData, [0]),
     ).resolves.toBeUndefined();
 
     // Tally to confirm the vote was counted
@@ -57,10 +58,11 @@ describe.skipIf(!serverReachable)("submission — happy path", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     await expect(
-      client.submitVote(token, regResponse, null),
+      client.submitVote(voteData, null),
     ).resolves.toBeUndefined();
 
     const result = await client.tally();
@@ -78,10 +80,11 @@ describe.skipIf(!serverReachable)("submission — happy path", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound("multi-choice round", false, multiMeta);
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     await expect(
-      client.submitVote(token, regResponse, [0, 2], multiMeta),
+      client.submitVote(voteData, [0, 2], multiMeta),
     ).resolves.toBeUndefined();
 
     const result = await client.tally();
@@ -101,15 +104,16 @@ describe.skipIf(!serverReachable)("submission — state constraints", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
     await client.endVoteRound(); // round is now closed
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(410); // VotingInactive
@@ -121,15 +125,16 @@ describe.skipIf(!serverReachable)("submission — state constraints", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
     await client.tally();
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(410); // VotingInactive
@@ -148,7 +153,8 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     // Generate a brand-new token — this was NOT committed to during registration
     const freshToken = generateToken(
@@ -161,7 +167,7 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
       [0],
       freshToken.token, // ← wrong token (not the one that was signed)
       freshToken.blindFactor, // ← blind factor for the wrong token
-      regResponse.signature, // ← signature from the original registration
+      voteData.signature, // ← signature from the original registration
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(401); // SignatureInvalid
@@ -178,14 +184,15 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
-    const tamperedSignature = corruptSignature(regResponse.signature);
+    const tamperedSignature = corruptSignature(voteData.signature);
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
       tamperedSignature, // ← scalar `e` has one hex digit changed
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
@@ -208,13 +215,14 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
       "not-a-valid-signature", // ← completely wrong type for BlindSignature
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
@@ -228,16 +236,17 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
-    await client.submitVote(token, regResponse, [0]); // first submission: OK
+    await client.submitVote(voteData, [0]); // first submission: OK
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(409); // SignatureExpired
@@ -254,7 +263,8 @@ describe.skipIf(!serverReachable)("submission — ballot validation", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound();
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     const wrongMeta = {
       candidates: ["X", "Y"], // different candidates from the active round
@@ -264,9 +274,9 @@ describe.skipIf(!serverReachable)("submission — ballot validation", () => {
     const ballot = buildBallot(
       wrongMeta, // ← metadata that doesn't match the server's round
       [0],
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(409); // InvalidMetaData
@@ -278,14 +288,15 @@ describe.skipIf(!serverReachable)("submission — ballot validation", () => {
     const client = new TestClient();
     const session = await client.createMeeting();
     await client.startVoteRound(); // max_choices = 1
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0, 1], // ← 2 choices for a max_choices=1 round
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
     const res = await client.rawRequest("POST", "/api/voter/submit", ballot);
     expect(res.status).toBe(409); // InvalidVoteLength
@@ -304,14 +315,15 @@ describe.skipIf(!serverReachable)("submission — authentication", () => {
     const authClient = new TestClient();
     const session = await authClient.createMeeting();
     await authClient.startVoteRound();
-    const { token, regResponse } = await authClient.registerVoter(session);
+    await authClient.registerVoter(session);
+    const voteData = await authClient.getVoteData();
 
     const ballot = buildBallot(
       DEFAULT_METADATA,
       [0],
-      token.token,
-      token.blindFactor,
-      regResponse.signature,
+      new Uint8Array(voteData.token),
+      new Uint8Array(voteData.blind_factor),
+      voteData.signature,
     );
 
     // Submit with a fresh client that has no session cookie

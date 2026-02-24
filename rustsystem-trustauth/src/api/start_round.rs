@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use uuid::Uuid;
 use zkryptium::{
     bbsplus::ciphersuites::BbsCiphersuite,
@@ -57,7 +57,7 @@ impl APIHandler for StartRound {
         let round = RoundState {
             keys,
             header,
-            registered_voters: HashSet::new(),
+            registered_voters: HashMap::new(),
         };
 
         state.rounds().lock().await.insert(body.muuid, round);

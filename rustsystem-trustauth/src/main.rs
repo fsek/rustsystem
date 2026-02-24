@@ -11,7 +11,7 @@ use api::trustauth_routes;
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     net::SocketAddr,
     sync::Arc,
 };
@@ -26,11 +26,20 @@ pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 const API_ENDPOINT_TO_SERVER: &str = env!("API_ENDPOINT_TRUSTAUTH_TO_SERVER");
 const API_ENDPOINT_SERVER: &str = env!("API_ENDPOINT_SERVER");
 
+/// Stored per voter after successful blind-sign registration.
+pub struct VoterRegistration {
+    pub token: Vec<u8>,
+    pub blind_factor: Vec<u8>,
+    pub commitment: Vec<u8>,
+    pub context: serde_json::Value,
+    pub signature: serde_json::Value,
+}
+
 /// Per-round state owned by trustauth.
 pub struct RoundState {
     pub keys: AuthenticationKeys,
     pub header: Vec<u8>,
-    pub registered_voters: HashSet<Uuid>,
+    pub registered_voters: HashMap<Uuid, VoterRegistration>,
 }
 
 struct AppStateInternal {

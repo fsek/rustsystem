@@ -9,11 +9,7 @@ import {
   generateToken,
   buildBallot,
   uuidToBytes,
-  type RegistrationSuccessResponse,
-  type GeneratedToken,
   type BallotMetaData,
-  type CommitmentJson,
-  type ProofContext,
 } from "./signatures";
 
 // ─── API fetch ────────────────────────────────────────────────────────────────
@@ -82,84 +78,11 @@ export interface SessionIds {
   muuid: string; // meeting UUID
 }
 
-// Uint8Arrays are not JSON-serialisable; store as plain number[] instead.
-export interface StoredVoteData {
-  muuid: string;
-  uuuid: string;
-  /** Vote-round name at registration time, used to detect stale data. */
-  voteName: string | null;
-  token: number[];
-  blindFactor: number[];
-  commitmentJson: CommitmentJson;
-  context: ProofContext;
-  signature: unknown;
-}
-
-// ─── localStorage persistence ─────────────────────────────────────────────────
-//
-// Security model:
-//   • `token` and `blindFactor` are the voter's one-time anonymous credentials.
-//     They must never be sent to the server until vote submission, and must
-//     survive page refreshes / browser restarts so the user can still vote.
-//
-//   • localStorage is readable by any JavaScript on the same origin.
-//     An XSS attack could steal the token. Mitigations applied here:
-//       1. Auto-clear on successful vote submission — the token is spent anyway.
-//       2. Clear when the vote round changes — the old registration is invalid.
-//       3. "Clear token" button for shared/public computers.
-//     Additionally, the site should enforce a strict Content-Security-Policy
-//     header to reduce XSS surface (a server-side concern).
-//
-//   • Stealing the token lets an attacker submit a vote INSTEAD of the user
-//     (bearer-credential misuse), but it does NOT break vote anonymity:
-//     the server still cannot link a submitted ballot to any voter identity.
-//     That guarantee is structural (blind signature), not secret-dependent.
-//
-//   • Encrypting the payload at rest (SubtleCrypto + user passphrase) would
-//     further reduce XSS risk, but adds significant UX friction and is
-//     considered overkill for a first version of this voting system.
-//     It should, however, be considered for a future update.
-
-const STORAGE_KEY = "fsek-vote-session";
-
 export async function getSessionIds(): Promise<SessionIds> {
   const res = await apiFetch("/api/session-ids");
   const { uuuid, muuid } = await res.json();
 
   return { uuuid, muuid };
-}
-
-export function loadVoteData(): StoredVoteData | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredVoteData;
-  } catch {
-    return null;
-  }
-}
-
-export function saveVoteData(
-  ids: SessionIds,
-  token: GeneratedToken,
-  reg: RegistrationSuccessResponse,
-  voteName: string | null,
-): void {
-  const data: StoredVoteData = {
-    muuid: ids.muuid,
-    uuuid: ids.uuuid,
-    voteName,
-    token: Array.from(token.token),
-    blindFactor: Array.from(token.blindFactor),
-    commitmentJson: token.commitmentJson,
-    context: token.context,
-    signature: reg.signature,
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export function clearVoteData(): void {
-  localStorage.removeItem(STORAGE_KEY);
 }
 
 // ─── Meeting & vote-round management ─────────────────────────────────────────
@@ -281,20 +204,14 @@ export async function isSubmitted(signature: unknown): Promise<boolean> {
 
 // ─── Registration ─────────────────────────────────────────────────────────────
 
-export interface RegisterResult {
-  token: GeneratedToken;
-  regResponse: RegistrationSuccessResponse;
-}
-
 /**
- * Generate a blind-signature token and POST it to /api/voter/register.
+ * Generate a blind-signature token and POST it to trustauth /api/register.
+ * The token, blind factor, commitment, context, and resulting signature are
+ * stored server-side on trustauth. Nothing is persisted client-side.
  *
  * Throws an `Error` with a message like "HTTP 409" on a non-2xx response.
- * The caller is responsible for persisting the result via `saveVoteData`.
  */
-export async function registerVoter(
-  session: SessionIds,
-): Promise<RegisterResult> {
+export async function registerVoter(session: SessionIds): Promise<void> {
   const voterBytes = uuidToBytes(session.uuuid);
   const meetingBytes = uuidToBytes(session.muuid);
   const token = generateToken(voterBytes, meetingBytes);
@@ -302,6 +219,8 @@ export async function registerVoter(
   const body = {
     context: token.context,
     commitment: token.commitmentJson,
+    token: Array.from(token.token),
+    blind_factor: Array.from(token.blindFactor),
   };
 
   const res = await trustAuthFetch("/api/register", {
@@ -309,10 +228,28 @@ export async function registerVoter(
     body: JSON.stringify(body),
   });
 
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+// ─── Vote data retrieval ───────────────────────────────────────────────────────
+
+export interface VoteData {
+  token: number[];
+  blind_factor: number[];
+  signature: unknown;
+}
+
+/**
+ * GET /vote-data — retrieve the stored token, blind factor, and signature from
+ * trustauth. Called just before vote submission.
+ *
+ * Throws an `Error` with a message like "HTTP 404" if not registered.
+ */
+export async function getVoteData(): Promise<VoteData> {
+  const res = await trustAuthFetch("/api/vote-data");
   const data = await res.json();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-  return { token, regResponse: data as RegistrationSuccessResponse };
+  return data as VoteData;
 }
 
 // ─── Vote submission ──────────────────────────────────────────────────────────
@@ -321,20 +258,18 @@ export async function registerVoter(
  * Build a padded ballot and POST it to /api/voter/submit.
  *
  * Throws an `Error` with a message like "HTTP 400" on a non-2xx response.
- * The caller is responsible for clearing the stored token after a successful call.
  */
 export async function submitVote(
-  storedToken: GeneratedToken,
-  storedRegResponse: RegistrationSuccessResponse,
+  voteData: VoteData,
   metadata: BallotMetaData,
   choice: number[] | null,
 ): Promise<void> {
   const ballot = buildBallot(
     metadata,
     choice,
-    storedToken.token,
-    storedToken.blindFactor,
-    storedRegResponse.signature,
+    new Uint8Array(voteData.token),
+    new Uint8Array(voteData.blind_factor),
+    voteData.signature,
   );
 
   const res = await apiFetch("/api/voter/submit", {

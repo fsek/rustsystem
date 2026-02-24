@@ -11,16 +11,14 @@ use zkryptium::schemes::{
     generics::{BlindSignature, Commitment},
 };
 
-use crate::{AppState, tokens::TrustAuthUser};
+use crate::{AppState, VoterRegistration, tokens::TrustAuthUser};
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     pub commitment: Commitment<BbsBls12381Sha256>,
-}
-
-#[derive(Serialize)]
-pub struct RegisterResponse {
-    pub signature: BlindSignature<BbsBls12381Sha256>,
+    pub token: Vec<u8>,
+    pub blind_factor: Vec<u8>,
+    pub context: serde_json::Value,
 }
 
 pub struct Register;
@@ -28,7 +26,7 @@ pub struct Register;
 impl APIHandler for Register {
     type State = AppState;
     type Request = (TrustAuthUser, State<AppState>, Json<RegisterRequest>);
-    type SuccessResponse = Json<RegisterResponse>;
+    type SuccessResponse = ();
 
     const METHOD: Method = Method::Post;
     const PATH: &'static str = "/register";
@@ -51,7 +49,7 @@ impl APIHandler for Register {
             .get_mut(&auth.muuid)
             .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
 
-        if round.registered_voters.contains(&auth.uuuid) {
+        if round.registered_voters.contains_key(&auth.uuuid) {
             return Err(APIError::from_error_code(APIErrorCode::AlreadyRegistered));
         }
 
@@ -64,9 +62,21 @@ impl APIHandler for Register {
         )
         .map_err(|_| APIError::from_error_code(APIErrorCode::SignatureFailure))?;
 
-        round.registered_voters.insert(auth.uuuid);
+        let signature_json = serde_json::to_value(&signature)
+            .map_err(|_| APIError::from_error_code(APIErrorCode::Other))?;
 
-        Ok(Json(RegisterResponse { signature }))
+        round.registered_voters.insert(
+            auth.uuuid,
+            VoterRegistration {
+                token: body.token,
+                blind_factor: body.blind_factor,
+                commitment: body.commitment.to_bytes().to_vec(),
+                context: body.context,
+                signature: signature_json,
+            },
+        );
+
+        Ok(())
     }
 }
 
@@ -111,7 +121,7 @@ impl APIHandler for IsRegistered {
         let round = rounds_lock
             .get_mut(&auth.muuid)
             .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
-        if !round.registered_voters.contains(&auth.uuuid) {
+        if !round.registered_voters.contains_key(&auth.uuuid) {
             is_registered = false;
         }
 

@@ -6,18 +6,13 @@ import { Alert } from "@/components/Alert/Alert";
 import {
   registerVoter,
   submitVote,
+  getVoteData,
   isRegistered,
   isSubmitted,
-  saveVoteData,
-  loadVoteData,
-  clearVoteData,
   getSessionIds,
+  type VoteData,
 } from "@/signatures/voteSession";
-import type {
-  BallotMetaData,
-  RegistrationSuccessResponse,
-  GeneratedToken,
-} from "@/signatures/signatures";
+import type { BallotMetaData } from "@/signatures/signatures";
 
 export type VoteState = "Creation" | "Voting" | "Tally";
 
@@ -33,24 +28,20 @@ type VoterStatus =
   | "registering" // registration request in flight
   | "selecting" // registered, awaiting vote selection
   | "submitting" // submission request in flight
-  | "done" // vote successfully submitted
-  | "no-token"; // registered on server but no local crypto data (other device)
+  | "done"; // vote successfully submitted
 
 export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
   const [status, setStatus] = useState<VoterStatus>("idle");
-  const [token, setToken] = useState<GeneratedToken | null>(null);
-  const [regResponse, setRegResponse] =
-    useState<RegistrationSuccessResponse | null>(null);
+  const [voteData, setVoteData] = useState<VoteData | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Track the vote name at derivation time to detect stale stored data.
+  // Track the vote name at derivation time to avoid redundant checks.
   const derivedForVoteName = useRef<string | null | undefined>(undefined);
 
   // Derive the voter's state from the server whenever we enter the Voting phase.
   useEffect(() => {
     if (voteState !== "Voting") return;
-    // Already derived for this vote round — don't query again.
     if (derivedForVoteName.current === voteName) return;
 
     derivedForVoteName.current = voteName;
@@ -62,47 +53,20 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
         const registered = await isRegistered();
 
         if (!registered) {
-          // Clear any stale crypto data from a previous round.
-          clearVoteData();
-          setToken(null);
-          setRegResponse(null);
+          setVoteData(null);
           setStatus("idle");
           return;
         }
 
-        // Registered — check local crypto storage.
-        const stored = loadVoteData();
-        if (!stored || stored.voteName !== voteName) {
-          // Registered on the server but no matching local crypto data.
-          // The user must have registered from another device/browser.
-          clearVoteData();
-          setToken(null);
-          setRegResponse(null);
-          setStatus("no-token");
-          return;
-        }
-
-        // We have local crypto data — check whether the vote was already cast.
-        const submitted = await isSubmitted(stored.signature);
+        // Fetch stored vote data from trustauth.
+        const data = await getVoteData();
+        const submitted = await isSubmitted(data.signature);
         if (submitted) {
           setStatus("done");
           return;
         }
 
-        // Registered but not yet submitted — restore crypto data so the user
-        // can continue voting without re-registering.
-        const restoredToken: GeneratedToken = {
-          token: new Uint8Array(stored.token),
-          blindFactor: new Uint8Array(stored.blindFactor),
-          commitmentJson: stored.commitmentJson,
-          context: stored.context,
-        };
-        const restoredReg = {
-          signature: stored.signature,
-        } as RegistrationSuccessResponse;
-
-        setToken(restoredToken);
-        setRegResponse(restoredReg);
+        setVoteData(data);
         setSelected([]);
         setStatus("selecting");
       } catch (err) {
@@ -117,11 +81,9 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
   // Reset when the voting round ends.
   useEffect(() => {
     if (voteState === "Creation") {
-      clearVoteData();
       derivedForVoteName.current = undefined;
       setStatus("idle");
-      setToken(null);
-      setRegResponse(null);
+      setVoteData(null);
       setSelected([]);
       setError(null);
     }
@@ -132,11 +94,9 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
     setStatus("registering");
     setError(null);
     try {
-      const { token: t, regResponse: r } = await registerVoter(session);
-      // Persist crypto details so state can be recovered after a page reload.
-      saveVoteData(session, t, r, voteName ?? null);
-      setToken(t);
-      setRegResponse(r);
+      await registerVoter(session);
+      const data = await getVoteData();
+      setVoteData(data);
       setSelected([]);
       setStatus("selecting");
     } catch (err) {
@@ -146,12 +106,11 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
   }
 
   async function handleSubmit(blank = false) {
-    if (!token || !regResponse || !metadata) return;
+    if (!voteData || !metadata) return;
     setStatus("submitting");
     setError(null);
     try {
-      await submitVote(token, regResponse, metadata, blank ? null : selected);
-      // Keep crypto data in localStorage so is-submitted can be verified on reload.
+      await submitVote(voteData, metadata, blank ? null : selected);
       setStatus("done");
     } catch (err) {
       setError(String(err));
@@ -342,12 +301,6 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
               </Alert>
             )}
 
-            {status === "no-token" && (
-              <Alert size="m" color="secondary">
-                You are registered on another device. Please complete your vote
-                there, or ask the host to reset your registration.
-              </Alert>
-            )}
           </>
         )}
 

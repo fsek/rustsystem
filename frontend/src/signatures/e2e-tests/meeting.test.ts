@@ -178,8 +178,9 @@ describe.skipIf(!serverReachable)("getTally", () => {
     await client.startVoteRound();
 
     // Cast a vote for candidate 0, then tally
-    const { token, regResponse } = await client.registerVoter(session);
-    await client.submitVote(token, regResponse, [0]);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
+    await client.submitVote(voteData, [0]);
     const tallyResult = await client.tally();
 
     // get-tally must return the same result as tally
@@ -254,8 +255,9 @@ describe.skipIf(!serverReachable)("full vote cycle", () => {
 
     // Round 1
     await client.startVoteRound("Round 1");
-    const { token, regResponse } = await client.registerVoter(session);
-    await client.submitVote(token, regResponse, [1]); // vote for Option B
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
+    await client.submitVote(voteData, [1]); // vote for Option B
     const result = await client.tally();
     expect(result.score[DEFAULT_METADATA.candidates[1]]).toBe(1);
     await client.endVoteRound();

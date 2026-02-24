@@ -35,6 +35,7 @@ pub enum APIErrorCode {
     UUIDAlreadyClaimed,
     NameTaken,
     AlreadyRegistered,
+    NotRegistered,
 
     MUIDMismatch,
 
@@ -82,6 +83,7 @@ impl APIErrorCode {
             ),
             Self::NameTaken => ("The name provided already exists.", 409),
             Self::AlreadyRegistered => ("User has already registered for this voting round.", 409),
+            Self::NotRegistered => ("User has not registered for this voting round.", 404),
             Self::MUIDMismatch => ("The MUID doesn't match validation through JWT.", 409),
 
             Self::InvalidMetaData => (

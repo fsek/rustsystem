@@ -34,19 +34,20 @@ describe.skipIf(!serverReachable)("registration — happy path", () => {
     const session = await client.createMeeting();
     await client.startVoteRound();
 
-    const { token, regResponse } = await client.registerVoter(session);
+    await client.registerVoter(session);
+    const voteData = await client.getVoteData();
 
     // The response must carry the BBS+ blind signature and the round metadata
     // so the voter can later build a valid ballot without knowing the public key.
-    expect(regResponse.signature).toBeDefined();
+    expect(voteData.signature).toBeDefined();
     expect(DEFAULT_METADATA.candidates).toEqual(
       DEFAULT_METADATA.candidates,
     );
     expect(DEFAULT_METADATA.max_choices).toBe(DEFAULT_METADATA.max_choices);
 
     // The locally generated token must be usable (non-empty)
-    expect(token.token.length).toBeGreaterThan(0);
-    expect(token.blindFactor.length).toBeGreaterThan(0);
+    expect(voteData.token.length).toBeGreaterThan(0);
+    expect(voteData.blind_factor.length).toBeGreaterThan(0);
   });
 });
 
