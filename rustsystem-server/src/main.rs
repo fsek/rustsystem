@@ -13,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
 
-    let state = init_state();
+    let state = init_state().unwrap();
 
     let app_public = app_public(state.clone());
     let app_internal = app_internal(state);

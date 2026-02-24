@@ -35,8 +35,8 @@ export default defineConfig({
     "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(
       process.env.KEYGEN_ITERATIONS,
     ),
-    "import.meta.env.VITE_TRUSTAUTH_ENDPOINT": process.env.VITE_TRUSTAUTH_ENDPOINT
-      ? JSON.stringify(process.env.VITE_TRUSTAUTH_ENDPOINT)
+    "import.meta.env.API_ENDPOINT_TRUSTAUTH": process.env.API_ENDPOINT_TRUSTAUTH
+      ? JSON.stringify(process.env.API_ENDPOINT_TRUSTAUTH)
       : undefined,
   },
   build: {

@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode};
+use api_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use axum::Router;
 use invite_auth::InviteAuthority;
 use reqwest::Client;
@@ -39,6 +39,7 @@ type UUuid = Uuid;
 const API_ENDPOINT: &str = env!("API_ENDPOINT_SERVER");
 const API_ENDPOINT_FROM_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH_TO_SERVER");
 const API_ENDPOINT_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH");
+const API_ENDPOINT_SERVER_TO_TRUSTAUTH: &str = env!("API_ENDPOINT_SERVER_TO_TRUSTAUTH");
 
 #[derive(Debug)]
 pub struct Voter {
@@ -147,7 +148,9 @@ impl AppState {
         };
 
         let resp = client
-            .post(format!("{API_ENDPOINT_TRUSTAUTH}/api/start-round"))
+            .post(format!(
+                "{API_ENDPOINT_SERVER_TO_TRUSTAUTH}/server/api/start-round"
+            ))
             .json(&StartRoundRequest { muuid, name })
             .send()
             .await
@@ -162,16 +165,16 @@ impl AppState {
     }
 }
 
-pub fn init_state() -> AppState {
+pub fn init_state() -> anyhow::Result<AppState> {
     let is_secure = API_ENDPOINT.starts_with("https://");
     info!("Running rustsystem server with secure setting: {is_secure}");
 
-    AppState(Arc::new(RwLock::new(AppStateInternal {
-        secret: get_secret().unwrap(),
+    Ok(AppState(Arc::new(RwLock::new(AppStateInternal {
+        secret: get_secret()?,
         meetings: Arc::new(Mutex::new(HashMap::new())),
         is_secure,
-        trustauth_client: Client::new(),
-    })))
+        trustauth_client: build_mtls_client("server")?,
+    }))))
 }
 
 pub fn app_public(state: AppState) -> Router {

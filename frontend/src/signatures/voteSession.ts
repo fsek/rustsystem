@@ -37,12 +37,12 @@ export async function apiFetch(
 }
 
 // ─── TrustAuth fetch ──────────────────────────────────────────────────────────
-// Set VITE_TRUSTAUTH_ENDPOINT at build time to the trustauth origin visible from the browser
+// Set API_ENDPOINT_TRUSTAUTH at build time to the trustauth origin visible from the browser
 // (e.g. http://localhost:2443 in dev, https://trustauth.fsektionen.se in prod).
 // Must use the same hostname as the server so that SameSite=Strict cookies are sent correctly.
 
 export const TRUSTAUTH_BASE = (
-  import.meta.env.VITE_TRUSTAUTH_ENDPOINT ?? ""
+  import.meta.env.API_ENDPOINT_TRUSTAUTH ?? ""
 ).replace(/\/$/, "");
 
 export function trustAuthUrl(path: string): string {

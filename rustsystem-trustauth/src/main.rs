@@ -1,25 +1,27 @@
-use api_core::{APIError, APIErrorCode, mtls::build_mtls_client};
+use api_core::{
+    APIError, APIErrorCode,
+    mtls::{build_mtls_client, build_mtls_server_config},
+};
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
 };
+use axum_server::tls_rustls::RustlsConfig;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 mod api;
+mod api_server;
 mod tokens;
-use api::trustauth_routes;
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
 use tracing::{info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
+
+use crate::{api::public_routes, api_server::internal_routes};
 
 pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
@@ -169,16 +171,33 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers([header::CONTENT_TYPE])
         .allow_credentials(true);
 
-    let app = Router::new()
-        .nest("/api", trustauth_routes())
+    let app_public = Router::new()
+        .nest("/api", public_routes())
         .layer(cors)
+        .with_state(state.clone());
+
+    let app_internal = Router::new()
+        .nest("/server/api", internal_routes())
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 2443));
-    info!("Running trustauth server on {addr}");
-    axum_server::bind(addr)
-        .serve(app.into_make_service())
-        .await?;
+    let addr_public = SocketAddr::from(([0, 0, 0, 0], 2443));
+    let addr_internal = SocketAddr::from(([0, 0, 0, 0], 2444));
 
+    let tls_config = build_mtls_server_config(
+        "mtls/trustauth/trustauth.crt",
+        "mtls/trustauth/trustauth.key",
+        "mtls/ca/ca.crt",
+    )
+    .unwrap();
+
+    info!("Running trustauth server on {addr_public}");
+    let public_serve = axum_server::bind(addr_public).serve(app_public.into_make_service());
+    let internal_serve = axum_server::bind_rustls(
+        addr_internal,
+        RustlsConfig::from_config(std::sync::Arc::new(tls_config)),
+    )
+    .serve(app_internal.into_make_service());
+
+    let (internal_res, public_res) = tokio::try_join!(internal_serve, public_serve)?;
     Ok(())
 }
