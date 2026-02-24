@@ -37,8 +37,6 @@ type UUuid = Uuid;
 
 /// NOTE: The API_ENDPOINT environmental variable must be set at compile time!
 const API_ENDPOINT: &str = env!("API_ENDPOINT_SERVER");
-const API_ENDPOINT_FROM_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH_TO_SERVER");
-const API_ENDPOINT_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH");
 const API_ENDPOINT_SERVER_TO_TRUSTAUTH: &str = env!("API_ENDPOINT_SERVER_TO_TRUSTAUTH");
 
 #[derive(Debug)]

@@ -1,0 +1,59 @@
+ARG API_ENDPOINT_SERVER=https://rosta.fsektionen.se
+ARG API_ENDPOINT_TRUSTAUTH=https://rosta.trustauth.fsektionen.se
+ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH=https://rustsystem-trustauth:2444
+
+# NOTE: SALT_HEX is different from the value in .env. This value is not secret, only used to maintain uniqueness. It's purposefully different from the development value in order to maintain uniqueness in production.
+ARG SALT_HEX=fa592f8bf54e9e6710f9e63699651c9d 
+ARG KEYGEN_ITERATIONS=200000
+
+FROM node:24-bullseye AS frontend-builder
+RUN npm install -g pnpm
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ .
+ARG API_ENDPOINT_SERVER
+ARG API_ENDPOINT_TRUSTAUTH
+ARG SALT_HEX
+ARG KEYGEN_ITERATIONS
+RUN pnpm run build
+RUN ls
+
+FROM rust:1.91-bullseye AS backend-builder
+WORKDIR /app
+COPY Cargo.server.toml ./Cargo.toml
+COPY Cargo.lock ./
+COPY rustsystem-server/ ./rustsystem-server/
+COPY api-core/ ./api-core/
+ARG API_ENDPOINT_SERVER
+ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH
+ARG SALT_HEX
+ARG KEYGEN_ITERATIONS
+RUN cargo build --release --bin rustsystem-server
+
+FROM debian:bullseye-slim AS runtime
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY mtls/ca/ ./mtls/ca/
+COPY mtls/server/ ./mtls/server/
+
+# Copy the built backend binary
+COPY --from=backend-builder /app/target/release/rustsystem-server ./rustsystem-server
+
+# Copy the built frontend
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+
+# Create a non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 1443
+EXPOSE 1444
+EXPOSE 2444
+
+CMD ["./rustsystem-server"]

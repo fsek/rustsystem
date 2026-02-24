@@ -1,0 +1,36 @@
+ARG API_ENDPOINT_SERVER=https://rosta.fsektionen.se
+ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER=https://rustsystem-server:1444
+ARG API_ENDPOINT_TRUSTAUTH=https://rosta.trustauth.fsektionen.se
+
+FROM rust:1.91-bullseye AS builder
+WORKDIR /app
+COPY Cargo.trustauth.toml ./Cargo.toml
+COPY Cargo.lock ./
+COPY rustsystem-trustauth/ ./rustsystem-trustauth/
+COPY api-core/ ./api-core/
+ARG API_ENDPOINT_SERVER
+ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER
+ARG API_ENDPOINT_TRUSTAUTH
+RUN cargo build --release --bin rustsystem-trustauth
+
+FROM debian:bullseye-slim AS runtime
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY mtls/ca ./mtls/ca/
+COPY mtls/trustauth ./mtls/trustauth/
+
+COPY --from=builder /app/target/release/rustsystem-trustauth ./rustsystem-trustauth
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 2443
+EXPOSE 2444
+EXPOSE 1444
+
+CMD ["./rustsystem-trustauth"]

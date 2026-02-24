@@ -1,6 +1,19 @@
 SERVER="server"
 TRUSTAUTH="trustauth"
 
+# Check mode argument
+MODE=${1:-}
+if [ "$MODE" = "dev" ]; then
+  SERVER_DNS="localhost"
+  TRUSTAUTH_DNS="localhost"
+elif [ "$MODE" = "prod" ]; then
+  SERVER_DNS="rustsystem-server"
+  TRUSTAUTH_DNS="rustsystem-trustauth"
+else
+  echo "Usage: $0 <dev|prod>"
+  exit 1
+fi
+
 # Clear previous certs
 rm -rf ca server trustauth
 mkdir ca server trustauth
@@ -14,6 +27,7 @@ openssl req -x509 -new -key ca/ca.key -out ca/ca.crt -days 3650 \
 
 create_crts () {
   ENDPOINT=$1
+  DNS_NAME=$2
   echo "
   [ req ]
     default_bits       = 2048
@@ -34,9 +48,8 @@ create_crts () {
     keyUsage = digitalSignature, keyEncipherment
 
     [ alt_names ]
-    DNS.1 = $ENDPOINT.internal
-    DNS.2 = localhost
-    IP.1  = 127.0.0.1
+    DNS.1 = $DNS_NAME
+    $([ "$MODE" = "dev" ] && echo "IP.1  = 127.0.0.1")
   " > $ENDPOINT/openssl.cnf
   
   # # Key
@@ -55,5 +68,5 @@ create_crts () {
     -extfile $ENDPOINT/openssl.cnf -extensions req_ext
 }
 
-create_crts $SERVER
-create_crts $TRUSTAUTH
+create_crts $SERVER $SERVER_DNS
+create_crts $TRUSTAUTH $TRUSTAUTH_DNS

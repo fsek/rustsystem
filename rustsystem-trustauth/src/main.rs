@@ -16,7 +16,7 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{error, info, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
@@ -84,12 +84,16 @@ impl AppState {
 
     pub async fn is_voter(&self, uuuid: Uuid, muuid: Uuid) -> Result<bool, APIError> {
         let body = IsVoterRequest { uuuid, muuid };
+        info!("Fetching voter");
         self.post("is-voter", &body)
             .await?
             .json::<IsVoterResponse>()
             .await
             .map(|r| r.is_voter)
-            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))
+            .map_err(|e| {
+                error!("Failed to fetch voter: {e}");
+                APIError::from_error_code(APIErrorCode::TrustAuthFetch)
+            })
     }
 
     pub async fn post<B: serde::Serialize>(
@@ -104,7 +108,10 @@ impl AppState {
             .send()
             .await
             .and_then(|r| r.error_for_status())
-            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))
+            .map_err(|e| {
+                error!("Failed to fetch voter: {e}");
+                APIError::from_error_code(APIErrorCode::TrustAuthFetch)
+            })
     }
 }
 
