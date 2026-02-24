@@ -14,7 +14,7 @@ use crate::{
     vote_auth::VoteAuthority,
 };
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateMeetingRequest {

@@ -4,7 +4,7 @@ use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::{
     AppState,

@@ -1,4 +1,4 @@
-use api_core::add_handler;
+use rustsystem_core::add_handler;
 use axum::Router;
 
 use crate::{AppState, api::register::IsRegistered};

@@ -1,4 +1,4 @@
-use api_core::{APIError, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use rand::Rng;

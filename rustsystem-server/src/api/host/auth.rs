@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
+use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{Json, extract::FromRequestParts, http::StatusCode};
 
 use crate::{AppState, MUuid, UUuid, tokens::AuthUser};
@@ -28,7 +28,7 @@ impl FromRequestParts<AppState> for AuthHost {
             Ok(user.into())
         } else {
             let endpoint = EndpointMeta {
-                method: api_core::Method::from(parts.method.clone()),
+                method: rustsystem_core::Method::from(parts.method.clone()),
                 path: parts.uri.path().to_string(),
             };
             Err(APIError::from_error_code(APIErrorCode::AuthError)

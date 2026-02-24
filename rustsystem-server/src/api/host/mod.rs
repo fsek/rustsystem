@@ -3,7 +3,7 @@ use axum::{
     routing::{delete, get, post},
 };
 
-use api_core::APIHandler;
+use rustsystem_core::APIHandler;
 
 use crate::AppState;
 

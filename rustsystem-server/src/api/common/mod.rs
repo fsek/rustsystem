@@ -1,6 +1,6 @@
 use axum::Router;
 
-use api_core::add_handler;
+use rustsystem_core::add_handler;
 
 use crate::AppState;
 

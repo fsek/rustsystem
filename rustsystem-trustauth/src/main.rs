@@ -1,4 +1,4 @@
-use api_core::{
+use rustsystem_core::{
     APIError, APIErrorCode,
     mtls::{build_mtls_client, build_mtls_server_config},
 };
@@ -142,7 +142,7 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
 
-    let secret = api_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")
+    let secret = rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")
         .map_err(|e| anyhow::anyhow!("Failed to load trustauth secret: {e}"))?;
     info!("Loaded trustauth secret");
 

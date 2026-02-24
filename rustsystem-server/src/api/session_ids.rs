@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use api_core::{APIError, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::{AppState, AuthUser};
 

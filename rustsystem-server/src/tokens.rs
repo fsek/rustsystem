@@ -1,6 +1,6 @@
 use std::io;
 
-use api_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
+use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{
     Json,
     extract::FromRequestParts,
@@ -87,7 +87,7 @@ pub fn get_meeting_jwt(
 }
 
 pub fn get_secret() -> io::Result<[u8; 32]> {
-    api_core::secret::get_or_create_secret("/tmp/rustsystem-server-secret")
+    rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-server-secret")
 }
 
 pub struct AuthUser {
@@ -108,7 +108,7 @@ impl FromRequestParts<AppState> for AuthUser {
             .expect("infallible");
 
         let endpoint = EndpointMeta {
-            method: api_core::Method::from(parts.method.clone()),
+            method: rustsystem_core::Method::from(parts.method.clone()),
             path: parts.uri.path().to_string(),
         };
 

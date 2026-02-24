@@ -7,7 +7,7 @@ WORKDIR /app
 COPY Cargo.trustauth.toml ./Cargo.toml
 COPY Cargo.lock ./
 COPY rustsystem-trustauth/ ./rustsystem-trustauth/
-COPY api-core/ ./api-core/
+COPY rustsystem-core/ ./rustsystem-core/
 ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER
 ARG API_ENDPOINT_TRUSTAUTH

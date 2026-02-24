@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode, APIHandler, Method, add_handler};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method, add_handler};
 use async_trait::async_trait;
 use axum::{
     Json, Router,

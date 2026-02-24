@@ -1,5 +1,5 @@
-use api_core::APIError;
-use api_core::APIErrorCode;
+use rustsystem_core::APIError;
+use rustsystem_core::APIErrorCode;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::watch::{Receiver, Sender};

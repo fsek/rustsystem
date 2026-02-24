@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode, mtls::build_mtls_client};
+use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use axum::Router;
 use invite_auth::InviteAuthority;
 use reqwest::Client;

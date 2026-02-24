@@ -1,7 +1,7 @@
 use crate::AppState;
 use axum::Router;
 
-use api_core::add_handler;
+use rustsystem_core::add_handler;
 
 pub mod create_meeting;
 use create_meeting::CreateMeeting;

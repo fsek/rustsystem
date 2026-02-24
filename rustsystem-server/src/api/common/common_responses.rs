@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode};
+use rustsystem_core::{APIError, APIErrorCode};
 
 use crate::vote_auth::{VoteAuthority, VoteRound};
 

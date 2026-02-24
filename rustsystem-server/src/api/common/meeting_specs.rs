@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
 use crate::{AppState, tokens::AuthUser};

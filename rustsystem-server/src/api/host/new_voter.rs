@@ -10,7 +10,7 @@ use qrcode::{EcLevel, QrCode};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use uuid::Uuid;
 
 use crate::admin_auth::AdminCred;

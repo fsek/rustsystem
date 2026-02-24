@@ -8,7 +8,7 @@ use axum::{
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::{AppState, tally_encrypt::save_encrypted_tally, vote_auth};
 

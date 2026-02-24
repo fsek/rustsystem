@@ -1,5 +1,5 @@
 [workspace]
-members = ["rustsystem-server", "api-core", "decrypt-tally", "rustsystem-trustauth"]
+members = ["rustsystem-server", "rustsystem-core", "decrypt-tally", "rustsystem-trustauth"]
 resolver = "3"
 
 [workspace.dependencies]

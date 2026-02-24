@@ -6,7 +6,7 @@ use axum::{
 };
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
-use api_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::AppState;
 

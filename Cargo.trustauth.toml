@@ -1,5 +1,5 @@
 [workspace]
-members = ["api-core", "rustsystem-trustauth"]
+members = ["rustsystem-core", "rustsystem-trustauth"]
 resolver = "3"
 
 [workspace.dependencies]

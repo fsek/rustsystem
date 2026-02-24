@@ -1,4 +1,4 @@
-use api_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta, Method};
 use axum::{Json, extract::FromRequestParts, http::{StatusCode, request::Parts}};
 use axum_extra::extract::CookieJar;
 use jsonwebtoken::{DecodingKey, Validation, decode};

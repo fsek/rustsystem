@@ -24,7 +24,7 @@ WORKDIR /app
 COPY Cargo.server.toml ./Cargo.toml
 COPY Cargo.lock ./
 COPY rustsystem-server/ ./rustsystem-server/
-COPY api-core/ ./api-core/
+COPY rustsystem-core/ ./rustsystem-core/
 ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH
 ARG SALT_HEX
