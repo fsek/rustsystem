@@ -10,224 +10,224 @@
 
 // Import Routes
 
-import { Route as rootRoute } from "./routes/__root";
-import { Route as SignatureDevImport } from "./routes/signature-dev";
-import { Route as PreviewImport } from "./routes/preview";
-import { Route as MeetingImport } from "./routes/meeting";
-import { Route as LoginImport } from "./routes/login";
-import { Route as DevTestingImport } from "./routes/dev-testing";
-import { Route as CreateMeetingImport } from "./routes/create-meeting";
-import { Route as AdminImport } from "./routes/admin";
-import { Route as IndexImport } from "./routes/index";
+import { Route as rootRoute } from './routes/__root'
+import { Route as MeetingImport } from './routes/meeting'
+import { Route as LoginImport } from './routes/login'
+import { Route as CreateMeetingImport } from './routes/create-meeting'
+import { Route as AdminImport } from './routes/admin'
+import { Route as IndexImport } from './routes/index'
+import { Route as DevSignatureDevImport } from './routes/dev/signature-dev'
+import { Route as DevPreviewImport } from './routes/dev/preview'
+import { Route as DevDevTestingImport } from './routes/dev/dev-testing'
 
 // Create/Update Routes
 
-const SignatureDevRoute = SignatureDevImport.update({
-  id: "/signature-dev",
-  path: "/signature-dev",
-  getParentRoute: () => rootRoute,
-} as any);
-
-const PreviewRoute = PreviewImport.update({
-  id: "/preview",
-  path: "/preview",
-  getParentRoute: () => rootRoute,
-} as any);
-
 const MeetingRoute = MeetingImport.update({
-  id: "/meeting",
-  path: "/meeting",
+  id: '/meeting',
+  path: '/meeting',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const LoginRoute = LoginImport.update({
-  id: "/login",
-  path: "/login",
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRoute,
-} as any);
-
-const DevTestingRoute = DevTestingImport.update({
-  id: "/dev-testing",
-  path: "/dev-testing",
-  getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const CreateMeetingRoute = CreateMeetingImport.update({
-  id: "/create-meeting",
-  path: "/create-meeting",
+  id: '/create-meeting',
+  path: '/create-meeting',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const AdminRoute = AdminImport.update({
-  id: "/admin",
-  path: "/admin",
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
 
 const IndexRoute = IndexImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRoute,
-} as any);
+} as any)
+
+const DevSignatureDevRoute = DevSignatureDevImport.update({
+  id: '/dev/signature-dev',
+  path: '/dev/signature-dev',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DevPreviewRoute = DevPreviewImport.update({
+  id: '/dev/preview',
+  path: '/dev/preview',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DevDevTestingRoute = DevDevTestingImport.update({
+  id: '/dev/dev-testing',
+  path: '/dev/dev-testing',
+  getParentRoute: () => rootRoute,
+} as any)
 
 // Populate the FileRoutesByPath interface
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/admin": {
-      id: "/admin";
-      path: "/admin";
-      fullPath: "/admin";
-      preLoaderRoute: typeof AdminImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/create-meeting": {
-      id: "/create-meeting";
-      path: "/create-meeting";
-      fullPath: "/create-meeting";
-      preLoaderRoute: typeof CreateMeetingImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/dev-testing": {
-      id: "/dev-testing";
-      path: "/dev-testing";
-      fullPath: "/dev-testing";
-      preLoaderRoute: typeof DevTestingImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/login": {
-      id: "/login";
-      path: "/login";
-      fullPath: "/login";
-      preLoaderRoute: typeof LoginImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/meeting": {
-      id: "/meeting";
-      path: "/meeting";
-      fullPath: "/meeting";
-      preLoaderRoute: typeof MeetingImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/preview": {
-      id: "/preview";
-      path: "/preview";
-      fullPath: "/preview";
-      preLoaderRoute: typeof PreviewImport;
-      parentRoute: typeof rootRoute;
-    };
-    "/signature-dev": {
-      id: "/signature-dev";
-      path: "/signature-dev";
-      fullPath: "/signature-dev";
-      preLoaderRoute: typeof SignatureDevImport;
-      parentRoute: typeof rootRoute;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminImport
+      parentRoute: typeof rootRoute
+    }
+    '/create-meeting': {
+      id: '/create-meeting'
+      path: '/create-meeting'
+      fullPath: '/create-meeting'
+      preLoaderRoute: typeof CreateMeetingImport
+      parentRoute: typeof rootRoute
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginImport
+      parentRoute: typeof rootRoute
+    }
+    '/meeting': {
+      id: '/meeting'
+      path: '/meeting'
+      fullPath: '/meeting'
+      preLoaderRoute: typeof MeetingImport
+      parentRoute: typeof rootRoute
+    }
+    '/dev/dev-testing': {
+      id: '/dev/dev-testing'
+      path: '/dev/dev-testing'
+      fullPath: '/dev/dev-testing'
+      preLoaderRoute: typeof DevDevTestingImport
+      parentRoute: typeof rootRoute
+    }
+    '/dev/preview': {
+      id: '/dev/preview'
+      path: '/dev/preview'
+      fullPath: '/dev/preview'
+      preLoaderRoute: typeof DevPreviewImport
+      parentRoute: typeof rootRoute
+    }
+    '/dev/signature-dev': {
+      id: '/dev/signature-dev'
+      path: '/dev/signature-dev'
+      fullPath: '/dev/signature-dev'
+      preLoaderRoute: typeof DevSignatureDevImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
 // Create and export the route tree
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/create-meeting": typeof CreateMeetingRoute;
-  "/dev-testing": typeof DevTestingRoute;
-  "/login": typeof LoginRoute;
-  "/meeting": typeof MeetingRoute;
-  "/preview": typeof PreviewRoute;
-  "/signature-dev": typeof SignatureDevRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/create-meeting': typeof CreateMeetingRoute
+  '/login': typeof LoginRoute
+  '/meeting': typeof MeetingRoute
+  '/dev/dev-testing': typeof DevDevTestingRoute
+  '/dev/preview': typeof DevPreviewRoute
+  '/dev/signature-dev': typeof DevSignatureDevRoute
 }
 
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/create-meeting": typeof CreateMeetingRoute;
-  "/dev-testing": typeof DevTestingRoute;
-  "/login": typeof LoginRoute;
-  "/meeting": typeof MeetingRoute;
-  "/preview": typeof PreviewRoute;
-  "/signature-dev": typeof SignatureDevRoute;
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/create-meeting': typeof CreateMeetingRoute
+  '/login': typeof LoginRoute
+  '/meeting': typeof MeetingRoute
+  '/dev/dev-testing': typeof DevDevTestingRoute
+  '/dev/preview': typeof DevPreviewRoute
+  '/dev/signature-dev': typeof DevSignatureDevRoute
 }
 
 export interface FileRoutesById {
-  __root__: typeof rootRoute;
-  "/": typeof IndexRoute;
-  "/admin": typeof AdminRoute;
-  "/create-meeting": typeof CreateMeetingRoute;
-  "/dev-testing": typeof DevTestingRoute;
-  "/login": typeof LoginRoute;
-  "/meeting": typeof MeetingRoute;
-  "/preview": typeof PreviewRoute;
-  "/signature-dev": typeof SignatureDevRoute;
+  __root__: typeof rootRoute
+  '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/create-meeting': typeof CreateMeetingRoute
+  '/login': typeof LoginRoute
+  '/meeting': typeof MeetingRoute
+  '/dev/dev-testing': typeof DevDevTestingRoute
+  '/dev/preview': typeof DevPreviewRoute
+  '/dev/signature-dev': typeof DevSignatureDevRoute
 }
 
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | "/"
-    | "/admin"
-    | "/create-meeting"
-    | "/dev-testing"
-    | "/login"
-    | "/meeting"
-    | "/preview"
-    | "/signature-dev";
-  fileRoutesByTo: FileRoutesByTo;
+    | '/'
+    | '/admin'
+    | '/create-meeting'
+    | '/login'
+    | '/meeting'
+    | '/dev/dev-testing'
+    | '/dev/preview'
+    | '/dev/signature-dev'
+  fileRoutesByTo: FileRoutesByTo
   to:
-    | "/"
-    | "/admin"
-    | "/create-meeting"
-    | "/dev-testing"
-    | "/login"
-    | "/meeting"
-    | "/preview"
-    | "/signature-dev";
+    | '/'
+    | '/admin'
+    | '/create-meeting'
+    | '/login'
+    | '/meeting'
+    | '/dev/dev-testing'
+    | '/dev/preview'
+    | '/dev/signature-dev'
   id:
-    | "__root__"
-    | "/"
-    | "/admin"
-    | "/create-meeting"
-    | "/dev-testing"
-    | "/login"
-    | "/meeting"
-    | "/preview"
-    | "/signature-dev";
-  fileRoutesById: FileRoutesById;
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/create-meeting'
+    | '/login'
+    | '/meeting'
+    | '/dev/dev-testing'
+    | '/dev/preview'
+    | '/dev/signature-dev'
+  fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  AdminRoute: typeof AdminRoute;
-  CreateMeetingRoute: typeof CreateMeetingRoute;
-  DevTestingRoute: typeof DevTestingRoute;
-  LoginRoute: typeof LoginRoute;
-  MeetingRoute: typeof MeetingRoute;
-  PreviewRoute: typeof PreviewRoute;
-  SignatureDevRoute: typeof SignatureDevRoute;
+  IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  CreateMeetingRoute: typeof CreateMeetingRoute
+  LoginRoute: typeof LoginRoute
+  MeetingRoute: typeof MeetingRoute
+  DevDevTestingRoute: typeof DevDevTestingRoute
+  DevPreviewRoute: typeof DevPreviewRoute
+  DevSignatureDevRoute: typeof DevSignatureDevRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CreateMeetingRoute: CreateMeetingRoute,
-  DevTestingRoute: DevTestingRoute,
   LoginRoute: LoginRoute,
   MeetingRoute: MeetingRoute,
-  PreviewRoute: PreviewRoute,
-  SignatureDevRoute: SignatureDevRoute,
-};
+  DevDevTestingRoute: DevDevTestingRoute,
+  DevPreviewRoute: DevPreviewRoute,
+  DevSignatureDevRoute: DevSignatureDevRoute,
+}
 
 export const routeTree = rootRoute
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
 /* ROUTE_MANIFEST_START
 {
@@ -238,11 +238,11 @@ export const routeTree = rootRoute
         "/",
         "/admin",
         "/create-meeting",
-        "/dev-testing",
         "/login",
         "/meeting",
-        "/preview",
-        "/signature-dev"
+        "/dev/dev-testing",
+        "/dev/preview",
+        "/dev/signature-dev"
       ]
     },
     "/": {
@@ -254,20 +254,20 @@ export const routeTree = rootRoute
     "/create-meeting": {
       "filePath": "create-meeting.tsx"
     },
-    "/dev-testing": {
-      "filePath": "dev-testing.tsx"
-    },
     "/login": {
       "filePath": "login.tsx"
     },
     "/meeting": {
       "filePath": "meeting.tsx"
     },
-    "/preview": {
-      "filePath": "preview.tsx"
+    "/dev/dev-testing": {
+      "filePath": "dev/dev-testing.tsx"
     },
-    "/signature-dev": {
-      "filePath": "signature-dev.tsx"
+    "/dev/preview": {
+      "filePath": "dev/preview.tsx"
+    },
+    "/dev/signature-dev": {
+      "filePath": "dev/signature-dev.tsx"
     }
   }
 }

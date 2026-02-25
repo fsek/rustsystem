@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Alert } from "@/components/Alert/Alert";
@@ -12,7 +12,14 @@ import { VoteSection } from "@/components/VoteSection/VoteSection";
 import type { VoteSectionHandle } from "@/components/VoteSection/VoteSection";
 import type { ButtonColor, Color, Size, TextColor } from "@/components/types";
 
-export const Route = createFileRoute("/preview")({
+const DEV = import.meta.env.DEV as boolean;
+
+export const Route = createFileRoute("/dev/preview")({
+  beforeLoad: () => {
+    if (!DEV) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: Preview,
 });
 

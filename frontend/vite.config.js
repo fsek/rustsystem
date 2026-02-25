@@ -31,6 +31,7 @@ export default defineConfig({
     },
   },
   define: {
+    "import.meta.env.DEV": JSON.stringify(process.env.DEV),
     "import.meta.env.SALT_HEX": JSON.stringify(process.env.SALT_HEX),
     "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(
       process.env.KEYGEN_ITERATIONS,

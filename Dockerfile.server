@@ -1,9 +1,10 @@
 ARG API_ENDPOINT_SERVER=https://rosta.fsektionen.se
 ARG API_ENDPOINT_TRUSTAUTH=https://rosta.trustauth.fsektionen.se
 ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH=https://rustsystem-trustauth:2444
+ARG DEV=false
 
 # NOTE: SALT_HEX is different from the value in .env. This value is not secret, only used to maintain uniqueness. It's purposefully different from the development value in order to maintain uniqueness in production.
-ARG SALT_HEX=fa592f8bf54e9e6710f9e63699651c9d 
+ARG SALT_HEX=fa592f8bf54e9e6710f9e63699651c9d
 ARG KEYGEN_ITERATIONS=200000
 
 FROM node:24-bullseye AS frontend-builder
@@ -14,6 +15,7 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ .
 ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_TRUSTAUTH
+ARG DEV
 ARG SALT_HEX
 ARG KEYGEN_ITERATIONS
 RUN pnpm run build

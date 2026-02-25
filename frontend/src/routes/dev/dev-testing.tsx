@@ -1,11 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
   deriveEd25519PublicKeyFromPassword,
   x25519PublicKeyToPem,
 } from "@/utils/cryptoGen";
 import { Button } from "@/components/Button/Button";
 
-export const Route = createFileRoute("/dev-testing")({
+const DEV = import.meta.env.DEV as boolean;
+
+export const Route = createFileRoute("/dev/dev-testing")({
+  beforeLoad: () => {
+    if (!DEV) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: DevTesting,
 });
 

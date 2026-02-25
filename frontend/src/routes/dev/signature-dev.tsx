@@ -1,13 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
 import { Input } from "@/components/Input/Input";
 import { Alert } from "@/components/Alert/Alert";
 import { Spinner } from "@/components/Spinner/Spinner";
-import {
-  type BallotMetaData,
-} from "@/signatures/signatures";
+import { type BallotMetaData } from "@/signatures/signatures";
 import {
   type SessionIds,
   type VoteData,
@@ -20,7 +18,14 @@ import {
   getVoteData,
 } from "@/signatures/voteSession";
 
-export const Route = createFileRoute("/signature-dev")({
+const DEV = import.meta.env.DEV as boolean;
+
+export const Route = createFileRoute("/dev/signature-dev")({
+  beforeLoad: () => {
+    if (!DEV) {
+      throw redirect({ to: "/" });
+    }
+  },
   component: SignatureDev,
 });
 
@@ -42,7 +47,9 @@ function SignatureDev() {
 
   // Stored registration output
   const [storedVoteData, setStoredVoteData] = useState<VoteData | null>(null);
-  const [storedMetadata, setStoredMetadata] = useState<BallotMetaData | null>(null);
+  const [storedMetadata, setStoredMetadata] = useState<BallotMetaData | null>(
+    null,
+  );
 
   // True when state was hydrated from localStorage rather than fresh registration
   const [restoredFromStorage, setRestoredFromStorage] = useState(false);
@@ -99,7 +106,11 @@ function SignatureDev() {
         title: "Dev Test Meeting",
         host_name: "Dev Host",
       });
-      const ids = await createMeeting("Dev Test Meeting", "Dev Host", "dev-test-key");
+      const ids = await createMeeting(
+        "Dev Test Meeting",
+        "Dev Host",
+        "dev-test-key",
+      );
       addLog("Meeting created", ids);
       setSession(ids);
       setMeetingStatus("success");
