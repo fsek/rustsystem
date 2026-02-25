@@ -62,6 +62,19 @@ export async function removeAllVoters(): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
+// ─── Tally files ──────────────────────────────────────────────────────────────
+
+export interface TallyFileEntry {
+  filename: string;
+  data: string; // base64-encoded encrypted bytes
+}
+
+export async function getAllTallyFiles(): Promise<TallyFileEntry[]> {
+  const res = await apiFetch("/api/host/get-all-tally");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 // ─── Meeting lifecycle ────────────────────────────────────────────────────────
 
 export async function closeMeeting(): Promise<void> {

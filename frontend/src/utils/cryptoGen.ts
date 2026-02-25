@@ -107,6 +107,21 @@ async function deriveSeedPBKDF2_SHA256(
 }
 
 /**
+ * Returns the raw 32-byte X25519 private key (= PBKDF2 seed) derived from a
+ * password. This is the same scalar that crypto_scalarmult_base maps to the
+ * public key stored on the server, so it can be used to ECDH-decrypt tally
+ * files encrypted for that public key.
+ */
+export async function deriveX25519PrivateKeyFromPassword(params: {
+  password: string;
+  saltHex: string;
+  iterations: number;
+}): Promise<Uint8Array> {
+  const saltBytes = hexToBytes(params.saltHex);
+  return deriveSeedPBKDF2_SHA256(params.password, saltBytes, params.iterations);
+}
+
+/**
  * FULL PIPELINE:
  * password + saltHex -> PBKDF2 seed -> deterministic Ed25519 public key
  */

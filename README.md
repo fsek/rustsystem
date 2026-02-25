@@ -24,6 +24,7 @@ Rustsystem is a modern, zero-trust voting system built for [F-sektionen](https:/
   - [Downloading the Tally](#downloading-the-tally)
   - [Ending a Vote Round](#ending-a-vote-round)
   - [Closing the Meeting](#closing-the-meeting)
+  - [Downloading All Tallies at Close](#downloading-all-tallies-at-close)
 - [Architecture](#architecture)
   - [Overall Structure](#overall-structure)
   - [Logging In](#logging-in)
@@ -113,6 +114,14 @@ After recording the results, the host presses **End Round**. This resets the vot
 ### Closing the Meeting
 
 When the meeting is finished, the host presses **Close meeting**. All in-memory state for the meeting is discarded. Encrypted tally files that were saved to disk remain on the server.
+
+### Downloading All Tallies at Close
+
+The close-meeting confirmation panel includes a **Download tallies** section. Before (or after) confirming the close, the host can enter the meeting password and click **Download** to fetch and decrypt every tally file that was saved during the meeting, receiving them as a single `tallies.json` file.
+
+This is different from the per-round download described in [Downloading the Tally](#downloading-the-tally): that button saves the results of the _current_ round only, in whichever format the host selects. The close-panel download retrieves _all_ rounds at once, decrypting them entirely in the browser using the same key derivation as at meeting creation. Nothing sensitive is ever sent back to the server.
+
+> **Tip:** Even if every round's tally was already downloaded individually, this button gives the host a convenient single-file archive of the entire meeting's voting history.
 
 ---
 
@@ -265,11 +274,23 @@ The tally is encrypted using the **X25519 public key** that the host provided at
 
 The file is written to `meetings/{meeting-id}/tally-{timestamp}.enc` on the server.
 
-#### Manual Decryption
+#### Recovering Tallies via the UI
 
-If the tally was not downloaded during the meeting, it can be recovered:
+While the meeting is still open, the host can download every tally file at once from the **close-meeting panel** (see [Downloading All Tallies at Close](#downloading-all-tallies-at-close)). The browser calls `GET /api/host/get-all-tally`, which returns all `tally-*.enc` files as base64-encoded payloads. The browser then:
 
-1. Retrieve the `.enc` file from the server.
+1. Derives the X25519 private key from the meeting password using PBKDF2-HMAC-SHA256 (same derivation as at meeting creation).
+2. Performs X25519 ECDH with each file's ephemeral public key.
+3. Derives the decryption key with HKDF-SHA256.
+4. Decrypts with ChaCha20-Poly1305.
+5. Delivers a single `tallies.json` containing all decrypted records.
+
+The private key is derived and used entirely inside the browser; it is never transmitted.
+
+#### Manual Decryption (offline)
+
+If the meeting has already been closed and the tallies were not downloaded in time, individual `.enc` files can still be decrypted offline using the `decrypt-tally` CLI:
+
+1. Retrieve the `.enc` file(s) from `meetings/{meeting-id}/` on the server.
 2. Derive the private key from the meeting password:
    ```bash
    SALT_HEX="<prod-salt>" KEYGEN_ITERATIONS=200000 ./scripts/derive-keys.sh <password>
@@ -281,7 +302,7 @@ If the tally was not downloaded during the meeting, it can be recovered:
    # Outputs JSON tally to stdout
    ```
 
-The SALT_HEX and KEYGEN_ITERATIONS values for the production server must match the values used when the meeting was created. They should be available publicly in this repository.
+The `SALT_HEX` and `KEYGEN_ITERATIONS` values must match those used when the meeting was created. They are available in this repository.
 
 ### RwLocks
 

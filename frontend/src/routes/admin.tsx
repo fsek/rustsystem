@@ -22,11 +22,14 @@ import {
   removeVoter,
   removeAllVoters,
   closeMeeting,
+  getAllTallyFiles,
   fetchVoteProgress,
   type VoterInfo,
   type NewVoterResponse,
   type VoteProgress,
 } from "@/api/host";
+import { deriveX25519PrivateKeyFromPassword } from "@/utils/cryptoGen";
+import { decryptTallyFile } from "@/utils/tallyDecrypt";
 import {
   tallyToJson,
   tallyToYaml,
@@ -38,6 +41,9 @@ import {
 export const Route = createFileRoute("/admin")({
   component: Admin,
 });
+
+const SALT_HEX = import.meta.env.SALT_HEX as string;
+const ITERATIONS = import.meta.env.KEYGEN_ITERATIONS as number;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -893,6 +899,11 @@ function Admin() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [tallyPassword, setTallyPassword] = useState("");
+  const [downloadingTallies, setDownloadingTallies] = useState(false);
+  const [tallyDownloadError, setTallyDownloadError] = useState<string | null>(
+    null,
+  );
   // Ref so the SSE closure always reads the current qrInfo without re-subscribing.
   const qrInfoRef = useRef(qrInfo);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1047,6 +1058,38 @@ function Admin() {
     }
   }
 
+  async function handleDownloadTallies() {
+    if (!tallyPassword) return;
+    setDownloadingTallies(true);
+    setTallyDownloadError(null);
+    try {
+      const privateKey = await deriveX25519PrivateKeyFromPassword({
+        password: tallyPassword,
+        saltHex: SALT_HEX,
+        iterations: ITERATIONS,
+      });
+      const files = await getAllTallyFiles();
+      const decrypted = await Promise.all(
+        files.map((f) => decryptTallyFile(f.data, privateKey)),
+      );
+      const json = JSON.stringify(decrypted, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "tallies.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setTallyDownloadError(
+        "Failed to decrypt — check that you entered the correct password.",
+      );
+      console.error(err);
+    } finally {
+      setDownloadingTallies(false);
+    }
+  }
+
   function handleVoterAdded(r: NewVoterResponse & { voterName: string }) {
     setQrInfo(r);
     setJoinedVoterName(null);
@@ -1089,6 +1132,8 @@ function Admin() {
           onClick={() => {
             setConfirmClose(true);
             setCloseError(null);
+            setTallyDownloadError(null);
+            setTallyPassword("");
           }}
         >
           Close meeting
@@ -1102,8 +1147,10 @@ function Admin() {
               Are you sure you want to close this meeting?
             </p>
             <p className="text-sm" style={{ color: "var(--textSecondary)" }}>
-              All data will be permanently lost.
+              All data will be permanently lost. Download all tally records
+              below before closing.
             </p>
+
             {closeError && (
               <Alert size="sm" color="accent">
                 {closeError}
@@ -1135,6 +1182,56 @@ function Admin() {
               >
                 Cancel
               </Button>
+            </div>
+
+            <div
+              className="flex flex-col gap-3 pt-3 border-t"
+              style={{ borderColor: "var(--borderPrimary)" }}
+            >
+              <p
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--textSecondary)" }}
+              >
+                Download tallies
+              </p>
+              <p className="text-xs" style={{ color: "var(--textSecondary)" }}>
+                Enter your meeting password to decrypt and download all tally
+                records as a JSON file.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  size="m"
+                  color="primary"
+                  type="password"
+                  placeholder="Meeting password"
+                  value={tallyPassword}
+                  onChange={(e) => setTallyPassword(e.target.value)}
+                  disabled={downloadingTallies || closing}
+                />
+                <Button
+                  size="m"
+                  color="buttonSecondary"
+                  variant="outline"
+                  onClick={handleDownloadTallies}
+                  disabled={
+                    downloadingTallies || closing || tallyPassword.length === 0
+                  }
+                >
+                  {downloadingTallies ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="s" color="secondary" />
+                      Downloading…
+                    </span>
+                  ) : (
+                    "Download"
+                  )}
+                </Button>
+              </div>
+              {tallyDownloadError && (
+                <Alert size="sm" color="accent">
+                  {tallyDownloadError}
+                </Alert>
+              )}
             </div>
           </div>
         </Panel>

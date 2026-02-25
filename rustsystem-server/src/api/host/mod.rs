@@ -21,6 +21,9 @@ use tally::Tally;
 pub mod get_tally;
 use get_tally::GetTally;
 
+pub mod get_all_tally;
+use get_all_tally::GetAllTally;
+
 pub mod end_vote_round;
 use end_vote_round::EndVoteRound;
 
@@ -52,6 +55,7 @@ pub fn host_routes() -> Router<AppState> {
     router = add_handler::<EndVoteRound>(router);
     router = add_handler::<Tally>(router);
     router = add_handler::<GetTally>(router);
+    router = add_handler::<GetAllTally>(router);
     router = add_handler::<NewVoter>(router);
     router = add_handler::<StartInvite>(router);
     router = add_handler::<InviteWatch>(router);
