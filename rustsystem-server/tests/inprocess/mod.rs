@@ -25,10 +25,16 @@ use rustsystem_server::{
     proof::{BallotMetaData, Candidates},
 };
 
+mod auth;
+mod common_endpoints;
+mod concurrency;
 mod creation;
+mod lifecycle;
 mod management;
+mod negative;
 mod permissions;
 mod sequence;
+mod state_machine;
 
 async fn create_meeting(app: &MockApp) -> Response {
     let title = String::from("Test Meeting");
@@ -172,6 +178,66 @@ async fn reset_login(app: &MockApp, cookie: &HeaderValue, uuuid: Uuid) -> Respon
         Method::POST,
         "/api/host/reset-login",
         serde_json::to_value(ResetLoginRequest { user_uuuid: uuuid }).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn close_meeting(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::DELETE,
+        "/api/host/close-meeting",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn remove_all(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::DELETE,
+        "/api/host/remove-all",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn get_tally(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/host/get-tally",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn get_all_tally(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/host/get-all-tally",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn vote_progress(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/common/vote-progress",
+        serde_json::to_value(()).unwrap(),
+        Some(cookie.clone()),
+    ))
+    .await
+}
+
+async fn meeting_specs(app: &MockApp, cookie: &HeaderValue) -> Response {
+    app.oneshot(json_request(
+        Method::GET,
+        "/api/common/meeting-specs",
+        serde_json::to_value(()).unwrap(),
         Some(cookie.clone()),
     ))
     .await
