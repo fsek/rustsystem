@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::{AppState, tokens::AuthUser};
 
@@ -39,15 +39,20 @@ impl APIHandler for MeetingSpecs {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        // title is immutable after construction — no lock needed.
+        let title = meeting.title.clone();
+        let participants = meeting
+            .voters
+            .read()
+            .await
+            .values()
+            .filter(|v| v.logged_in)
+            .count();
 
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            Ok(Json(MeetingSpecsResponse {
-                title: meeting.title.clone(),
-                participants: meeting.voters.values().filter(|v| v.logged_in).count(),
-            }))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        Ok(Json(MeetingSpecsResponse {
+            title,
+            participants,
+        }))
     }
 }

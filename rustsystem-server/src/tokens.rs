@@ -144,13 +144,17 @@ impl FromRequestParts<AppState> for AuthUser {
         // separate blocklist is needed. The block scope drops the lock guard
         // before we return so we don't hold it any longer than necessary.
         {
-            let meetings = state_guard.meetings.lock().await;
-            let meeting = meetings.get(&token_data.claims.muuid).ok_or(
-                APIError::from_error_code(APIErrorCode::AuthError)
-                    .finalize(endpoint.clone())
-                    .response(),
-            )?;
-            if !meeting.voters.contains_key(&token_data.claims.uuuid) {
+            let map = state_guard.meetings.read().await;
+            let meeting = map
+                .get(&token_data.claims.muuid)
+                .cloned()
+                .ok_or_else(|| {
+                    APIError::from_error_code(APIErrorCode::AuthError)
+                        .finalize(endpoint.clone())
+                        .response()
+                })?;
+            drop(map);
+            if !meeting.voters.read().await.contains_key(&token_data.claims.uuuid) {
                 return Err(APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint)
                     .response());

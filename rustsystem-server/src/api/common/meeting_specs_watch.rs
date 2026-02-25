@@ -5,7 +5,7 @@ use axum::{
     response::{Sse, sse::Event},
 };
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
 use crate::{AppState, tokens::AuthUser};
@@ -43,14 +43,9 @@ impl APIHandler for MeetingSpecsWatch {
             }
         };
 
-        let meetings = state.meetings()?;
-
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            let update_rx = meeting.vote_auth.new_update_watcher();
-            let stream = WatchStream::new(update_rx).filter_map(upon_event as _);
-            Ok(Sse::new(stream))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let update_rx = meeting.vote_auth.read().await.new_update_watcher();
+        let stream = WatchStream::new(update_rx).filter_map(upon_event as _);
+        Ok(Sse::new(stream))
     }
 }

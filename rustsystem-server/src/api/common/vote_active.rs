@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::{AppState, tokens::AuthUser};
 
@@ -39,14 +39,9 @@ impl APIHandler for VoteActive {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let is_active = meeting.vote_auth.read().await.is_active();
 
-        let res = if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            meeting.vote_auth.is_active()
-        } else {
-            return Err(APIError::from_error_code(APIErrorCode::MUuidNotFound));
-        };
-
-        Ok(Json(VoteActiveResponse { is_active: res }))
+        Ok(Json(VoteActiveResponse { is_active }))
     }
 }

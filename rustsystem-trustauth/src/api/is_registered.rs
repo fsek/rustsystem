@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     Json,
@@ -45,12 +45,8 @@ impl APIHandler for IsRegistered {
             is_registered = false;
         }
 
-        let rounds = state.rounds();
-        let mut rounds_lock = rounds.lock().await;
-        let round = rounds_lock
-            .get_mut(&auth.muuid)
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
-        if !round.registered_voters.contains_key(&auth.uuuid) {
+        let round = state.get_round(auth.muuid).await?;
+        if !round.registered_voters.read().await.contains_key(&auth.uuuid) {
             is_registered = false;
         }
 

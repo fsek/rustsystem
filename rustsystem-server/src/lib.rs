@@ -5,11 +5,14 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{
+        Arc, RwLock, RwLockReadGuard,
+        atomic::{AtomicBool, Ordering},
+    },
     time::SystemTime,
 };
 use tokens::{AuthUser, get_secret};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock as AsyncRwLock;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 use zkryptium::bbsplus::keys::BBSplusPublicKey;
@@ -44,59 +47,44 @@ pub struct Voter {
     name: String,
     logged_in: bool,
     is_host: bool,
-    registered_at: std::time::SystemTime,
+    registered_at: SystemTime,
 }
 
+/// Each authority is wrapped in its own `AsyncRwLock` so concurrent requests can hold
+/// independent field locks rather than serialising on a single map-level lock.
+/// `title` and `start_time` are immutable after construction and need no lock.
+/// `locked` is a simple boolean that only needs atomic access.
 pub struct Meeting {
-    title: String,
-    start_time: SystemTime,
-    voters: HashMap<Uuid, Voter>,
-    vote_auth: VoteAuthority,
-    invite_auth: InviteAuthority,
-    admin_auth: AdminAuthority,
-    locked: bool,
+    pub title: String,
+    pub start_time: SystemTime,
+    pub locked: AtomicBool,
+    pub voters: AsyncRwLock<HashMap<Uuid, Voter>>,
+    pub vote_auth: AsyncRwLock<VoteAuthority>,
+    pub invite_auth: AsyncRwLock<InviteAuthority>,
+    pub admin_auth: AsyncRwLock<AdminAuthority>,
 }
+
 impl Meeting {
-    pub fn add_voter(&mut self, name: String, uuid: UUuid, is_host: bool) -> Option<Voter> {
-        self.voters.insert(
-            uuid,
-            Voter {
-                name,
-                logged_in: false,
-                is_host,
-                registered_at: std::time::SystemTime::now(),
-            },
-        )
+    pub fn new(title: String, start_time: SystemTime, voters: HashMap<Uuid, Voter>) -> Self {
+        Self {
+            title,
+            start_time,
+            locked: AtomicBool::new(false),
+            voters: AsyncRwLock::new(voters),
+            vote_auth: AsyncRwLock::new(VoteAuthority::new()),
+            invite_auth: AsyncRwLock::new(InviteAuthority::new()),
+            admin_auth: AsyncRwLock::new(AdminAuthority::new()),
+        }
     }
 
-    pub fn has_voter_with_name(&self, name: &String) -> bool {
-        self.voters.iter().any(|(_id, v)| &v.name == name)
-    }
-
-    pub fn get_auth(&mut self) -> &mut VoteAuthority {
-        &mut self.vote_auth
-    }
-
-    pub fn get_start_time(&self) -> SystemTime {
-        self.start_time
-    }
-
-    pub fn remove_unclaimed_voters(&mut self) {
-        self.voters.retain(|_id, voter| voter.logged_in);
-    }
-
-    // Locking also removes unclaimed voters
-    pub fn lock(&mut self) {
-        self.remove_unclaimed_voters();
-        self.locked = true;
-    }
-
-    pub fn unlock(&mut self) {
-        self.locked = false;
+    pub fn unlock(&self) {
+        self.locked.store(false, Ordering::Relaxed);
     }
 }
 
-pub type ActiveMeetings = Arc<Mutex<HashMap<MUuid, Meeting>>>;
+/// The outer `AsyncRwLock` is held in *read* mode for almost all operations — just long enough to
+/// clone the `Arc<Meeting>` — and in *write* mode only when creating or closing a meeting.
+pub type ActiveMeetings = Arc<AsyncRwLock<HashMap<MUuid, Arc<Meeting>>>>;
 
 #[derive(Clone)]
 pub struct AppStateInternal {
@@ -122,15 +110,29 @@ impl AppState {
             .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
     }
 
-    pub fn write(&self) -> Result<RwLockWriteGuard<'_, AppStateInternal>, APIError> {
-        self.0
-            .write()
-            .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
-    }
-
-    pub fn meetings(&self) -> Result<ActiveMeetings, APIError> {
+    /// Use when you need to look up or read from an existing meeting.
+    /// Callers should call `.read().await` on the returned Arc.
+    pub fn meetings_read(&self) -> Result<ActiveMeetings, APIError> {
         let guard = self.read()?;
         Ok(guard.meetings.clone())
+    }
+
+    /// Use when you need to insert or remove a meeting from the map.
+    /// Callers should call `.write().await` on the returned Arc.
+    pub fn meetings_write(&self) -> Result<ActiveMeetings, APIError> {
+        let guard = self.read()?;
+        Ok(guard.meetings.clone())
+    }
+
+    /// Look up a meeting by MUUID, returning a cloned `Arc<Meeting>` that can be used
+    /// after the outer map lock has been released.
+    pub async fn get_meeting(&self, muuid: MUuid) -> Result<Arc<Meeting>, APIError> {
+        self.meetings_read()?
+            .read()
+            .await
+            .get(&muuid)
+            .cloned()
+            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))
     }
 
     pub async fn start_round_on_trustauth(
@@ -173,7 +175,7 @@ pub fn init_state() -> anyhow::Result<AppState> {
 
     Ok(AppState(Arc::new(RwLock::new(AppStateInternal {
         secret: get_secret()?,
-        meetings: Arc::new(Mutex::new(HashMap::new())),
+        meetings: Arc::new(AsyncRwLock::new(HashMap::new())),
         is_secure,
         trustauth_client: build_mtls_client(
             include_bytes!("../../mtls/ca/ca.crt"),

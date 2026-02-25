@@ -27,13 +27,14 @@ impl APIHandler for CloseMeeting {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let CloseMeetingRequest { auth, state } = request;
 
-        let meetings = state.meetings()?;
-
-        meetings
-            .lock()
+        // Outer map write: removing a meeting entry.
+        state
+            .meetings_write()?
+            .write()
             .await
             .remove(&auth.muuid)
-            .ok_or(APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
+            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
+
         Ok(())
     }
 }

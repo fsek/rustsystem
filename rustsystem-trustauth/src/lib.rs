@@ -9,7 +9,7 @@ use axum::{
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::RwLock as AsyncRwLock;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -37,15 +37,17 @@ pub struct VoterRegistration {
 
 /// Per-round state owned by trustauth.
 pub struct RoundState {
-    pub keys: AuthenticationKeys,
-    pub header: Vec<u8>,
-    pub registered_voters: HashMap<Uuid, VoterRegistration>,
+    pub keys: AuthenticationKeys,    // immutable after construction — no lock
+    pub header: Vec<u8>,             // immutable after construction — no lock
+    pub registered_voters: AsyncRwLock<HashMap<Uuid, VoterRegistration>>,
 }
+
+pub type ActiveRounds = Arc<AsyncRwLock<HashMap<Uuid, Arc<RoundState>>>>;
 
 struct AppStateInternal {
     secret: [u8; 32],
     mtls_client: Client,
-    rounds: Arc<Mutex<HashMap<Uuid, RoundState>>>,
+    rounds: ActiveRounds,
 }
 
 #[derive(Clone)]
@@ -56,8 +58,22 @@ impl AppState {
         &self.0.secret
     }
 
-    pub fn rounds(&self) -> Arc<Mutex<HashMap<Uuid, RoundState>>> {
+    pub fn rounds_read(&self) -> ActiveRounds {
         self.0.rounds.clone()
+    }
+
+    pub fn rounds_write(&self) -> ActiveRounds {
+        self.0.rounds.clone()
+    }
+
+    pub async fn get_round(&self, muuid: Uuid) -> Result<Arc<RoundState>, APIError> {
+        self.0
+            .rounds
+            .read()
+            .await
+            .get(&muuid)
+            .cloned()
+            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))
     }
 
     pub async fn get(&self, path: &str) -> Result<Response, APIError> {
@@ -148,7 +164,7 @@ pub fn init_state() -> anyhow::Result<AppState> {
     Ok(AppState(Arc::new(AppStateInternal {
         secret,
         mtls_client,
-        rounds: Arc::new(Mutex::new(HashMap::new())),
+        rounds: Arc::new(AsyncRwLock::new(HashMap::new())),
     })))
 }
 

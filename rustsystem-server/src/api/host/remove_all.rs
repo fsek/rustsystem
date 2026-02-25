@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, State},
@@ -32,13 +32,13 @@ impl APIHandler for RemoveAll {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            meeting.voters.retain(|_uuid, voter| voter.is_host);
+        let meeting = state.get_meeting(auth.muuid).await?;
+        meeting
+            .voters
+            .write()
+            .await
+            .retain(|_uuid, voter| voter.is_host);
 
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        Ok(())
     }
 }

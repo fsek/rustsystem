@@ -40,14 +40,9 @@ impl APIHandler for GetVoteData {
             return Err(APIError::from_error_code(APIErrorCode::VotingInactive));
         }
 
-        let rounds = state.rounds();
-        let rounds_lock = rounds.lock().await;
-        let round = rounds_lock
-            .get(&auth.muuid)
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
-
-        let reg = round
-            .registered_voters
+        let round = state.get_round(auth.muuid).await?;
+        let voters = round.registered_voters.read().await;
+        let reg = voters
             .get(&auth.uuuid)
             .ok_or_else(|| APIError::from_error_code(APIErrorCode::NotRegistered))?;
 

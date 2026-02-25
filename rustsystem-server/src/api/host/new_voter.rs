@@ -8,13 +8,14 @@ use base64::prelude::BASE64_STANDARD;
 use qrcode::render::svg;
 use qrcode::{EcLevel, QrCode};
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::Ordering;
 use tracing::info;
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use uuid::Uuid;
 
 use crate::admin_auth::AdminCred;
-use crate::{API_ENDPOINT, AppState, MUuid, UUuid};
+use crate::{API_ENDPOINT, AppState, MUuid, UUuid, Voter};
 
 use super::auth::AuthHost;
 
@@ -62,34 +63,40 @@ impl APIHandler for NewVoter {
         } = request;
 
         let new_uuuid = Uuid::new_v4();
+        let meeting = state.get_meeting(auth.muuid).await?;
 
-        let meetings = state.meetings()?;
+        if meeting.locked.load(Ordering::Relaxed) {
+            return Err(APIError::from_error_code(APIErrorCode::InvalidState));
+        }
 
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            if meeting.locked {
-                return Err(APIError::from_error_code(APIErrorCode::InvalidState));
-            }
-
-            if meeting.has_voter_with_name(&voter_name) {
+        let admin_cred = {
+            // Acquire voters.write() first, then admin_auth.write() if needed —
+            // consistent with the voters → admin_auth lock ordering.
+            let mut voters = meeting.voters.write().await;
+            if voters.iter().any(|(_, v)| v.name == voter_name) {
                 return Err(APIError::from_error_code(APIErrorCode::NameTaken));
-            } else {
-                meeting.add_voter(voter_name, new_uuuid, is_host);
             }
-
-            let admin_cred = if is_host {
-                Some(meeting.admin_auth.new_token())
+            voters.insert(
+                new_uuuid,
+                Voter {
+                    name: voter_name,
+                    logged_in: false,
+                    is_host,
+                    registered_at: std::time::SystemTime::now(),
+                },
+            );
+            if is_host {
+                Some(meeting.admin_auth.write().await.new_token())
             } else {
                 None
-            };
-            let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+            }
+        };
 
-            Ok(Json(QrCodeResponse {
-                qr_svg,
-                invite_link,
-            }))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+        Ok(Json(QrCodeResponse {
+            qr_svg,
+            invite_link,
+        }))
     }
 }
 

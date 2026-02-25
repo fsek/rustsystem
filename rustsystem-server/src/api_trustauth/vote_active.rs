@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     Json,
@@ -35,15 +35,9 @@ impl APIHandler for VoteActive {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (State(state), Json(body)) = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(body.muuid).await?;
+        let active = meeting.vote_auth.read().await.is_active();
 
-        let meetings_guard = meetings.lock().await;
-        let meeting = meetings_guard
-            .get(&body.muuid)
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
-
-        Ok(Json(VoteActiveResponse {
-            active: meeting.vote_auth.is_active(),
-        }))
+        Ok(Json(VoteActiveResponse { active }))
     }
 }

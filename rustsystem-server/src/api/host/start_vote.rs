@@ -7,6 +7,7 @@ use axum::{
 };
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::Ordering;
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
@@ -52,21 +53,23 @@ impl APIHandler for StartVote {
             .start_round_on_trustauth(auth.muuid, &body.name)
             .await?;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
 
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            if meeting.get_auth().is_inactive() {
-                meeting.lock();
-                meeting
-                    .get_auth()
-                    .start_round(metadata, body.name, public_key);
-            } else {
-                return Err(APIError::from_error_code(APIErrorCode::InvalidState));
-            }
-
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
+        // Hold the vote_auth write lock for the whole check-and-start sequence to
+        // prevent a concurrent start-vote from racing past the is_inactive check.
+        let mut vote_auth = meeting.vote_auth.write().await;
+        if !vote_auth.is_inactive() {
+            return Err(APIError::from_error_code(APIErrorCode::InvalidState));
         }
+
+        // Remove unclaimed voters and mark the meeting as locked.
+        // Acquiring voters.write() while holding vote_auth.write() is safe: no other
+        // operation holds voters.write() and then waits for vote_auth.write().
+        meeting.voters.write().await.retain(|_, v| v.logged_in);
+        meeting.locked.store(true, Ordering::Relaxed);
+
+        vote_auth.start_round(metadata, body.name, public_key);
+
+        Ok(())
     }
 }

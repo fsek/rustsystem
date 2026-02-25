@@ -43,13 +43,9 @@ impl APIHandler for Register {
             return Err(APIError::from_error_code(APIErrorCode::UUuidNotFound));
         }
 
-        let rounds = state.rounds();
-        let mut rounds_lock = rounds.lock().await;
-        let round = rounds_lock
-            .get_mut(&auth.muuid)
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
+        let round = state.get_round(auth.muuid).await?;
 
-        if round.registered_voters.contains_key(&auth.uuuid) {
+        if round.registered_voters.read().await.contains_key(&auth.uuuid) {
             return Err(APIError::from_error_code(APIErrorCode::AlreadyRegistered));
         }
 
@@ -65,7 +61,7 @@ impl APIHandler for Register {
         let signature_json = serde_json::to_value(&signature)
             .map_err(|_| APIError::from_error_code(APIErrorCode::Other))?;
 
-        round.registered_voters.insert(
+        round.registered_voters.write().await.insert(
             auth.uuuid,
             VoterRegistration {
                 token: body.token,

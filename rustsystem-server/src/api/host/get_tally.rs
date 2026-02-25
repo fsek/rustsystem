@@ -34,28 +34,32 @@ impl APIHandler for GetTally {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
 
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            if let Some(tally) = meeting.vote_auth.get_last_tally() {
-                if let Err(e) = save_encrypted_tally(
-                    &auth.muuid,
-                    tally,
-                    meeting
-                        .voters.values().map(|v| v.name.clone())
-                        .collect(),
-                ) {
-                    tracing::error!(
-                        "Failed to save encrypted tally for meeting {}: {e}",
-                        auth.muuid
-                    );
-                }
-                Ok(Json(tally.clone()))
-            } else {
-                Err(APIError::from_error_code(APIErrorCode::InvalidState))
-            }
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
+        let tally = {
+            let vote_auth = meeting.vote_auth.read().await;
+            vote_auth
+                .get_last_tally()
+                .cloned()
+                .ok_or_else(|| APIError::from_error_code(APIErrorCode::InvalidState))?
+        };
+
+        // vote_auth read guard released; now safe to read voters independently.
+        let voter_names: Vec<String> = meeting
+            .voters
+            .read()
+            .await
+            .values()
+            .map(|v| v.name.clone())
+            .collect();
+
+        if let Err(e) = save_encrypted_tally(&auth.muuid, &tally, voter_names) {
+            tracing::error!(
+                "Failed to save encrypted tally for meeting {}: {e}",
+                auth.muuid
+            );
         }
+
+        Ok(Json(tally))
     }
 }

@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     Json,
@@ -30,16 +30,14 @@ impl APIHandler for IsSubmitted {
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(body)) = request;
-        let meetings_arc = state.meetings()?;
-        let meetings = meetings_arc.lock().await;
-        let meeting = meetings
-            .get(&auth.muuid)
-            .ok_or(APIError::from_error_code(APIErrorCode::MUuidNotFound))?;
-        let submitted = meeting
-            .vote_auth
+
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let vote_auth = meeting.vote_auth.read().await;
+        let submitted = vote_auth
             .round_ref()
             .map(|r| r.is_used(&body.signature))
             .unwrap_or(false);
+
         Ok(Json(submitted))
     }
 }

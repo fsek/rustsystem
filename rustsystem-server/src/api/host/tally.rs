@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
 };
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::{AppState, vote_auth};
 
@@ -34,22 +34,15 @@ impl APIHandler for Tally {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let tally_result = meeting.vote_auth.write().await.finalize_round()?;
 
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            let vote_auth = meeting.get_auth();
+        // Unlock the meeting during tally phase to allow invitations between voting sessions.
+        // This enables hosts to invite new participants while results are being displayed,
+        // before starting the next vote round. The meeting will remain unlocked until
+        // a new vote starts (which locks it again).
+        meeting.unlock();
 
-            let tally_result = vote_auth.finalize_round()?;
-
-            // Unlock the meeting during tally phase to allow invitations between voting sessions.
-            // This enables hosts to invite new participants while results are being displayed,
-            // before starting the next vote round. The meeting will remain unlocked until
-            // a new vote starts (which locks it again).
-            meeting.unlock();
-
-            Ok(Json(tally_result))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        Ok(Json(tally_result))
     }
 }

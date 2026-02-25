@@ -31,31 +31,32 @@ impl APIHandler for ResetLogin {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(ResetLoginRequest { user_uuuid })) = request;
 
-        let meetings = state.meetings()?;
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            if let Some(mut user) = meeting.voters.remove(&user_uuuid) {
-                user.logged_in = false;
+        let meeting = state.get_meeting(auth.muuid).await?;
 
-                let admin_cred = if user.is_host {
-                    Some(meeting.admin_auth.new_token())
-                } else {
-                    None
-                };
+        let (new_uuuid, admin_cred) = {
+            let mut voters = meeting.voters.write().await;
+            let mut user = voters
+                .remove(&user_uuuid)
+                .ok_or_else(|| APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
+            user.logged_in = false;
 
-                let new_uuuid = UUuid::new_v4();
-                meeting.voters.insert(new_uuuid, user);
-
-                let (qr_svg, invite_link) =
-                    gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
-                Ok(Json(QrCodeResponse {
-                    qr_svg,
-                    invite_link,
-                }))
+            // Lock ordering: voters → admin_auth. We hold voters.write() and now acquire
+            // admin_auth.write() — this ordering is consistent across the codebase.
+            let admin_cred = if user.is_host {
+                Some(meeting.admin_auth.write().await.new_token())
             } else {
-                Err(APIError::from_error_code(APIErrorCode::UUuidNotFound))
-            }
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+                None
+            };
+
+            let new_uuuid = UUuid::new_v4();
+            voters.insert(new_uuuid, user);
+            (new_uuuid, admin_cred)
+        };
+
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+        Ok(Json(QrCodeResponse {
+            qr_svg,
+            invite_link,
+        }))
     }
 }

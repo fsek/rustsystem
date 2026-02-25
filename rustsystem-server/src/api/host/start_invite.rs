@@ -3,7 +3,7 @@ use axum::extract::FromRequest;
 
 use axum::{extract::State, http::StatusCode};
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::AppState;
 
@@ -32,13 +32,9 @@ impl APIHandler for StartInvite {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        meeting.invite_auth.write().await.set_state(true);
 
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            meeting.invite_auth.set_state(true);
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        Ok(())
     }
 }

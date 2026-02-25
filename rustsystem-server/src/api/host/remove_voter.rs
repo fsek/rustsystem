@@ -30,15 +30,14 @@ impl APIHandler for RemoveVoter {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(RemoveVoterRequest { voter_uuuid })) = request;
 
-        let meetings = state.meetings()?;
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            meeting
-                .voters
-                .remove(&voter_uuuid)
-                .ok_or(APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let meeting = state.get_meeting(auth.muuid).await?;
+        meeting
+            .voters
+            .write()
+            .await
+            .remove(&voter_uuuid)
+            .ok_or_else(|| APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
+
+        Ok(())
     }
 }

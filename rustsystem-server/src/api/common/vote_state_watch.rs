@@ -5,7 +5,7 @@ use axum::{
     response::{Sse, sse::Event},
 };
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use tokio_stream::{StreamExt, adapters::FilterMap, wrappers::WatchStream};
 
 use crate::{AppState, tokens::AuthUser, vote_auth::VoteState};
@@ -43,14 +43,10 @@ impl APIHandler for VoteStateWatch {
             VoteState::Tally => Some(Ok::<Event, APIError>(Event::default().data("Tally"))),
         };
 
-        let meetings = state.meetings()?;
-
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            let state_rx = meeting.vote_auth.new_state_watcher();
-            let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
-            Ok(Sse::new(stream))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let meeting = state.get_meeting(auth.muuid).await?;
+        // Subscribe while holding the read lock, then release it before returning the SSE stream.
+        let state_rx = meeting.vote_auth.read().await.new_state_watcher();
+        let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
+        Ok(Sse::new(stream))
     }
 }

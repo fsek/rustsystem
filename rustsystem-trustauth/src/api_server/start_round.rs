@@ -3,13 +3,15 @@ use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 use zkryptium::{
     bbsplus::ciphersuites::BbsCiphersuite,
     keys::pair::KeyPair,
     schemes::algorithms::{BbsBls12381Sha256, Scheme},
 };
+
+use tokio::sync::RwLock as AsyncRwLock;
 
 use crate::{AppState, AuthenticationKeys, RoundState};
 
@@ -54,13 +56,14 @@ impl APIHandler for StartRound {
         let pub_key_bytes = keys.public_key().to_bytes().to_vec();
         let header = body.name.as_bytes().to_vec();
 
-        let round = RoundState {
+        let round = Arc::new(RoundState {
             keys,
             header,
-            registered_voters: HashMap::new(),
-        };
+            registered_voters: AsyncRwLock::new(HashMap::new()),
+        });
 
-        state.rounds().lock().await.insert(body.muuid, round);
+        let rounds_arc = state.rounds_write();
+        rounds_arc.write().await.insert(body.muuid, round);
 
         Ok(Json(StartRoundResponse { pub_key_bytes }))
     }

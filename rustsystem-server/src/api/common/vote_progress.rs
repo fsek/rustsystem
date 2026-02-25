@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::{AppState, proof::BallotMetaData, tokens::AuthUser};
 
@@ -44,36 +44,34 @@ impl APIHandler for VoteProgress {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
 
-        if let Some(meeting) = meetings.lock().await.get(&auth.muuid) {
-            let is_active = meeting.vote_auth.is_active();
-            let is_tally = meeting.vote_auth.is_tally();
+        let vote_auth = meeting.vote_auth.read().await;
+        let is_active = vote_auth.is_active();
+        let is_tally = vote_auth.is_tally();
 
-            let total_participants = meeting.voters.len();
-            let (total_votes_cast, vote_name, metadata) = if is_active || is_tally {
-                if let Some(round) = meeting.vote_auth.round_ref() {
-                    let votes_cast = round.get_vote_count();
-                    let name = meeting.vote_auth.get_current_vote_name().cloned();
-                    let meta = if is_active { Some(round.metadata()) } else { None };
-                    (votes_cast, name, meta)
-                } else {
-                    (0, None, None)
-                }
+        let (total_votes_cast, vote_name, metadata) = if is_active || is_tally {
+            if let Some(round) = vote_auth.round_ref() {
+                let votes_cast = round.get_vote_count();
+                let name = vote_auth.get_current_vote_name().cloned();
+                let meta = if is_active { Some(round.metadata()) } else { None };
+                (votes_cast, name, meta)
             } else {
                 (0, None, None)
-            };
-
-            Ok(Json(VoteProgressResponse {
-                is_active,
-                is_tally,
-                total_votes_cast,
-                total_participants,
-                vote_name,
-                metadata,
-            }))
+            }
         } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+            (0, None, None)
+        };
+        // vote_auth read guard still held; acquiring voters read is fine (read + read).
+        let total_participants = meeting.voters.read().await.len();
+
+        Ok(Json(VoteProgressResponse {
+            is_active,
+            is_tally,
+            total_votes_cast,
+            total_participants,
+            vote_name,
+            metadata,
+        }))
     }
 }

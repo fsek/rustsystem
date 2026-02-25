@@ -29,26 +29,16 @@ impl APIHandler for Submit {
         let choice = body.get_choice();
         let validation = body.get_validation();
 
-        let meetings_arc = state.meetings()?;
-        let mut meetings = meetings_arc.lock().await;
-        let meeting = if let Some(meeting_ok) = meetings.get_mut(&auth.muuid) {
-            meeting_ok
-        } else {
-            return Err(APIError::from_error_code(APIErrorCode::MUuidNotFound));
-        };
-
-        let vote_auth = meeting.get_auth();
-
-        let round = ensure_round(vote_auth)?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let mut vote_auth = meeting.vote_auth.write().await;
+        let round = ensure_round(&mut *vote_auth)?;
 
         if round.is_used(validation.get_signature()) {
             return Err(APIError::from_error_code(APIErrorCode::SignatureExpired));
         }
 
         validate_metadata(metadata.clone(), round)?;
-
         validate_num_choices(choice.clone(), round)?;
-
         validate_signature(validation, round)?;
 
         // Only with valid metadata, valid length, and a valid signature (unused!) will the vote be counted

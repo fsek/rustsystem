@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
 };
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 
 use crate::AppState;
 
@@ -33,14 +33,11 @@ impl APIHandler for EndVoteRound {
             state: State(state),
         } = request;
 
-        let meetings = state.meetings()?;
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            meeting.get_auth().reset();
-            // Upon a hard reset (i.e. cancelling the voting round), we unlock
-            meeting.unlock();
-            Ok(())
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let meeting = state.get_meeting(auth.muuid).await?;
+        meeting.vote_auth.write().await.reset();
+        // Upon a hard reset (i.e. cancelling the voting round), we unlock
+        meeting.unlock();
+
+        Ok(())
     }
 }

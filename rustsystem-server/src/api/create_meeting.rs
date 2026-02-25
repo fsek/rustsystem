@@ -8,10 +8,7 @@ use tracing::{error, info};
 
 use crate::{
     AppState, MUuid, UUuid, Voter,
-    admin_auth::AdminAuthority,
-    invite_auth::InviteAuthority,
     tokens::{new_cookie, new_meeting_jwt},
-    vote_auth::VoteAuthority,
 };
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
@@ -45,22 +42,21 @@ impl APIHandler for CreateMeeting {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (jar, State(state), Json(query)) = request;
 
-        let state_guard = {
+        let (secret, is_secure) = {
             let guard = state.read()?;
-            guard.clone()
+            (guard.secret, guard.is_secure)
         };
 
-        let (uuuid, muuid, jwt) = match new_meeting_jwt(&state_guard.secret) {
+        let (uuuid, muuid, jwt) = match new_meeting_jwt(&secret) {
             Ok(res) => res,
             Err(e) => {
                 error!("{e}");
                 return Err(APIError::from_error_code(APIErrorCode::Other));
             }
         };
-        let new_cookie = new_cookie(jwt, state_guard.is_secure);
+        let new_cookie = new_cookie(jwt, is_secure);
 
         info!("Creating new meeting with id {muuid} and host {uuuid}");
-        let mut meetings = state_guard.meetings.lock().await;
         let mut voters = HashMap::new();
         voters.insert(
             uuuid,
@@ -68,23 +64,7 @@ impl APIHandler for CreateMeeting {
                 name: query.host_name,
                 logged_in: true,
                 is_host: true,
-                registered_at: std::time::SystemTime::now(),
-            },
-        );
-
-        let vote_auth = VoteAuthority::new();
-        let invite_auth = InviteAuthority::new();
-
-        meetings.insert(
-            muuid,
-            crate::Meeting {
-                title: query.title,
-                start_time: SystemTime::now(),
-                voters,
-                vote_auth,
-                invite_auth,
-                admin_auth: AdminAuthority::new(),
-                locked: false,
+                registered_at: SystemTime::now(),
             },
         );
 
@@ -99,15 +79,29 @@ impl APIHandler for CreateMeeting {
             return Err(APIError::from_error_code(APIErrorCode::Other));
         }
 
+        // Outer map write: inserting a new meeting and pruning stale ones.
+        let meetings_arc = state.meetings_write()?;
+        let mut map = meetings_arc.write().await;
+
+        map.insert(
+            muuid,
+            std::sync::Arc::new(crate::Meeting::new(query.title, SystemTime::now(), voters)),
+        );
+
         // Remove dead meetings
-        let mut dead_muuids = Vec::new();
-        for (muuid, meeting) in meetings.iter() {
-            if meeting.start_time.elapsed().unwrap().as_secs() > 60 * 60 * 12 {
-                dead_muuids.push(*muuid);
-            }
-        }
-        for muuid in dead_muuids {
-            meetings.remove(&muuid);
+        let dead_muuids: Vec<_> = map
+            .iter()
+            .filter(|(_, m)| {
+                m.start_time
+                    .elapsed()
+                    .unwrap_or_default()
+                    .as_secs()
+                    > 60 * 60 * 12
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in dead_muuids {
+            map.remove(&id);
         }
 
         Ok((

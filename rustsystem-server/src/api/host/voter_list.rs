@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     Json,
@@ -40,27 +40,24 @@ impl APIHandler for VoterList {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let VoterListRequest { auth, state } = request;
 
-        let meetings = state.meetings()?;
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            Ok(Json(
-                meeting
-                    .voters
-                    .iter()
-                    .map(|(k, v)| VoterInfo {
-                        name: v.name.clone(),
-                        uuid: k.to_string(),
-                        registered_at: v
-                            .registered_at
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs(),
-                        logged_in: v.logged_in,
-                        is_host: v.is_host,
-                    })
-                    .collect(),
-            ))
-        } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
-        }
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let voters = meeting.voters.read().await;
+
+        Ok(Json(
+            voters
+                .iter()
+                .map(|(k, v)| VoterInfo {
+                    name: v.name.clone(),
+                    uuid: k.to_string(),
+                    registered_at: v
+                        .registered_at
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                    logged_in: v.logged_in,
+                    is_host: v.is_host,
+                })
+                .collect(),
+        ))
     }
 }

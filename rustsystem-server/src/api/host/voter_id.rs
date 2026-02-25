@@ -30,16 +30,13 @@ impl APIHandler for VoterId {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(VoterIdRequest { name })) = request;
 
-        let meetings = state.meetings()?;
+        let meeting = state.get_meeting(auth.muuid).await?;
+        let voters = meeting.voters.read().await;
 
-        if let Some(meeting) = meetings.lock().await.get_mut(&auth.muuid) {
-            if let Some((uuuid, _voter)) = meeting.voters.iter().find(|(_k, v)| v.name == name) {
-                Ok(Json(*uuuid))
-            } else {
-                Err(APIError::from_error_code(APIErrorCode::VoterNameNotFound))
-            }
+        if let Some((uuuid, _)) = voters.iter().find(|(_, v)| v.name == name) {
+            Ok(Json(*uuuid))
         } else {
-            Err(APIError::from_error_code(APIErrorCode::MUuidNotFound))
+            Err(APIError::from_error_code(APIErrorCode::VoterNameNotFound))
         }
     }
 }
