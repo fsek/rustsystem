@@ -95,7 +95,7 @@ impl APIErrorCode {
                 409,
             ),
             Self::InvalidVoteLength => ("Too many candidates were provided.", 409),
-            Self::VotingInactive => ("Vote has already been closed, or it was never opened.", 409),
+            Self::VotingInactive => ("Vote has already been closed, or it was never opened.", 410),
 
             Self::SignatureInvalid => (
                 "Server rejected validation signature because it doesn't match vote round keys.",

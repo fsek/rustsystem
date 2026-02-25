@@ -8,6 +8,7 @@ use crate::{
 };
 
 #[tokio::test]
+#[ignore = "requires a running trustauth service (start-vote calls start_round_on_trustauth)"]
 async fn test_state_permissions() {
     let app = MockApp::new_inprocess();
 

@@ -40,16 +40,18 @@ async fn test_remove_one() {
     let creation_res = create_meeting(&app).await;
     let cookie = extract_cookie(&creation_res).1;
 
-    let id_res = voter_id(&app, cookie, String::from("Creator")).await;
+    let add_res = add_voter(&app, cookie, "Voter", false).await;
+    voter_login(&app, add_res).await;
+
+    let id_res = voter_id(&app, cookie, String::from("Voter")).await;
     let id = parse_response_body::<Uuid>(id_res).await;
     let remove_res = remove_voter(&app, cookie, id).await;
-
     assert_eq!(remove_res.status(), StatusCode::OK);
 
-    // check list of users
+    // Host cookie is still valid; only the added voter was removed
     let list_res = voter_list(&app, cookie).await;
     let voters = parse_response_body::<Vec<VoterInfo>>(list_res).await;
-    assert_eq!(voters.len(), 0);
+    assert_eq!(voters.len(), 1);
 }
 
 #[tokio::test]

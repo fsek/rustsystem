@@ -19,7 +19,7 @@ use crate::{API_ENDPOINT, AppState, MUuid, UUuid, Voter};
 
 use super::auth::AuthHost;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QrCodeResponse {
     pub qr_svg: String,

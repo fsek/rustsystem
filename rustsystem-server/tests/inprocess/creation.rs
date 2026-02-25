@@ -19,7 +19,12 @@ async fn test_meeting_creation() {
         .oneshot(json_request(
             Method::POST,
             "/api/create-meeting",
-            serde_json::to_value(CreateMeetingRequest { title, host_name }).unwrap(),
+            serde_json::to_value(CreateMeetingRequest {
+                title,
+                host_name,
+                pub_key: String::new(),
+            })
+            .unwrap(),
             None,
         ))
         .await;

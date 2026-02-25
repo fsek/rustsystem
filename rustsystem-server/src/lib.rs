@@ -28,7 +28,7 @@ pub mod tokens;
 pub mod api_trustauth;
 use api_trustauth::api_trustauth_routes;
 
-mod proof;
+pub mod proof;
 pub mod tally_encrypt;
 
 use uuid::Uuid;
@@ -193,6 +193,13 @@ pub fn app_public(state: AppState) -> Router {
         .fallback_service(serve_dir)
         .nest("/api", api_routes())
         .with_state(state)
+}
+
+/// Convenience wrapper for in-process integration tests.
+/// Combines both routers (public + internal) on a single `Router` so tests
+/// can drive all endpoints through `tower::ServiceExt::oneshot`.
+pub fn app() -> Router {
+    app_public(init_state().unwrap())
 }
 
 pub fn app_internal(state: AppState) -> Router {

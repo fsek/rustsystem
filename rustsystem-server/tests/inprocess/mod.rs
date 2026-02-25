@@ -3,38 +3,32 @@ use axum::{
     http::{HeaderName, HeaderValue, Method},
     response::Response,
 };
-use rustsystem_proof::{
-    Ballot, BallotMetaData, BallotValidation, Candidates, Choice, ProofContext, Provider,
-    RegistrationSuccessResponse, Sha256Provider, Sha256RegistrationInfo,
-};
-use serde::{Deserialize, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
+use url::Url;
 use uuid::Uuid;
-use zkryptium::bbsplus::commitment::BlindFactor;
 
-use crate::{
-    common::{MockApp, json_request},
-    inprocess::qr_reader::{extract_url_args, read_qr},
-};
+use crate::common::{MockApp, json_request};
 
 use http_body_util::BodyExt;
-use rustsystem_server::api::{
-    create_meeting::CreateMeetingRequest,
-    host::{
-        new_voter::NewVoterRequestBody,
-        start_vote::StartVoteRequest,
-        remove_voter::RemoveVoterRequest,
-        reset_login::ResetLoginRequest,
-        voter_id::VoterIdRequest,
+use rustsystem_server::{
+    api::{
+        create_meeting::CreateMeetingRequest,
+        host::{
+            new_voter::{NewVoterRequestBody, QrCodeResponse},
+            start_vote::StartVoteRequest,
+            remove_voter::RemoveVoterRequest,
+            reset_login::ResetLoginRequest,
+            voter_id::VoterIdRequest,
+        },
+        login::LoginRequest,
     },
-    login::LoginRequest,
+    proof::{BallotMetaData, Candidates},
 };
 
 mod creation;
 mod management;
 mod permissions;
-mod qr_reader;
 mod sequence;
-mod voting;
 
 async fn create_meeting(app: &MockApp) -> Response {
     let title = String::from("Test Meeting");
@@ -43,7 +37,12 @@ async fn create_meeting(app: &MockApp) -> Response {
     app.oneshot(json_request(
         Method::POST,
         "/api/create-meeting",
-        serde_json::to_value(CreateMeetingRequest { title, host_name }).unwrap(),
+        serde_json::to_value(CreateMeetingRequest {
+            title,
+            host_name,
+            pub_key: String::new(),
+        })
+        .unwrap(),
         None,
     ))
     .await
@@ -76,20 +75,20 @@ async fn add_voter(
 }
 
 async fn voter_login(app: &MockApp, res: Response) -> Response {
-    let collected = res.into_body().collect().await.unwrap();
-    let bytes = collected.to_bytes();
-    let body_str = String::from_utf8(bytes.to_vec()).unwrap();
+    let bytes = res.into_body().collect().await.unwrap().to_bytes();
+    let qr_res: QrCodeResponse = serde_json::from_slice(&bytes).unwrap();
 
-    let url = read_qr(&body_str).unwrap();
-
-    let (uuuid, muuid) = extract_url_args(&url).unwrap();
+    let url = Url::parse(&qr_res.invite_link).unwrap();
+    let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
+    let uuuid = params["uuuid"].to_string();
+    let muuid = params["muuid"].to_string();
 
     app.oneshot(json_request(
         Method::POST,
         "/api/login",
         serde_json::to_value(LoginRequest {
-            uuuid: uuuid,
-            muuid: muuid,
+            uuuid,
+            muuid,
             admin_cred: None,
         })
         .unwrap(),
@@ -173,51 +172,6 @@ async fn reset_login(app: &MockApp, cookie: &HeaderValue, uuuid: Uuid) -> Respon
         Method::POST,
         "/api/host/reset-login",
         serde_json::to_value(ResetLoginRequest { user_uuuid: uuuid }).unwrap(),
-        Some(cookie.clone()),
-    ))
-    .await
-}
-
-async fn register(
-    app: &MockApp,
-    cookie: &HeaderValue,
-    voter_id: Uuid,
-    meeting_id: Uuid,
-) -> (Vec<u8>, BlindFactor, Response) {
-    let (context, token, commitment, proof) = Sha256Provider::generate_token(
-        voter_id.into_bytes().to_vec(),
-        meeting_id.into_bytes().to_vec(),
-    )
-    .unwrap();
-    let reginfo = Sha256Provider::new_reg_info(context, commitment);
-
-    (
-        token,
-        proof,
-        app.oneshot(json_request(
-            Method::POST,
-            "/api/voter/register",
-            serde_json::to_value(reginfo).unwrap(),
-            Some(cookie.clone()),
-        ))
-        .await,
-    )
-}
-
-async fn vote(
-    app: &MockApp,
-    cookie: &HeaderValue,
-    choice: Option<Choice>,
-    regres: RegistrationSuccessResponse,
-    token: Vec<u8>,
-    proof: Vec<u8>,
-) -> Response {
-    let validation = BallotValidation::new(proof, token, regres.get_signature().clone());
-    let ballot = Ballot::new(regres.get_metadata().clone(), choice, validation);
-    app.oneshot(json_request(
-        Method::POST,
-        "/api/voter/submit",
-        serde_json::to_value(ballot).unwrap(),
         Some(cookie.clone()),
     ))
     .await

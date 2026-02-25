@@ -8,16 +8,12 @@ use tower::util::ServiceExt;
 
 pub struct MockApp {
     router: Router,
-    base_url: Option<String>,
 }
 impl MockApp {
     pub fn new_inprocess() -> Self {
         let router = app();
 
-        Self {
-            router: router,
-            base_url: None,
-        }
+        Self { router: router }
     }
 
     pub async fn oneshot(&self, req: Request<Body>) -> Response<Body> {

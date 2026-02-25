@@ -9,6 +9,7 @@ use crate::{
 
 // For this test, it should be noted that end-vote-round is always valid (it's a hard reset)
 #[tokio::test]
+#[ignore = "requires a running trustauth service (start-vote calls start_round_on_trustauth)"]
 async fn test_lock_sequence() {
     let app = MockApp::new_inprocess();
 
@@ -49,6 +50,7 @@ async fn test_lock_sequence() {
 }
 
 #[tokio::test]
+#[ignore = "requires a running trustauth service (start-vote calls start_round_on_trustauth)"]
 async fn test_invite_lock() {
     let app = MockApp::new_inprocess();
 
@@ -82,6 +84,7 @@ async fn test_invite_lock() {
 }
 
 #[tokio::test]
+#[ignore = "requires a running trustauth service (start-vote calls start_round_on_trustauth)"]
 async fn test_pending_invite_purge() {
     let app = MockApp::new_inprocess();
 
