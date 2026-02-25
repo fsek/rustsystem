@@ -7,7 +7,7 @@ use axum::{
 
 use rustsystem_core::{APIError, APIHandler, Method};
 
-use crate::{AppState, vote_auth};
+use crate::{AppState, tally_encrypt::save_encrypted_tally, vote_auth};
 
 use super::auth::AuthHost;
 
@@ -37,11 +37,21 @@ impl APIHandler for Tally {
         let meeting = state.get_meeting(auth.muuid).await?;
         let tally_result = meeting.vote_auth.write().await.finalize_round()?;
 
-        // Unlock the meeting during tally phase to allow invitations between voting sessions.
-        // This enables hosts to invite new participants while results are being displayed,
-        // before starting the next vote round. The meeting will remain unlocked until
-        // a new vote starts (which locks it again).
-        meeting.unlock();
+        // vote_auth read guard released; now safe to read voters independently.
+        let voter_names: Vec<String> = meeting
+            .voters
+            .read()
+            .await
+            .values()
+            .map(|v| v.name.clone())
+            .collect();
+
+        if let Err(e) = save_encrypted_tally(&auth.muuid, &tally_result, voter_names) {
+            tracing::error!(
+                "Failed to save encrypted tally for meeting {}: {e}",
+                auth.muuid
+            );
+        }
 
         Ok(Json(tally_result))
     }

@@ -7,7 +7,7 @@ use axum::{
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
-use crate::{AppState, tally_encrypt::save_encrypted_tally, vote_auth};
+use crate::{AppState, vote_auth};
 
 use super::auth::AuthHost;
 
@@ -43,22 +43,6 @@ impl APIHandler for GetTally {
                 .cloned()
                 .ok_or_else(|| APIError::from_error_code(APIErrorCode::InvalidState))?
         };
-
-        // vote_auth read guard released; now safe to read voters independently.
-        let voter_names: Vec<String> = meeting
-            .voters
-            .read()
-            .await
-            .values()
-            .map(|v| v.name.clone())
-            .collect();
-
-        if let Err(e) = save_encrypted_tally(&auth.muuid, &tally, voter_names) {
-            tracing::error!(
-                "Failed to save encrypted tally for meeting {}: {e}",
-                auth.muuid
-            );
-        }
 
         Ok(Json(tally))
     }
