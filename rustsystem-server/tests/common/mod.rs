@@ -3,7 +3,7 @@ use axum::{
     body::Body,
     http::{self, HeaderValue, Request, Response},
 };
-use rustsystem_server::app;
+use rustsystem_server::{app_combined, new_test_state};
 use tower::util::ServiceExt;
 
 pub struct MockApp {
@@ -11,9 +11,10 @@ pub struct MockApp {
 }
 impl MockApp {
     pub fn new_inprocess() -> Self {
-        let router = app();
-
-        Self { router: router }
+        // Use a dummy trustauth URL; unit tests that don't call trustauth won't
+        // exercise those paths.
+        let router = app_combined(new_test_state("http://localhost:2443"));
+        Self { router }
     }
 
     pub async fn oneshot(&self, req: Request<Body>) -> Response<Body> {

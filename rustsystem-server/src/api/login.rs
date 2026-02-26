@@ -83,13 +83,7 @@ impl APIHandler for Login {
         };
 
         info!("Creating JWT with is_host: {}", is_host);
-        let jwt = match get_meeting_jwt(uuuid, muuid, is_host, &secret) {
-            Ok(token) => token,
-            Err(e) => {
-                error!("{e}");
-                return Err(APIError::from_error_code(APIErrorCode::Other));
-            }
-        };
+        let jwt = get_meeting_jwt(uuuid, muuid, is_host, &secret)?;
         let new_cookie = new_cookie(jwt, is_secure);
 
         info!("Voter with id {uuuid} has been accepted");

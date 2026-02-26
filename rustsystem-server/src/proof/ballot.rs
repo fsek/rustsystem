@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::proof::{Sha256ValidationInfo, ValidationInfo};
 
+use rustsystem_core::APIError;
 use serde::{Deserialize, Serialize};
 use zkryptium::schemes::{algorithms::BbsBls12381Sha256, generics::BlindSignature};
 
@@ -25,8 +26,10 @@ impl BallotValidation {
         &self.signature
     }
 }
-impl From<BallotValidation> for Sha256ValidationInfo {
-    fn from(value: BallotValidation) -> Self {
+impl TryFrom<BallotValidation> for Sha256ValidationInfo {
+    type Error = APIError;
+
+    fn try_from(value: BallotValidation) -> Result<Self, Self::Error> {
         Self::new(value.proof, value.token, value.signature)
     }
 }

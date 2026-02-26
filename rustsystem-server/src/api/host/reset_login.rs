@@ -53,7 +53,7 @@ impl APIHandler for ResetLogin {
             (new_uuuid, admin_cred)
         };
 
-        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
         Ok(Json(QrCodeResponse {
             qr_svg,
             invite_link,

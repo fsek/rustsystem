@@ -1,4 +1,4 @@
-use rustsystem_core::{APIError, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use rand::Rng;
@@ -26,7 +26,7 @@ pub struct StartRoundResponse {
     pub pub_key_bytes: Vec<u8>,
 }
 
-fn generate_keys() -> AuthenticationKeys {
+fn generate_keys() -> Result<AuthenticationKeys, APIError> {
     let material: Vec<u8> = (0..<BbsBls12381Sha256 as Scheme>::Ciphersuite::IKM_LEN)
         .map(|_| {
             let mut buf = [0u8];
@@ -34,7 +34,8 @@ fn generate_keys() -> AuthenticationKeys {
             buf[0]
         })
         .collect();
-    KeyPair::<BbsBls12381Sha256>::generate(&material, None, None).unwrap()
+    KeyPair::<BbsBls12381Sha256>::generate(&material, None, None)
+        .map_err(|_| APIError::from_error_code(APIErrorCode::CryptoError))
 }
 
 pub struct StartRound;
@@ -52,7 +53,7 @@ impl APIHandler for StartRound {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (State(state), Json(body)) = request;
 
-        let keys = generate_keys();
+        let keys = generate_keys()?;
         let pub_key_bytes = keys.public_key().to_bytes().to_vec();
         let header = body.name.as_bytes().to_vec();
 

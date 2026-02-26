@@ -168,7 +168,7 @@ impl AppState {
     }
 }
 
-pub fn init_state() -> anyhow::Result<AppState> {
+pub fn init_state() -> Result<AppState, APIError> {
     let is_secure = API_ENDPOINT_SERVER.starts_with("https://");
     info!("Running rustsystem server with secure setting: {is_secure}");
 
@@ -212,13 +212,6 @@ pub fn app_public(state: AppState) -> Router {
         .fallback_service(serve_dir)
         .nest("/api", api_routes())
         .with_state(state)
-}
-
-/// Convenience wrapper for in-process integration tests.
-/// Combines both routers (public + internal) on a single `Router` so tests
-/// can drive all endpoints through `tower::ServiceExt::oneshot`.
-pub fn app() -> Router {
-    app_public(init_state().unwrap())
 }
 
 pub fn app_internal(state: AppState) -> Router {

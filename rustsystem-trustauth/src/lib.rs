@@ -1,7 +1,4 @@
-use rustsystem_core::{
-    APIError, APIErrorCode,
-    mtls::build_mtls_client,
-};
+use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
@@ -159,9 +156,8 @@ struct IsVoterResponse {
     is_voter: bool,
 }
 
-pub fn init_state() -> anyhow::Result<AppState> {
-    let secret = rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")
-        .map_err(|e| anyhow::anyhow!("Failed to load trustauth secret: {e}"))?;
+pub fn init_state() -> Result<AppState, APIError> {
+    let secret = rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")?;
     info!("Loaded trustauth secret");
 
     let http_client = build_mtls_client(
@@ -192,14 +188,14 @@ pub fn new_test_state(server_url: impl Into<String>) -> AppState {
     }))
 }
 
-pub fn app_public(state: AppState) -> Router {
+pub fn app_public(state: AppState) -> Result<Router, APIError> {
     // Allow both the canonical origin and its localhost/127.0.0.1 counterpart,
     // since browsers may use either form even when pointing at the same host.
-    let mut origins: Vec<HeaderValue> = vec![
-        API_ENDPOINT_SERVER
-            .parse()
-            .expect("API_ENDPOINT_SERVER is not a valid header value"),
-    ];
+    let origin: HeaderValue = API_ENDPOINT_SERVER
+        .parse()
+        .map_err(|_| APIError::new(APIErrorCode::InitError, "API_ENDPOINT_SERVER is not a valid CORS origin", 500))?;
+    let mut origins: Vec<HeaderValue> = vec![origin];
+
     let alt = if API_ENDPOINT_SERVER.contains("127.0.0.1") {
         API_ENDPOINT_SERVER.replace("127.0.0.1", "localhost")
     } else {
@@ -217,10 +213,10 @@ pub fn app_public(state: AppState) -> Router {
         .allow_headers([header::CONTENT_TYPE])
         .allow_credentials(true);
 
-    Router::new()
+    Ok(Router::new()
         .nest("/api", public_routes())
         .layer(cors)
-        .with_state(state)
+        .with_state(state))
 }
 
 pub fn app_internal(state: AppState) -> Router {
@@ -231,6 +227,6 @@ pub fn app_internal(state: AppState) -> Router {
 
 /// Combines public and internal routers on a single `Router`. Used by
 /// integration tests that run both services in the same process on a single port.
-pub fn app_combined(state: AppState) -> Router {
-    app_public(state.clone()).merge(app_internal(state))
+pub fn app_combined(state: AppState) -> Result<Router, APIError> {
+    Ok(app_public(state.clone())?.merge(app_internal(state)))
 }

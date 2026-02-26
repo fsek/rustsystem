@@ -1,5 +1,3 @@
-use std::io;
-
 use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{
     Json,
@@ -33,10 +31,10 @@ fn create_meeting_jwt(
     muuid: MUuid,
     is_host: bool,
     secret: &[u8; 32],
-) -> Result<String, jsonwebtoken::errors::Error> {
+) -> Result<String, APIError> {
     let expiration = Utc::now()
         .checked_add_signed(chrono::Duration::hours(12))
-        .expect("valid timestamp")
+        .ok_or_else(|| APIError::from_error_code(APIErrorCode::TimestampError))?
         .timestamp() as usize;
 
     let claims = MeetingClaims {
@@ -51,6 +49,7 @@ fn create_meeting_jwt(
         &claims,
         &EncodingKey::from_secret(secret.as_ref()),
     )
+    .map_err(|_| APIError::from_error_code(APIErrorCode::Other))
 }
 
 pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
@@ -66,7 +65,7 @@ pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
 
 pub fn new_meeting_jwt(
     secret: &[u8; 32],
-) -> Result<(UUuid, MUuid, String), jsonwebtoken::errors::Error> {
+) -> Result<(UUuid, MUuid, String), APIError> {
     let uuuid = Uuid::new_v4();
     let muuid = Uuid::new_v4();
 
@@ -82,11 +81,11 @@ pub fn get_meeting_jwt(
     muid: MUuid,
     is_host: bool,
     secret: &[u8; 32],
-) -> Result<String, jsonwebtoken::errors::Error> {
+) -> Result<String, APIError> {
     create_meeting_jwt(uuid, muid, is_host, secret)
 }
 
-pub fn get_secret() -> io::Result<[u8; 32]> {
+pub fn get_secret() -> Result<[u8; 32], APIError> {
     rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-server-secret")
 }
 
@@ -103,9 +102,11 @@ impl FromRequestParts<AppState> for AuthUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let jar = CookieJar::from_request_parts(parts, state)
-            .await
-            .expect("infallible");
+        // CookieJar extraction is infallible; match the Infallible variant exhaustively.
+        let jar = match CookieJar::from_request_parts(parts, state).await {
+            Ok(jar) => jar,
+            Err(infallible) => match infallible {},
+        };
 
         let endpoint = EndpointMeta {
             method: rustsystem_core::Method::from(parts.method.clone()),

@@ -1,4 +1,4 @@
-use rustsystem_core::mtls::build_mtls_server_config;
+use rustsystem_core::{APIError, mtls::build_mtls_server_config};
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
 use tracing::level_filters::LevelFilter;
@@ -7,12 +7,12 @@ use tracing_subscriber::EnvFilter;
 use rustsystem_server::{app_internal, app_public, init_state};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), APIError> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
 
-    let state = init_state().unwrap();
+    let state = init_state()?;
 
     let app_public = app_public(state.clone());
     let app_internal = app_internal(state);
@@ -21,8 +21,7 @@ async fn main() -> anyhow::Result<()> {
         include_bytes!("../../mtls/server/server.crt"),
         include_bytes!("../../mtls/server/server.key"),
         include_bytes!("../../mtls/ca/ca.crt"),
-    )
-    .unwrap();
+    )?;
 
     let addr_public = SocketAddr::from(([0, 0, 0, 0], 1443));
     let addr_internal = SocketAddr::from(([0, 0, 0, 0], 1444));
@@ -35,6 +34,7 @@ async fn main() -> anyhow::Result<()> {
 
     let public_serve = axum_server::bind(addr_public).serve(app_public.into_make_service());
 
-    tokio::try_join!(internal_serve, public_serve)?;
+    tokio::try_join!(internal_serve, public_serve)
+        .map_err(|_| APIError::from_error_code(rustsystem_core::APIErrorCode::InitError))?;
     Ok(())
 }

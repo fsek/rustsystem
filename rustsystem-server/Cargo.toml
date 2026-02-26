@@ -40,7 +40,6 @@ chacha20poly1305 = "0.10"
 hkdf = "0.12"
 sha2 = "0.10"
 async-trait = "0.1.89"
-anyhow = "1"
 reqwest = { version = "0.13.2", features = ["json"] }
 
 [dev-dependencies]
@@ -51,7 +50,6 @@ resvg = "0.44"
 tiny-skia = "0.11"
 image = "0.24.9"
 rqrr = "0.6"
-anyhow = "1"
 url = "2"
 reqwest = { version = "0.13.2", features = ["json", "cookies"] }
 rustsystem-trustauth = { path = "../rustsystem-trustauth" }

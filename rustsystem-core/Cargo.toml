@@ -5,7 +5,6 @@ edition = "2024"
 authors.workspace = true
 
 [dependencies]
-anyhow = "1.0.102"
 async-trait = "0.1.89"
 axum.workspace = true
 base64 = "0.22.1"

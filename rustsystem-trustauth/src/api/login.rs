@@ -61,7 +61,7 @@ impl APIHandler for Login {
 
         let expiration = Utc::now()
             .checked_add_signed(chrono::Duration::hours(12))
-            .expect("valid timestamp")
+            .ok_or_else(|| APIError::from_error_code(APIErrorCode::TimestampError))?
             .timestamp() as usize;
 
         let claims = MeetingClaims {

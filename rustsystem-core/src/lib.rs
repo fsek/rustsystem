@@ -58,6 +58,14 @@ pub enum APIErrorCode {
 
     StateCurrupt,
     TrustAuthFetch,
+
+    // Infrastructure / init errors
+    InitError,
+    CryptoError,
+    QrCodeError,
+    TimestampError,
+    IoError,
+
     Other,
 }
 impl APIErrorCode {
@@ -116,6 +124,12 @@ impl APIErrorCode {
 
             Self::StateCurrupt => ("AppState could not be read.", 500),
             Self::TrustAuthFetch => ("TrustAuth failed to fetch from server.", 500),
+
+            Self::InitError => ("Server component failed to initialise.", 500),
+            Self::CryptoError => ("Cryptographic operation failed.", 500),
+            Self::QrCodeError => ("Failed to generate QR code.", 500),
+            Self::TimestampError => ("Failed to calculate token expiry timestamp.", 500),
+            Self::IoError => ("File system operation failed.", 500),
 
             Self::Other => ("An unexpected error occured. Please contact an admin.", 500),
         }

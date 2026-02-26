@@ -73,22 +73,24 @@ fn validate_signature(
     validation: &BallotValidation,
     round: &mut VoteRound,
 ) -> Result<(), APIError> {
-    let info = Sha256ValidationInfo::from(validation.clone());
+    let val_info = Sha256ValidationInfo::try_from(validation.clone())
+        .map_err(|_| APIError::from_error_code(APIErrorCode::SignatureInvalid))?;
 
-    if Sha256Provider::validate_token(
-        info.get_proof(),
+    let proof = val_info.get_proof()?;
+
+    Sha256Provider::validate_token(
+        proof,
         round.header().clone(),
-        info.token,
+        val_info.token.clone(),
         round.public_key().clone(),
-        info.signature.clone(),
+        val_info.signature.clone(),
     )
-    .is_ok()
-    {
+    .map(|()| {
         info!("Validation Successful");
-        round.set_signature_expired(&info.signature);
-        Ok(())
-    } else {
+        round.set_signature_expired(&val_info.signature);
+    })
+    .map_err(|_| {
         error!("Validation Failure");
-        Err(APIError::from_error_code(APIErrorCode::SignatureInvalid))
-    }
+        APIError::from_error_code(APIErrorCode::SignatureInvalid)
+    })
 }

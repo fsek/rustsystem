@@ -47,13 +47,7 @@ impl APIHandler for CreateMeeting {
             (guard.secret, guard.is_secure)
         };
 
-        let (uuuid, muuid, jwt) = match new_meeting_jwt(&secret) {
-            Ok(res) => res,
-            Err(e) => {
-                error!("{e}");
-                return Err(APIError::from_error_code(APIErrorCode::Other));
-            }
-        };
+        let (uuuid, muuid, jwt) = new_meeting_jwt(&secret)?;
         let new_cookie = new_cookie(jwt, is_secure);
 
         info!("Creating new meeting with id {muuid} and host {uuuid}");

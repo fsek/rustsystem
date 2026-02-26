@@ -44,7 +44,8 @@ impl E2eApp {
         let ta_state = ta_new_test_state(&server_url);
 
         let server_router = app_combined(server_state);
-        let ta_router = ta_app_combined(ta_state);
+        // app_combined returns Result; unwrap is acceptable in test scaffolding.
+        let ta_router = ta_app_combined(ta_state).unwrap();
 
         let server_task = tokio::spawn(async move {
             axum::serve(server_listener, server_router).await.unwrap();

@@ -92,7 +92,7 @@ impl APIHandler for NewVoter {
             }
         };
 
-        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred);
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
         Ok(Json(QrCodeResponse {
             qr_svg,
             invite_link,
@@ -104,7 +104,7 @@ pub fn gen_qr_code_with_link(
     muuid: MUuid,
     uuuid: UUuid,
     admin_cred: Option<AdminCred>,
-) -> (String, String) {
+) -> Result<(String, String), APIError> {
     info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
     let mut url = format!("{API_ENDPOINT_SERVER}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {
@@ -117,12 +117,12 @@ pub fn gen_qr_code_with_link(
     info!("Creating QR code from {url}");
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)
-        .unwrap_or_else(|_| panic!("Creation of QR code was unsuccessful. url: {url}"));
+        .map_err(|_| APIError::from_error_code(APIErrorCode::QrCodeError))?;
     let qr_svg = code.render::<svg::Color>().min_dimensions(200, 200).build();
     let qr_svg_base64 = format!(
         "data:image/svg+xml;base64,{}",
         BASE64_STANDARD.encode(qr_svg)
     );
 
-    (qr_svg_base64, url)
+    Ok((qr_svg_base64, url))
 }
