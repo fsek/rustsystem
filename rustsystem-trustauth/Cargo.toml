@@ -30,3 +30,8 @@ time = { version = "0.3", features = ["serde"] }
 reqwest = { version = "0.13.2", features = ["json"] }
 async-trait = "0.1.89"
 anyhow = "1.0.102"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+futures = "0.3"
