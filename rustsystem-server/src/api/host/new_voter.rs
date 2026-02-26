@@ -15,7 +15,7 @@ use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use uuid::Uuid;
 
 use crate::admin_auth::AdminCred;
-use crate::{API_ENDPOINT, AppState, MUuid, UUuid, Voter};
+use crate::{API_ENDPOINT_SERVER, AppState, MUuid, UUuid, Voter};
 
 use super::auth::AuthHost;
 
@@ -106,7 +106,7 @@ pub fn gen_qr_code_with_link(
     admin_cred: Option<AdminCred>,
 ) -> (String, String) {
     info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
-    let mut url = format!("{API_ENDPOINT}/login?muuid={muuid}&uuuid={uuuid}");
+    let mut url = format!("{API_ENDPOINT_SERVER}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {
         url.push_str(&format!(
             "&admin_msg={}&admin_sig={}",

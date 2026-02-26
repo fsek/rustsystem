@@ -14,8 +14,6 @@ use uuid::Uuid;
 
 use crate::AppState;
 
-const API_ENDPOINT_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH");
-
 #[derive(Serialize, Deserialize)]
 struct MeetingClaims {
     uuuid: Uuid,
@@ -80,7 +78,7 @@ impl APIHandler for Login {
         )
         .map_err(|_| APIError::from_error_code(APIErrorCode::Other))?;
 
-        let is_secure = API_ENDPOINT_TRUSTAUTH.starts_with("https://");
+        let is_secure = state.is_secure();
         let cookie = Cookie::build(("trustauth_token", jwt))
             .http_only(true)
             .same_site(cookie::SameSite::Strict)

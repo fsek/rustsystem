@@ -1,7 +1,7 @@
-use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use axum::Router;
 use invite_auth::InviteAuthority;
 use reqwest::Client;
+use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
@@ -39,7 +39,7 @@ type MUuid = Uuid;
 type UUuid = Uuid;
 
 /// NOTE: The API_ENDPOINT environmental variable must be set at compile time!
-const API_ENDPOINT: &str = env!("API_ENDPOINT_SERVER");
+const API_ENDPOINT_SERVER: &str = env!("API_ENDPOINT_SERVER");
 const API_ENDPOINT_SERVER_TO_TRUSTAUTH: &str = env!("API_ENDPOINT_SERVER_TO_TRUSTAUTH");
 
 #[derive(Debug)]
@@ -94,6 +94,7 @@ pub struct AppStateInternal {
     // for prod and false for dev
     is_secure: bool,
     trustauth_client: Client,
+    trustauth_url: String,
 }
 
 #[derive(Deserialize)]
@@ -146,15 +147,13 @@ impl AppState {
             name: &'a str,
         }
 
-        let client = {
+        let (client, trustauth_url) = {
             let guard = self.read()?;
-            guard.trustauth_client.clone()
+            (guard.trustauth_client.clone(), guard.trustauth_url.clone())
         };
 
         let resp = client
-            .post(format!(
-                "{API_ENDPOINT_SERVER_TO_TRUSTAUTH}/server/api/start-round"
-            ))
+            .post(format!("{trustauth_url}/server/api/start-round"))
             .json(&StartRoundRequest { muuid, name })
             .send()
             .await
@@ -170,7 +169,7 @@ impl AppState {
 }
 
 pub fn init_state() -> anyhow::Result<AppState> {
-    let is_secure = API_ENDPOINT.starts_with("https://");
+    let is_secure = API_ENDPOINT_SERVER.starts_with("https://");
     info!("Running rustsystem server with secure setting: {is_secure}");
 
     Ok(AppState(Arc::new(RwLock::new(AppStateInternal {
@@ -182,7 +181,27 @@ pub fn init_state() -> anyhow::Result<AppState> {
             include_bytes!("../../mtls/server/server.crt"),
             include_bytes!("../../mtls/server/server.key"),
         )?,
+        trustauth_url: API_ENDPOINT_SERVER_TO_TRUSTAUTH.to_string(),
     }))))
+}
+
+/// Creates an `AppState` suitable for integration tests: uses a plain HTTP client
+/// (no mTLS) and accepts trustauth's base URL at runtime so tests can bind both
+/// services to random ports.
+pub fn new_test_state(trustauth_url: impl Into<String>) -> AppState {
+    AppState(Arc::new(RwLock::new(AppStateInternal {
+        secret: [0u8; 32],
+        meetings: Arc::new(AsyncRwLock::new(HashMap::new())),
+        is_secure: false,
+        trustauth_client: reqwest::Client::new(),
+        trustauth_url: trustauth_url.into(),
+    })))
+}
+
+/// Combines public and internal routers on a single `Router`. Used by
+/// integration tests that run both services in the same process on a single port.
+pub fn app_combined(state: AppState) -> Router {
+    app_public(state.clone()).merge(app_internal(state))
 }
 
 pub fn app_public(state: AppState) -> Router {

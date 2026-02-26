@@ -25,6 +25,7 @@ pub type AuthenticationKeys = KeyPair<BbsBls12381Sha256>;
 
 pub const API_ENDPOINT_TO_SERVER: &str = env!("API_ENDPOINT_TRUSTAUTH_TO_SERVER");
 pub const API_ENDPOINT_SERVER: &str = env!("API_ENDPOINT_SERVER");
+pub const API_ENDPOINT_TRUSTAUTH: &str = env!("API_ENDPOINT_TRUSTAUTH");
 
 /// Stored per voter after successful blind-sign registration.
 pub struct VoterRegistration {
@@ -46,8 +47,10 @@ pub type ActiveRounds = Arc<AsyncRwLock<HashMap<Uuid, Arc<RoundState>>>>;
 
 struct AppStateInternal {
     secret: [u8; 32],
-    mtls_client: Client,
+    http_client: Client,
     rounds: ActiveRounds,
+    server_url: String,
+    is_secure: bool,
 }
 
 #[derive(Clone)]
@@ -56,6 +59,10 @@ pub struct AppState(Arc<AppStateInternal>);
 impl AppState {
     pub fn secret(&self) -> &[u8; 32] {
         &self.0.secret
+    }
+
+    pub fn is_secure(&self) -> bool {
+        self.0.is_secure
     }
 
     pub fn rounds_read(&self) -> ActiveRounds {
@@ -77,9 +84,10 @@ impl AppState {
     }
 
     pub async fn get(&self, path: &str) -> Result<Response, APIError> {
+        let url = format!("{}/trustauth/{path}", self.0.server_url);
         self.0
-            .mtls_client
-            .get(format!("{API_ENDPOINT_TO_SERVER}/trustauth/{path}"))
+            .http_client
+            .get(url)
             .send()
             .await
             .and_then(|r| r.error_for_status())
@@ -115,9 +123,10 @@ impl AppState {
         path: &str,
         body: &B,
     ) -> Result<Response, APIError> {
+        let url = format!("{}/trustauth/{path}", self.0.server_url);
         self.0
-            .mtls_client
-            .post(format!("{API_ENDPOINT_TO_SERVER}/trustauth/{path}"))
+            .http_client
+            .post(url)
             .json(body)
             .send()
             .await
@@ -155,7 +164,7 @@ pub fn init_state() -> anyhow::Result<AppState> {
         .map_err(|e| anyhow::anyhow!("Failed to load trustauth secret: {e}"))?;
     info!("Loaded trustauth secret");
 
-    let mtls_client = build_mtls_client(
+    let http_client = build_mtls_client(
         include_bytes!("../../mtls/ca/ca.crt"),
         include_bytes!("../../mtls/trustauth/trustauth.crt"),
         include_bytes!("../../mtls/trustauth/trustauth.key"),
@@ -163,9 +172,24 @@ pub fn init_state() -> anyhow::Result<AppState> {
 
     Ok(AppState(Arc::new(AppStateInternal {
         secret,
-        mtls_client,
+        http_client,
         rounds: Arc::new(AsyncRwLock::new(HashMap::new())),
+        server_url: API_ENDPOINT_TO_SERVER.to_string(),
+        is_secure: API_ENDPOINT_TRUSTAUTH.starts_with("https://"),
     })))
+}
+
+/// Creates an `AppState` suitable for integration tests: uses a plain HTTP client
+/// (no mTLS) and accepts the server's base URL at runtime so tests can bind both
+/// services to random ports.
+pub fn new_test_state(server_url: impl Into<String>) -> AppState {
+    AppState(Arc::new(AppStateInternal {
+        secret: [0u8; 32],
+        http_client: reqwest::Client::new(),
+        rounds: Arc::new(AsyncRwLock::new(HashMap::new())),
+        server_url: server_url.into(),
+        is_secure: false,
+    }))
 }
 
 pub fn app_public(state: AppState) -> Router {
@@ -203,4 +227,10 @@ pub fn app_internal(state: AppState) -> Router {
     Router::new()
         .nest("/server/api", internal_routes())
         .with_state(state)
+}
+
+/// Combines public and internal routers on a single `Router`. Used by
+/// integration tests that run both services in the same process on a single port.
+pub fn app_combined(state: AppState) -> Router {
+    app_public(state.clone()).merge(app_internal(state))
 }

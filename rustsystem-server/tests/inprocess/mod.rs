@@ -15,9 +15,9 @@ use rustsystem_server::{
         create_meeting::CreateMeetingRequest,
         host::{
             new_voter::{NewVoterRequestBody, QrCodeResponse},
-            start_vote::StartVoteRequest,
             remove_voter::RemoveVoterRequest,
             reset_login::ResetLoginRequest,
+            start_vote::StartVoteRequest,
             voter_id::VoterIdRequest,
         },
         login::LoginRequest,
@@ -32,8 +32,6 @@ mod creation;
 mod lifecycle;
 mod management;
 mod negative;
-mod permissions;
-mod sequence;
 mod state_machine;
 
 async fn create_meeting(app: &MockApp) -> Response {
