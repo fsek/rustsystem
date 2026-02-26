@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{AppState, UUuid};
 
@@ -31,12 +32,20 @@ impl APIHandler for RemoveVoter {
         let (auth, State(state), Json(RemoveVoterRequest { voter_uuuid })) = request;
 
         let meeting = state.get_meeting(auth.muuid).await?;
-        meeting
+        let voter = meeting
             .voters
             .write()
             .await
             .remove(&voter_uuuid)
             .ok_or_else(|| APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
+
+        info!(
+            muuid = %auth.muuid,
+            uuuid = %voter_uuuid,
+            voter = %voter.name,
+            was_logged_in = voter.logged_in,
+            "Voter removed"
+        );
 
         Ok(())
     }

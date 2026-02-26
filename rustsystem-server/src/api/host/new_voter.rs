@@ -79,7 +79,7 @@ impl APIHandler for NewVoter {
             voters.insert(
                 new_uuuid,
                 Voter {
-                    name: voter_name,
+                    name: voter_name.clone(),
                     logged_in: false,
                     is_host,
                     registered_at: std::time::SystemTime::now(),
@@ -91,6 +91,14 @@ impl APIHandler for NewVoter {
                 None
             }
         };
+
+        info!(
+            muuid = %auth.muuid,
+            uuuid = %new_uuuid,
+            voter = %voter_name,
+            is_host = is_host,
+            "Voter slot created"
+        );
 
         let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
         Ok(Json(QrCodeResponse {
@@ -105,7 +113,6 @@ pub fn gen_qr_code_with_link(
     uuuid: UUuid,
     admin_cred: Option<AdminCred>,
 ) -> Result<(String, String), APIError> {
-    info!("Generating new QR for voter id {uuuid} in meeting {muuid}");
     let mut url = format!("{API_ENDPOINT_SERVER}/login?muuid={muuid}&uuuid={uuuid}");
     if let Some(admin_cred) = admin_cred {
         url.push_str(&format!(
@@ -114,7 +121,6 @@ pub fn gen_qr_code_with_link(
             admin_cred.get_sig_str()
         ));
     }
-    info!("Creating QR code from {url}");
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)
         .map_err(|_| APIError::from_error_code(APIErrorCode::QrCodeError))?;

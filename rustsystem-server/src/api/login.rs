@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::info;
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
@@ -47,33 +47,26 @@ impl APIHandler for Login {
         let meeting = state.get_meeting(muuid).await?;
 
         // Claim the voter slot.
-        {
+        let voter_name = {
             let mut voters = meeting.voters.write().await;
             let voter = voters
                 .get_mut(&uuuid)
                 .ok_or_else(|| APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
             if voter.logged_in {
-                error!("Voter id {uuuid} has already been claimed");
+                info!(muuid = %muuid, uuuid = %uuuid, "Login attempt for already-claimed voter slot");
                 return Err(APIError::from_error_code(APIErrorCode::UUIDAlreadyClaimed));
             }
             voter.logged_in = true;
-        } // voters write guard released
+            voter.name.clone()
+        }; // voters write guard released
 
         // Signal the invite watcher.
         meeting.invite_auth.write().await.set_state(true);
 
         // Validate optional admin credentials.
         let is_host = if let Some(admin_cred) = body.admin_cred {
-            info!(
-                "Received admin credentials - msg length: {}, sig: {}",
-                admin_cred.get_msg().len(),
-                admin_cred.get_sig_str()
-            );
-            let is_valid = meeting.admin_auth.write().await.validate_token(admin_cred);
-            info!("Admin credential validation result: {}", is_valid);
-            is_valid
+            meeting.admin_auth.write().await.validate_token(admin_cred)
         } else {
-            info!("No admin credentials provided");
             false
         };
 
@@ -82,11 +75,17 @@ impl APIHandler for Login {
             (guard.secret, guard.is_secure)
         };
 
-        info!("Creating JWT with is_host: {}", is_host);
         let jwt = get_meeting_jwt(uuuid, muuid, is_host, &secret)?;
         let new_cookie = new_cookie(jwt, is_secure);
 
-        info!("Voter with id {uuuid} has been accepted");
+        info!(
+            muuid = %muuid,
+            uuuid = %uuuid,
+            voter = %voter_name,
+            is_host = is_host,
+            "Voter logged in"
+        );
+
         Ok(jar.add(new_cookie))
     }
 }

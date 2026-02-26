@@ -8,6 +8,7 @@ use axum::{
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
+use tracing::info;
 
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
@@ -48,6 +49,9 @@ impl APIHandler for StartVote {
             metadata.set_candidates(candidates);
         }
 
+        let candidates = metadata.get_candidates();
+        let num_candidates = candidates.len();
+
         // Ask trustauth to generate a BLS keypair for this round; it owns the private key.
         let public_key = state
             .start_round_on_trustauth(auth.muuid, &body.name)
@@ -65,10 +69,22 @@ impl APIHandler for StartVote {
         // Remove unclaimed voters and mark the meeting as locked.
         // Acquiring voters.write() while holding vote_auth.write() is safe: no other
         // operation holds voters.write() and then waits for vote_auth.write().
+        let voters_before = meeting.voters.read().await.len();
         meeting.voters.write().await.retain(|_, v| v.logged_in);
+        let voters_after = meeting.voters.read().await.len();
         meeting.locked.store(true, Ordering::Relaxed);
 
-        vote_auth.start_round(metadata, body.name, public_key);
+        vote_auth.start_round(metadata, body.name.clone(), public_key);
+
+        info!(
+            muuid = %auth.muuid,
+            round = %body.name,
+            num_candidates = num_candidates,
+            shuffled = body.shuffle,
+            eligible_voters = voters_after,
+            unclaimed_removed = voters_before - voters_after,
+            "Vote round started"
+        );
 
         Ok(())
     }

@@ -4,6 +4,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
+use tracing::info;
 use uuid::Uuid;
 use zkryptium::{
     bbsplus::ciphersuites::BbsCiphersuite,
@@ -65,6 +66,12 @@ impl APIHandler for StartRound {
 
         let rounds_arc = state.rounds_write();
         rounds_arc.write().await.insert(body.muuid, round);
+
+        info!(
+            muuid = %body.muuid,
+            round = %body.name,
+            "Vote round initialized in trustauth — BLS12-381 keypair generated"
+        );
 
         Ok(Json(StartRoundResponse { pub_key_bytes }))
     }

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock as AsyncRwLock;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tracing::{error, info};
+use tracing::error;
 use uuid::Uuid;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
@@ -103,14 +103,13 @@ impl AppState {
 
     pub async fn is_voter(&self, uuuid: Uuid, muuid: Uuid) -> Result<bool, APIError> {
         let body = IsVoterRequest { uuuid, muuid };
-        info!("Fetching voter");
         self.post("is-voter", &body)
             .await?
             .json::<IsVoterResponse>()
             .await
             .map(|r| r.is_voter)
             .map_err(|e| {
-                error!("Failed to fetch voter: {e}");
+                error!(muuid = %muuid, uuuid = %uuuid, "Failed to deserialize is-voter response: {e}");
                 APIError::from_error_code(APIErrorCode::TrustAuthFetch)
             })
     }
@@ -128,10 +127,7 @@ impl AppState {
             .send()
             .await
             .and_then(|r| r.error_for_status())
-            .map_err(|e| {
-                error!("Failed to fetch voter: {e}");
-                APIError::from_error_code(APIErrorCode::TrustAuthFetch)
-            })
+            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))
     }
 }
 
@@ -157,8 +153,9 @@ struct IsVoterResponse {
 }
 
 pub fn init_state() -> Result<AppState, APIError> {
+    use tracing::info;
     let secret = rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")?;
-    info!("Loaded trustauth secret");
+    info!("Trustauth state initialised");
 
     let http_client = build_mtls_client(
         include_bytes!("../../mtls/ca/ca.crt"),

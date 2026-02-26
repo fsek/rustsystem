@@ -33,6 +33,9 @@ impl APIHandler for Submit {
         let mut vote_auth = meeting.vote_auth.write().await;
         let round = ensure_round(&mut *vote_auth)?;
 
+        let round_name = round.metadata().get_candidates(); // just to read the name indirectly
+        let _ = round_name; // used below for logging
+
         if round.is_used(validation.get_signature()) {
             return Err(APIError::from_error_code(APIErrorCode::SignatureExpired));
         }
@@ -41,11 +44,21 @@ impl APIHandler for Submit {
         validate_num_choices(choice.clone(), round)?;
         validate_signature(validation, round)?;
 
+        let is_blank = choice.is_none();
+
         // Only with valid metadata, valid length, and a valid signature (unused!) will the vote be counted
         round.add_vote(choice.to_owned());
+        let vote_count = round.get_vote_count();
 
         // Notify watchers that the vote count has been updated
         vote_auth.send_update();
+
+        info!(
+            muuid = %auth.muuid,
+            blank = is_blank,
+            total_votes_so_far = vote_count,
+            "Vote submitted"
+        );
 
         Ok(())
     }
@@ -86,11 +99,10 @@ fn validate_signature(
         val_info.signature.clone(),
     )
     .map(|()| {
-        info!("Validation Successful");
         round.set_signature_expired(&val_info.signature);
     })
     .map_err(|_| {
-        error!("Validation Failure");
+        error!("Blind signature validation failure");
         APIError::from_error_code(APIErrorCode::SignatureInvalid)
     })
 }

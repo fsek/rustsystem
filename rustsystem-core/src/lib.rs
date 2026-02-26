@@ -14,6 +14,7 @@ use std::{fmt::Display, time::SystemTime};
 
 use std::error::Error;
 
+pub mod logging;
 pub mod mtls;
 pub mod secret;
 

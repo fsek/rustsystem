@@ -28,6 +28,7 @@ pub mod tokens;
 pub mod api_trustauth;
 use api_trustauth::api_trustauth_routes;
 
+pub mod logging;
 pub mod proof;
 pub mod tally_encrypt;
 

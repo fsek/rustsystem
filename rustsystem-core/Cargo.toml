@@ -20,3 +20,6 @@ serde_json = "1.0.140"
 tokio = "1.49.0"
 tokio-rustls = "0.26.4"
 tower = "0.5.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
+tracing-appender = "0.2"

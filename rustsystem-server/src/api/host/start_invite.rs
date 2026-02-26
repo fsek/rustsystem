@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use axum::extract::FromRequest;
 
 use axum::{extract::State, http::StatusCode};
+use tracing::info;
 
 use rustsystem_core::{APIError, APIHandler, Method};
 
@@ -34,6 +35,8 @@ impl APIHandler for StartInvite {
 
         let meeting = state.get_meeting(auth.muuid).await?;
         meeting.invite_auth.write().await.set_state(true);
+
+        info!(muuid = %auth.muuid, "Invite watch opened");
 
         Ok(())
     }

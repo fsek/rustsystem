@@ -41,8 +41,6 @@ impl APIHandler for Login {
     const SUCCESS_CODE: StatusCode = StatusCode::ACCEPTED;
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
-        info!("Logging in");
-
         let (jar, State(state), Json(body)) = request;
 
         let uuuid: Uuid = body
@@ -87,6 +85,12 @@ impl APIHandler for Login {
             .secure(is_secure)
             .max_age(time::Duration::hours(12))
             .build();
+
+        info!(
+            muuid = %muuid,
+            uuuid = %uuuid,
+            "Voter logged in to trustauth"
+        );
 
         Ok(jar.add(cookie))
     }

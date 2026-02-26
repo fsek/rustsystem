@@ -4,6 +4,7 @@ use axum::{
     extract::{FromRequest, State},
     http::StatusCode,
 };
+use tracing::{error, info};
 
 use rustsystem_core::{APIError, APIHandler, Method};
 
@@ -35,6 +36,15 @@ impl APIHandler for Tally {
         } = request;
 
         let meeting = state.get_meeting(auth.muuid).await?;
+
+        let round_name = meeting
+            .vote_auth
+            .read()
+            .await
+            .get_current_vote_name()
+            .cloned()
+            .unwrap_or_default();
+
         let tally_result = meeting.vote_auth.write().await.finalize_round()?;
 
         // vote_auth read guard released; now safe to read voters independently.
@@ -46,12 +56,30 @@ impl APIHandler for Tally {
             .map(|v| v.name.clone())
             .collect();
 
+        let total_votes = tally_result.score.values().sum::<usize>() + tally_result.blank;
+
         if let Err(e) = save_encrypted_tally(&auth.muuid, &tally_result, voter_names) {
-            tracing::error!(
-                "Failed to save encrypted tally for meeting {}: {e}",
-                auth.muuid
+            error!(
+                muuid = %auth.muuid,
+                round = %round_name,
+                "Failed to save encrypted tally: {e}"
             );
         }
+
+        let score_summary: Vec<String> = {
+            let mut pairs: Vec<_> = tally_result.score.iter().collect();
+            pairs.sort_by_key(|(k, _)| k.as_str());
+            pairs.iter().map(|(k, v)| format!("{k}:{v}")).collect()
+        };
+
+        info!(
+            muuid = %auth.muuid,
+            round = %round_name,
+            total_votes = total_votes,
+            blank_votes = tally_result.blank,
+            scores = %score_summary.join(", "),
+            "Vote round tallied"
+        );
 
         Ok(Json(tally_result))
     }

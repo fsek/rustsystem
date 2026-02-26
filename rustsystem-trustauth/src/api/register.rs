@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use serde::Deserialize;
+use tracing::info;
 use zkryptium::schemes::{
     algorithms::BbsBls12381Sha256,
     generics::{BlindSignature, Commitment},
@@ -70,6 +71,12 @@ impl APIHandler for Register {
                 context: body.context,
                 signature: signature_json,
             },
+        );
+
+        info!(
+            muuid = %auth.muuid,
+            uuuid = %auth.uuuid,
+            "Voter registered — blind signature issued"
         );
 
         Ok(())

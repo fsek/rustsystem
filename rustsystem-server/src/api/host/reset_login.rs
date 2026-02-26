@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{AppState, UUuid};
 
@@ -33,11 +34,12 @@ impl APIHandler for ResetLogin {
 
         let meeting = state.get_meeting(auth.muuid).await?;
 
-        let (new_uuuid, admin_cred) = {
+        let (new_uuuid, admin_cred, voter_name) = {
             let mut voters = meeting.voters.write().await;
             let mut user = voters
                 .remove(&user_uuuid)
                 .ok_or_else(|| APIError::from_error_code(APIErrorCode::UUuidNotFound))?;
+            let voter_name = user.name.clone();
             user.logged_in = false;
 
             // Lock ordering: voters → admin_auth. We hold voters.write() and now acquire
@@ -50,8 +52,16 @@ impl APIHandler for ResetLogin {
 
             let new_uuuid = UUuid::new_v4();
             voters.insert(new_uuuid, user);
-            (new_uuuid, admin_cred)
+            (new_uuuid, admin_cred, voter_name)
         };
+
+        info!(
+            muuid = %auth.muuid,
+            old_uuuid = %user_uuuid,
+            new_uuuid = %new_uuuid,
+            voter = %voter_name,
+            "Voter login reset — new invite link generated"
+        );
 
         let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
         Ok(Json(QrCodeResponse {

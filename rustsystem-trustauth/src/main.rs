@@ -1,16 +1,15 @@
 use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_server_config};
 use axum_server::tls_rustls::RustlsConfig;
 use std::{net::SocketAddr, sync::Arc};
-use tracing::{info, level_filters::LevelFilter};
-use tracing_subscriber::EnvFilter;
+use tracing::info;
 
 use rustsystem_trustauth::{app_internal, app_public, init_state};
 
 #[tokio::main]
 async fn main() -> Result<(), APIError> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
-        .init();
+    // `_guard` must live until the end of main so the background log-writer is
+    // flushed before the process exits.
+    let _guard = rustsystem_core::logging::init_logging("trustauth.log");
 
     let state = init_state()?;
 
@@ -26,7 +25,8 @@ async fn main() -> Result<(), APIError> {
         include_bytes!("../../mtls/ca/ca.crt"),
     )?;
 
-    info!("Running trustauth server on {addr_public}");
+    info!("Running trustauth on public={addr_public} internal={addr_internal}");
+
     let public_serve = axum_server::bind(addr_public).serve(app_public.into_make_service());
     let internal_serve = axum_server::bind_rustls(
         addr_internal,

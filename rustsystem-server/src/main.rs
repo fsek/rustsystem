@@ -1,16 +1,14 @@
 use rustsystem_core::{APIError, mtls::build_mtls_server_config};
 use axum_server::tls_rustls::RustlsConfig;
 use std::net::SocketAddr;
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::EnvFilter;
 
-use rustsystem_server::{app_internal, app_public, init_state};
+use rustsystem_server::{app_internal, app_public, init_state, logging::init_logging};
 
 #[tokio::main]
 async fn main() -> Result<(), APIError> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
-        .init();
+    // `_guard` must live until the end of main so the background log-writer is
+    // flushed before the process exits.
+    let _guard = init_logging();
 
     let state = init_state()?;
 

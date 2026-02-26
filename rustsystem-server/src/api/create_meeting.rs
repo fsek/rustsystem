@@ -50,18 +50,6 @@ impl APIHandler for CreateMeeting {
         let (uuuid, muuid, jwt) = new_meeting_jwt(&secret)?;
         let new_cookie = new_cookie(jwt, is_secure);
 
-        info!("Creating new meeting with id {muuid} and host {uuuid}");
-        let mut voters = HashMap::new();
-        voters.insert(
-            uuuid,
-            Voter {
-                name: query.host_name,
-                logged_in: true,
-                is_host: true,
-                registered_at: SystemTime::now(),
-            },
-        );
-
         // Write public key to per-meeting directory
         let meeting_dir = format!("meetings/{muuid}");
         if let Err(e) = fs::create_dir_all(&meeting_dir) {
@@ -73,13 +61,24 @@ impl APIHandler for CreateMeeting {
             return Err(APIError::from_error_code(APIErrorCode::Other));
         }
 
+        let mut voters = HashMap::new();
+        voters.insert(
+            uuuid,
+            Voter {
+                name: query.host_name.clone(),
+                logged_in: true,
+                is_host: true,
+                registered_at: SystemTime::now(),
+            },
+        );
+
         // Outer map write: inserting a new meeting and pruning stale ones.
         let meetings_arc = state.meetings_write()?;
         let mut map = meetings_arc.write().await;
 
         map.insert(
             muuid,
-            std::sync::Arc::new(crate::Meeting::new(query.title, SystemTime::now(), voters)),
+            std::sync::Arc::new(crate::Meeting::new(query.title.clone(), SystemTime::now(), voters)),
         );
 
         // Remove dead meetings
@@ -94,9 +93,19 @@ impl APIHandler for CreateMeeting {
             })
             .map(|(id, _)| *id)
             .collect();
+        let pruned = dead_muuids.len();
         for id in dead_muuids {
             map.remove(&id);
         }
+
+        info!(
+            muuid = %muuid,
+            title = %query.title,
+            host = %query.host_name,
+            host_uuuid = %uuuid,
+            pruned_stale_meetings = pruned,
+            "Meeting created"
+        );
 
         Ok((
             jar.add(new_cookie),

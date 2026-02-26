@@ -4,6 +4,7 @@ use axum::{
     extract::{FromRequest, State},
     http::StatusCode,
 };
+use tracing::info;
 
 use crate::AppState;
 
@@ -33,11 +34,17 @@ impl APIHandler for RemoveAll {
         } = request;
 
         let meeting = state.get_meeting(auth.muuid).await?;
-        meeting
-            .voters
-            .write()
-            .await
-            .retain(|_uuid, voter| voter.is_host);
+        let mut voters = meeting.voters.write().await;
+        let before = voters.len();
+        voters.retain(|_uuid, voter| voter.is_host);
+        let after = voters.len();
+
+        info!(
+            muuid = %auth.muuid,
+            removed = before - after,
+            hosts_retained = after,
+            "All non-host voters removed"
+        );
 
         Ok(())
     }
