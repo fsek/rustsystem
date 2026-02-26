@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/Button/Button";
 import { Badge } from "@/components/Badge/Badge";
@@ -344,7 +344,7 @@ function Hero() {
             style={{ color: "var(--textSecondary)" }}
           >
             Cryptographically verified, fully anonymous ballots using BLS12-381
-            blind signatures. No database. No identity linking. Just results.
+            blind signatures. No database. No identity linking.
           </p>
         </div>
 
@@ -372,6 +372,17 @@ function Hero() {
           {["Open source", "In-memory only", "Zero tracking"].map((f) => (
             <FeaturePill key={f} label={f} />
           ))}
+        </div>
+
+        <div className="flex items-center gap-1 flex-wrap justify-center text-sm" style={{ color: "var(--textSecondary)" }}>
+          <span>Learn more:</span>
+          <Link to="/guide" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+            Guide
+          </Link>
+          <span>·</span>
+          <Link to="/encryption" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+            Cryptography
+          </Link>
         </div>
       </div>
 
@@ -415,19 +426,19 @@ function HowItWorks() {
       icon: <IconKey />,
       title: "Voter generates a blind token",
       description:
-        "Each voter's browser generates a random 256-byte token and blinds it using a BBS+ commitment before sending it to the server.",
+        "Each voter's browser generates a secret token and a cryptographic commitment. Only the commitment is sent to the signing authority — the token never leaves the browser.",
     },
     {
       icon: <IconShield />,
-      title: "Server signs without seeing",
+      title: "Signing authority signs without seeing",
       description:
-        "The server issues a blind signature — confirming the voter is authorized — without ever seeing the actual token. The link is broken.",
+        "The signing authority (trustauth) confirms the voter is eligible and issues a blind signature — without ever seeing the token. The link between voter and ballot is broken.",
     },
     {
       icon: <IconCheckCircle />,
       title: "Vote is cast anonymously",
       description:
-        "The voter unblind their token and submits their ballot. The server verifies the signature is valid and the token hasn't been used — without knowing who voted.",
+        "The voter submits their ballot directly to the server with a proof derived from the blind signature. The server verifies the proof and marks it as spent — without knowing who voted.",
     },
   ];
 
@@ -469,7 +480,7 @@ function Guarantees() {
     {
       icon: <IconLock />,
       title: "Ballot anonymity",
-      body: "The server issues a blind signature so it can never correlate a ballot with its voter. Even with full server logs, individual votes remain unknown.",
+      body: "A separate signing authority issues blind signatures without seeing the token. The server verifies proofs without knowing who submitted them. Neither service alone can correlate a ballot with a voter.",
     },
     {
       icon: <IconShield />,
@@ -479,12 +490,12 @@ function Guarantees() {
     {
       icon: <IconEye />,
       title: "No persistent storage",
-      body: "All meeting state lives in-memory only. When the server restarts, every record is gone — there is no database to breach.",
+      body: "All meeting state lives in-memory only. When the server restarts, every record is gone; there is no database to breach.",
     },
     {
       icon: <IconKey />,
       title: "Voter-held secrets",
-      body: "The random token and blind factor never leave your browser. They live in localStorage and are cleared automatically after voting.",
+      body: "The random token and blind factor never reach the server. ",
     },
   ];
 
@@ -621,11 +632,20 @@ function CTA() {
 function Footer() {
   return (
     <footer
-      className="py-10 px-6 text-center"
+      className="py-10 px-6 text-center flex flex-col items-center gap-3"
       style={{
         borderTop: "1px solid var(--border)",
       }}
     >
+      <div className="flex items-center gap-4 text-sm">
+        <Link to="/guide" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+          Guide
+        </Link>
+        <span style={{ color: "var(--border)" }}>|</span>
+        <Link to="/encryption" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+          Cryptography
+        </Link>
+      </div>
       <p className="text-sm" style={{ color: "var(--textSecondary)" }}>
         Built for{" "}
         <span style={{ color: "var(--primary)", fontWeight: 600 }}>

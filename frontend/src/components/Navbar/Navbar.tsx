@@ -1,4 +1,10 @@
+import { Link } from "@tanstack/react-router";
 import { ThemeButton } from "./ThemeButton/ThemeButton";
+
+const NAV_LINKS = [
+  { to: "/guide", label: "Guide" },
+  { to: "/encryption", label: "Cryptography" },
+] as const;
 
 export function Navbar() {
   return (
@@ -18,6 +24,20 @@ export function Navbar() {
       >
         Rustsystem
       </a>
+
+      <div className="flex items-center gap-6 ml-8">
+        {NAV_LINKS.map(({ to, label }) => (
+          <Link
+            key={to}
+            to={to}
+            className="text-sm font-medium transition-colors"
+            style={{ color: "var(--textSecondary)" }}
+            activeProps={{ style: { color: "var(--primary)" } }}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
 
       <div className="ml-auto">
         <ThemeButton />

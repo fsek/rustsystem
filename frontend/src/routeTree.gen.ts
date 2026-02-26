@@ -13,6 +13,8 @@
 import { Route as rootRoute } from './routes/__root'
 import { Route as MeetingImport } from './routes/meeting'
 import { Route as LoginImport } from './routes/login'
+import { Route as GuideImport } from './routes/guide'
+import { Route as EncryptionImport } from './routes/encryption'
 import { Route as CreateMeetingImport } from './routes/create-meeting'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
@@ -31,6 +33,18 @@ const MeetingRoute = MeetingImport.update({
 const LoginRoute = LoginImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const GuideRoute = GuideImport.update({
+  id: '/guide',
+  path: '/guide',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const EncryptionRoute = EncryptionImport.update({
+  id: '/encryption',
+  path: '/encryption',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -95,6 +109,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateMeetingImport
       parentRoute: typeof rootRoute
     }
+    '/encryption': {
+      id: '/encryption'
+      path: '/encryption'
+      fullPath: '/encryption'
+      preLoaderRoute: typeof EncryptionImport
+      parentRoute: typeof rootRoute
+    }
+    '/guide': {
+      id: '/guide'
+      path: '/guide'
+      fullPath: '/guide'
+      preLoaderRoute: typeof GuideImport
+      parentRoute: typeof rootRoute
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -139,6 +167,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/encryption': typeof EncryptionRoute
+  '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/dev/dev-testing': typeof DevDevTestingRoute
@@ -150,6 +180,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/encryption': typeof EncryptionRoute
+  '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/dev/dev-testing': typeof DevDevTestingRoute
@@ -162,6 +194,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/encryption': typeof EncryptionRoute
+  '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
   '/meeting': typeof MeetingRoute
   '/dev/dev-testing': typeof DevDevTestingRoute
@@ -175,6 +209,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/encryption'
+    | '/guide'
     | '/login'
     | '/meeting'
     | '/dev/dev-testing'
@@ -185,6 +221,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/encryption'
+    | '/guide'
     | '/login'
     | '/meeting'
     | '/dev/dev-testing'
@@ -195,6 +233,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/encryption'
+    | '/guide'
     | '/login'
     | '/meeting'
     | '/dev/dev-testing'
@@ -207,6 +247,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CreateMeetingRoute: typeof CreateMeetingRoute
+  EncryptionRoute: typeof EncryptionRoute
+  GuideRoute: typeof GuideRoute
   LoginRoute: typeof LoginRoute
   MeetingRoute: typeof MeetingRoute
   DevDevTestingRoute: typeof DevDevTestingRoute
@@ -218,6 +260,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CreateMeetingRoute: CreateMeetingRoute,
+  EncryptionRoute: EncryptionRoute,
+  GuideRoute: GuideRoute,
   LoginRoute: LoginRoute,
   MeetingRoute: MeetingRoute,
   DevDevTestingRoute: DevDevTestingRoute,
@@ -238,6 +282,8 @@ export const routeTree = rootRoute
         "/",
         "/admin",
         "/create-meeting",
+        "/encryption",
+        "/guide",
         "/login",
         "/meeting",
         "/dev/dev-testing",
@@ -253,6 +299,12 @@ export const routeTree = rootRoute
     },
     "/create-meeting": {
       "filePath": "create-meeting.tsx"
+    },
+    "/encryption": {
+      "filePath": "encryption.tsx"
+    },
+    "/guide": {
+      "filePath": "guide.tsx"
     },
     "/login": {
       "filePath": "login.tsx"
