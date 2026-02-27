@@ -112,7 +112,7 @@ impl FromRequestParts<AppState> for AuthUser {
         };
 
         let access_token = jar
-            .get("access_token")
+            .get("rustsystem_access_token")
             .ok_or(
                 APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint.clone())

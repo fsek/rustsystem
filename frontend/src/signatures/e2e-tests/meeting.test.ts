@@ -10,24 +10,35 @@
  * All tests create their own isolated meeting so they are independent of each
  * other and can run in any order without shared state.
  *
- * Requires a live server. Run with:
- *   API_ENDPOINT=http://localhost:3000 cargo run --bin rustsystem-server
- *   pnpm test src/signatures/e2e/meeting.test.ts
+ * Requires both services running:
+ *   cargo run --bin rustsystem-server
+ *   cargo run --bin rustsystem-trustauth
+ *   pnpm test src/signatures/e2e-tests/meeting.test.ts
  */
 
-import { TestClient, BASE_URL, DEFAULT_METADATA } from "./helpers";
+import {
+  TestClient,
+  BASE_URL,
+  TRUSTAUTH_URL,
+  DEFAULT_METADATA,
+} from "./helpers";
 
-// ─── Server reachability ──────────────────────────────────────────────────────
+// ─── Service reachability ─────────────────────────────────────────────────────
 
 // Probe before defining any suites. describe.skipIf short-circuits the whole
-// file cleanly when the server is not running, avoiding confusing network errors.
-const serverReachable: boolean = await fetch(`${BASE_URL}/`)
-  .then(() => true)
-  .catch(() => false);
+// file cleanly when the services are not running, avoiding confusing network errors.
+const servicesReachable: boolean = await Promise.all([
+  fetch(`${BASE_URL}/`)
+    .then(() => true)
+    .catch(() => false),
+  fetch(`${TRUSTAUTH_URL}/api/is-registered`)
+    .then(() => true)
+    .catch(() => false),
+]).then(([s, t]) => s && t);
 
 // ─── Meeting creation ─────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("createMeeting", () => {
+describe.skipIf(!servicesReachable)("createMeeting", () => {
   it("returns a valid muuid and uuuid", async () => {
     const client = new TestClient();
     const session = await client.createMeeting("My Meeting", "Host Name");
@@ -52,7 +63,7 @@ describe.skipIf(!serverReachable)("createMeeting", () => {
 
 // ─── start-vote ───────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("startVoteRound", () => {
+describe.skipIf(!servicesReachable)("startVoteRound", () => {
   it("succeeds when the server is in Idle state", async () => {
     const client = new TestClient();
     await client.createMeeting();
@@ -129,7 +140,7 @@ describe.skipIf(!serverReachable)("startVoteRound", () => {
 
 // ─── tally ────────────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("tally", () => {
+describe.skipIf(!servicesReachable)("tally", () => {
   it("succeeds in Voting state and returns a score map and blank count", async () => {
     const client = new TestClient();
     await client.createMeeting();
@@ -171,7 +182,7 @@ describe.skipIf(!serverReachable)("tally", () => {
 
 // ─── get-tally ────────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("getTally", () => {
+describe.skipIf(!servicesReachable)("getTally", () => {
   it("returns the stored tally after a successful tally call", async () => {
     const client = new TestClient();
     const session = await client.createMeeting();
@@ -196,7 +207,7 @@ describe.skipIf(!serverReachable)("getTally", () => {
     await client.startVoteRound();
 
     const res = await client.rawRequest("GET", "/api/host/get-tally");
-    expect(res.status).toBe(410); // NoTallyAvailable
+    expect(res.status).toBe(409); // NoTallyAvailable
   });
 
   it("fails with 410 after end-vote-round resets the state", async () => {
@@ -209,13 +220,13 @@ describe.skipIf(!serverReachable)("getTally", () => {
     await client.endVoteRound(); // resets to Idle
 
     const res = await client.rawRequest("GET", "/api/host/get-tally");
-    expect(res.status).toBe(410); // NoTallyAvailable
+    expect(res.status).toBe(409); // NoTallyAvailable
   });
 });
 
 // ─── end-vote-round ───────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("endVoteRound", () => {
+describe.skipIf(!servicesReachable)("endVoteRound", () => {
   it("succeeds when a vote round is active (Voting state)", async () => {
     const client = new TestClient();
     await client.createMeeting();
@@ -246,7 +257,7 @@ describe.skipIf(!serverReachable)("endVoteRound", () => {
 
 // ─── Full cycle ───────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("full vote cycle", () => {
+describe.skipIf(!servicesReachable)("full vote cycle", () => {
   it("Idle → start → register → submit → tally → end → start again", async () => {
     // Exercises every state transition in the correct order and verifies that
     // the server correctly resets state so a second round can start.

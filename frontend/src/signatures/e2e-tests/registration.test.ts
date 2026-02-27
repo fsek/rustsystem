@@ -1,11 +1,12 @@
 /**
  * @vitest-environment node
  *
- * E2E tests for POST /api/voter/register.
+ * E2E tests for POST /api/register (on trustauth).
  *
- * Registration is the step where the voter proves to the server that they hold
- * a valid session, then obtains a blind signature that will later authorise
- * their ballot — without the server ever learning which vote belongs to them.
+ * Registration is the step where the voter sends their commitment to trustauth,
+ * which verifies eligibility with the server (via mTLS) and issues a blind
+ * signature that will later authorise their ballot — without the server ever
+ * learning which vote belongs to whom.
  *
  * Tests cover:
  *  - Happy path and response shape
@@ -14,21 +15,23 @@
  *  - Requests without a valid session cookie
  *  - Malformed request bodies
  *
- * Requires a live server. Run with:
- *   API_ENDPOINT=http://localhost:3000 cargo run --bin rustsystem-server
- *   pnpm test src/signatures/e2e/registration.test.ts
+ * Requires both services running:
+ *   cargo run --bin rustsystem-server
+ *   cargo run --bin rustsystem-trustauth
+ *   pnpm test src/signatures/e2e-tests/registration.test.ts
  */
 
 import { generateToken, uuidToBytes } from "../signatures";
-import { TestClient, BASE_URL, DEFAULT_METADATA } from "./helpers";
+import { TestClient, BASE_URL, TRUSTAUTH_URL, DEFAULT_METADATA } from "./helpers";
 
-const serverReachable: boolean = await fetch(`${BASE_URL}/`)
-  .then(() => true)
-  .catch(() => false);
+const servicesReachable: boolean = await Promise.all([
+  fetch(`${BASE_URL}/`).then(() => true).catch(() => false),
+  fetch(`${TRUSTAUTH_URL}/api/is-registered`).then(() => true).catch(() => false),
+]).then(([s, t]) => s && t);
 
 // ─── Happy path ───────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("registration — happy path", () => {
+describe.skipIf(!servicesReachable)("registration — happy path", () => {
   it("returns a signature and metadata when the vote round is active", async () => {
     const client = new TestClient();
     const session = await client.createMeeting();
@@ -53,9 +56,9 @@ describe.skipIf(!serverReachable)("registration — happy path", () => {
 
 // ─── State constraints ────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("registration — state constraints", () => {
+describe.skipIf(!servicesReachable)("registration — state constraints", () => {
   it("fails with 410 before a vote round has been started", async () => {
-    // The server must refuse registrations when there is no active round;
+    // Trustauth must refuse registrations when there is no active round;
     // a signature obtained in Idle state would never be accepted at submission.
     const client = new TestClient();
     const session = await client.createMeeting();
@@ -65,9 +68,11 @@ describe.skipIf(!serverReachable)("registration — state constraints", () => {
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
       commitment: token.commitmentJson,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
     });
     expect(res.status).toBe(410); // VoteInactive
   });
@@ -84,9 +89,11 @@ describe.skipIf(!serverReachable)("registration — state constraints", () => {
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
       commitment: token.commitmentJson,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
     });
     expect(res.status).toBe(410); // VoteInactive
   });
@@ -101,9 +108,11 @@ describe.skipIf(!serverReachable)("registration — state constraints", () => {
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
       commitment: token.commitmentJson,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
     });
     expect(res.status).toBe(410); // VoteInactive
   });
@@ -111,7 +120,7 @@ describe.skipIf(!serverReachable)("registration — state constraints", () => {
 
 // ─── Duplicate registration ───────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("registration — duplicate prevention", () => {
+describe.skipIf(!servicesReachable)("registration — duplicate prevention", () => {
   it("fails with 409 on a second registration attempt by the same user", async () => {
     // Each voter may only hold one valid blind signature per round. A second
     // registration would let a single voter produce two independently valid
@@ -125,9 +134,11 @@ describe.skipIf(!serverReachable)("registration — duplicate prevention", () =>
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token2.context,
       commitment: token2.commitmentJson,
+      token: Array.from(token2.token),
+      blind_factor: Array.from(token2.blindFactor),
     });
     expect(res.status).toBe(409); // AlreadyRegistered
   });
@@ -135,14 +146,14 @@ describe.skipIf(!serverReachable)("registration — duplicate prevention", () =>
 
 // ─── Authentication ───────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("registration — authentication", () => {
+describe.skipIf(!servicesReachable)("registration — authentication", () => {
   it("fails with 401 when no session cookie is present", async () => {
-    // Without a JWT cookie the AuthUser extractor cannot identify the voter.
-    // The server must reject the request before it even reaches the registration
-    // logic — leaking a blind signature to an unauthenticated caller would break
-    // the access-control model.
+    // Without a trustauth_token cookie the TrustAuthUser extractor cannot
+    // identify the voter. Trustauth must reject the request before it even
+    // reaches the registration logic — leaking a blind signature to an
+    // unauthenticated caller would break the access-control model.
     //
-    // We send a well-formed commitment to isolate the authentication check from
+    // We send a well-formed body to isolate the authentication check from
     // any body-parsing errors.
     const unauthClient = new TestClient(); // no createMeeting → no cookie
     const fakeSession = {
@@ -154,9 +165,11 @@ describe.skipIf(!serverReachable)("registration — authentication", () => {
       uuidToBytes(fakeSession.muuid),
     );
 
-    const res = await unauthClient.rawRequest("POST", "/api/voter/register", {
+    const res = await unauthClient.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
       commitment: token.commitmentJson,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
     });
     expect(res.status).toBe(401);
   });
@@ -164,7 +177,7 @@ describe.skipIf(!serverReachable)("registration — authentication", () => {
 
 // ─── Malformed requests ───────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("registration — malformed requests", () => {
+describe.skipIf(!servicesReachable)("registration — malformed requests", () => {
   it("fails with 4xx when the commitment field is missing", async () => {
     // Axum's JSON deserialiser rejects requests that are missing required fields.
     const client = new TestClient();
@@ -175,8 +188,10 @@ describe.skipIf(!serverReachable)("registration — malformed requests", () => {
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
       // commitment intentionally omitted
     });
     expect(res.ok).toBe(false);
@@ -193,9 +208,11 @@ describe.skipIf(!serverReachable)("registration — malformed requests", () => {
       uuidToBytes(session.uuuid),
       uuidToBytes(session.muuid),
     );
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: token.context,
       commitment: "not-a-valid-commitment",
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
     });
     expect(res.ok).toBe(false);
   });
@@ -204,10 +221,10 @@ describe.skipIf(!serverReachable)("registration — malformed requests", () => {
     // The ProofContext voter_id is metadata used as a BBS+ signed message, NOT
     // cross-checked against the JWT. The round header (not the context) binds
     // the signature to the current round. A wrong voter_id therefore does not
-    // cause a registration failure — the server signs the commitment as long as
+    // cause a registration failure — trustauth signs the commitment as long as
     // the voter's JWT is valid and the commitment is well-formed.
     //
-    // This test documents the current behaviour. If the server were to add
+    // This test documents the current behaviour. If trustauth were to add
     // context validation in the future, this test would need updating.
     const client = new TestClient();
     const session = await client.createMeeting();
@@ -219,9 +236,11 @@ describe.skipIf(!serverReachable)("registration — malformed requests", () => {
       uuidToBytes(session.muuid),
     );
 
-    const res = await client.rawRequest("POST", "/api/voter/register", {
+    const res = await client.rawTrustAuthRequest("POST", "/api/register", {
       context: tokenWithWrongId.context,
       commitment: tokenWithWrongId.commitmentJson,
+      token: Array.from(tokenWithWrongId.token),
+      blind_factor: Array.from(tokenWithWrongId.blindFactor),
     });
 
     // Registration currently succeeds — the context voter_id is not enforced.

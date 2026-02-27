@@ -1,49 +1,53 @@
 /**
  * Shared helpers for e2e tests.
  *
- * These tests require a live server. Set E2E_API_URL to override the default:
- *   E2E_API_URL=http://localhost:3000 pnpm test
+ * Two live services are required before these tests run:
+ *   Server:    http://localhost:1443  (or override with E2E_API_URL)
+ *   Trustauth: http://localhost:2443  (or override with E2E_TRUSTAUTH_URL)
  *
- * Why this file exists:
- *   voteSession.ts uses `apiFetch`, which calls the global `fetch` with relative
- *   URLs (e.g. "/api/create-meeting") and `credentials: "include"`. Both of those
- *   work correctly in a browser:
- *     • Relative URLs are resolved against the page origin.
- *     • `credentials: "include"` causes the browser to attach its cookie jar.
+ * Why the TestClient reimplements trustauth calls:
+ *   voteSession.ts derives trustauth URLs from `import.meta.env.API_ENDPOINT_TRUSTAUTH`,
+ *   which is compiled in by Vite at startup time. In the Node.js/Vitest environment
+ *   that value resolves to the Vite-dev-proxy path "/api/trustauth" (the new default),
+ *   which is useless for direct Node.js HTTP calls. To avoid this, the TestClient
+ *   implements the trustauth-bound methods (createMeeting, registerVoter, getVoteData)
+ *   with explicit absolute URLs derived from TRUSTAUTH_URL, rather than calling
+ *   through voteSession.ts's trustAuthFetch.
  *
- *   In Node.js neither behaviour is automatic. This file solves both problems by
- *   temporarily patching `globalThis.fetch` around each voteSession call so that:
- *     1. Relative URLs are made absolute using BASE_URL.
- *     2. The stored session cookie is injected into every outgoing request.
- *     3. Set-Cookie headers in every response are captured and stored.
+ *   Server-only methods (startVoteRound, tally, etc.) still delegate to voteSession.ts
+ *   because those functions always use relative paths that the TestClient routes
+ *   to BASE_URL correctly.
  *
- *   All actual API logic (request bodies, error handling, crypto) lives in
- *   voteSession.ts and is reused here without modification.
+ * Cookie management:
+ *   The server issues an `access_token` cookie and trustauth issues a `trustauth_token`
+ *   cookie. Because they use different cookie names they coexist in the single shared
+ *   cookie jar without conflict. The TestClient's `withSession` wrapper injects the
+ *   combined cookie header into every outgoing request and stores Set-Cookie headers
+ *   from every response, so both cookies are kept in sync automatically.
  */
 
 import {
-  createMeeting as _createMeeting,
   startVoteRound as _startVoteRound,
   endVoteRound as _endVoteRound,
   tally as _tally,
   getTally as _getTally,
-  registerVoter as _registerVoter,
   submitVote as _submitVote,
-  getVoteData as _getVoteData,
   apiFetch,
   type SessionIds,
   type VoteData,
   type TallyResult,
 } from "../voteSession";
-import type {
-  BallotMetaData,
-} from "../signatures";
+import { generateToken, uuidToBytes, type BallotMetaData } from "../signatures";
 
 export { type TallyResult };
 
 // biome-ignore lint/suspicious/noExplicitAny: process is only available in Node/vitest
 export const BASE_URL: string =
-  (globalThis as any).process?.env?.["E2E_API_URL"] ?? "http://localhost:3000";
+  (globalThis as any).process?.env?.["E2E_API_URL"] ?? "http://localhost:1443";
+
+// biome-ignore lint/suspicious/noExplicitAny: process is only available in Node/vitest
+export const TRUSTAUTH_URL: string =
+  (globalThis as any).process?.env?.["E2E_TRUSTAUTH_URL"] ?? "http://localhost:2443";
 
 export const DEFAULT_METADATA: BallotMetaData = {
   candidates: ["Option A", "Option B", "Option C"],
@@ -60,8 +64,8 @@ export class TestClient {
    * Core cookie-aware request wrapper.
    *
    * Temporarily replaces `globalThis.fetch` with a version that:
-   *   - Prepends BASE_URL to relative paths (e.g. "/api/…" → "http://localhost:3000/api/…")
-   *   - Sends the stored Cookie header on every request
+   *   - Prepends BASE_URL to relative paths (e.g. "/api/…" → "http://localhost:1443/api/…")
+   *   - Sends the stored Cookie header on every request (server + trustauth cookies)
    *   - Stores Set-Cookie headers from every response
    *
    * The original `fetch` is always restored in `finally`, so a thrown error
@@ -77,7 +81,8 @@ export class TestClient {
       input: RequestInfo | URL,
       init?: RequestInit,
     ): Promise<Response> => {
-      // Resolve relative URLs against the test server base
+      // Resolve relative URLs against the test server base.
+      // Absolute URLs (e.g. explicit TRUSTAUTH_URL calls) are passed through as-is.
       const raw =
         typeof input === "string"
           ? input
@@ -123,11 +128,49 @@ export class TestClient {
     }
   }
 
-  // ── Wrappers around voteSession functions ─────────────────────────────────
+  // ── Meeting creation ────────────────────────────────────────────────────────
 
-  createMeeting(title = "Test Meeting", hostName = "Test Host", pubKey = "test-key") {
-    return this.withSession(() => _createMeeting(title, hostName, pubKey));
+  /**
+   * Create a meeting on the server and log in to trustauth.
+   *
+   * Implemented with explicit absolute URLs so the test environment does not
+   * depend on import.meta.env.API_ENDPOINT_TRUSTAUTH being set at Vitest startup.
+   *
+   * The server issues an `access_token` cookie; trustauth issues a
+   * `trustauth_token` cookie. Both are stored in the shared cookie jar.
+   */
+  async createMeeting(
+    title = "Test Meeting",
+    hostName = "Test Host",
+    pubKey = "test-key",
+  ): Promise<SessionIds> {
+    // Step 1 — create meeting on server (receives access_token cookie)
+    const serverRes = await this.withSession(() =>
+      fetch(`${BASE_URL}/api/create-meeting`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, host_name: hostName, pub_key: pubKey }),
+      }),
+    );
+    const data = await serverRes.json();
+    if (!serverRes.ok) throw new Error(`createMeeting HTTP ${serverRes.status}`);
+    const ids: SessionIds = { uuuid: data.uuuid, muuid: data.muuid };
+
+    // Step 2 — log in to trustauth (receives trustauth_token cookie)
+    const trustRes = await this.withSession(() =>
+      fetch(`${TRUSTAUTH_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuuid: ids.uuuid, muuid: ids.muuid }),
+      }),
+    );
+    if (!trustRes.ok)
+      throw new Error(`trustauth login HTTP ${trustRes.status}`);
+
+    return ids;
   }
+
+  // ── Vote-round management (delegated to voteSession.ts, server-only) ────────
 
   startVoteRound(
     name = "Test Vote",
@@ -149,13 +192,56 @@ export class TestClient {
     return this.withSession(() => _getTally());
   }
 
-  registerVoter(session: SessionIds): Promise<void> {
-    return this.withSession(() => _registerVoter(session));
+  // ── Voter registration ──────────────────────────────────────────────────────
+
+  /**
+   * Register for the current vote round via trustauth.
+   *
+   * Uses an explicit absolute TRUSTAUTH_URL to avoid import.meta.env routing issues.
+   * Requires the trustauth_token cookie (set by createMeeting).
+   */
+  async registerVoter(session: SessionIds): Promise<void> {
+    const voterBytes = uuidToBytes(session.uuuid);
+    const meetingBytes = uuidToBytes(session.muuid);
+    const token = generateToken(voterBytes, meetingBytes);
+
+    const body = {
+      context: token.context,
+      commitment: token.commitmentJson,
+      token: Array.from(token.token),
+      blind_factor: Array.from(token.blindFactor),
+    };
+
+    const res = await this.withSession(() =>
+      fetch(`${TRUSTAUTH_URL}/api/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+    if (!res.ok) throw new Error(`registerVoter HTTP ${res.status}`);
   }
 
-  getVoteData(): Promise<VoteData> {
-    return this.withSession(() => _getVoteData());
+  // ── Vote data ───────────────────────────────────────────────────────────────
+
+  /**
+   * Retrieve the stored token, blind factor, and signature from trustauth.
+   *
+   * Uses an explicit absolute TRUSTAUTH_URL.
+   * Requires the trustauth_token cookie.
+   */
+  async getVoteData(): Promise<VoteData> {
+    const res = await this.withSession(() =>
+      fetch(`${TRUSTAUTH_URL}/api/vote-data`, {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(`getVoteData HTTP ${res.status}`);
+    return data as VoteData;
   }
+
+  // ── Vote submission ─────────────────────────────────────────────────────────
 
   submitVote(
     voteData: VoteData,
@@ -165,15 +251,34 @@ export class TestClient {
     return this.withSession(() => _submitVote(voteData, metadata, choice));
   }
 
+  // ── Raw requests ────────────────────────────────────────────────────────────
+
   /**
-   * Low-level method for negative tests that need to inspect the raw Response
-   * (status code, error body) rather than having the helper throw on failure.
-   * Uses apiFetch directly so the cookie and URL logic is still applied.
+   * Low-level server request for negative tests.
+   * Relative paths are resolved against BASE_URL (the server).
    */
   rawRequest(method: string, path: string, body?: unknown): Promise<Response> {
     return this.withSession(() =>
       apiFetch(path, {
         method,
+        ...(body !== undefined && { body: JSON.stringify(body) }),
+      }),
+    );
+  }
+
+  /**
+   * Low-level trustauth request for negative tests.
+   * The URL is constructed as TRUSTAUTH_URL + path.
+   */
+  rawTrustAuthRequest(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<Response> {
+    return this.withSession(() =>
+      fetch(`${TRUSTAUTH_URL}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
         ...(body !== undefined && { body: JSON.stringify(body) }),
       }),
     );
@@ -212,6 +317,6 @@ export function corruptSignature(signature: unknown): unknown {
 
   throw new Error(
     "corruptSignature: could not find a 64-char hex scalar — " +
-    "check the serialisation format from zkryptium",
+      "check the serialisation format from zkryptium",
   );
 }

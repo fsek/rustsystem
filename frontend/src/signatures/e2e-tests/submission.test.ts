@@ -14,26 +14,29 @@
  *  - Ballot metadata validation (wrong metadata, too many choices)
  *  - Requests without a valid session cookie
  *
- * Requires a live server. Run with:
- *   API_ENDPOINT=http://localhost:3000 cargo run --bin rustsystem-server
- *   pnpm test src/signatures/e2e/submission.test.ts
+ * Requires both services running:
+ *   cargo run --bin rustsystem-server
+ *   cargo run --bin rustsystem-trustauth
+ *   pnpm test src/signatures/e2e-tests/submission.test.ts
  */
 
 import { generateToken, buildBallot, uuidToBytes } from "../signatures";
 import {
   TestClient,
   BASE_URL,
+  TRUSTAUTH_URL,
   DEFAULT_METADATA,
   corruptSignature,
 } from "./helpers";
 
-const serverReachable: boolean = await fetch(`${BASE_URL}/`)
-  .then(() => true)
-  .catch(() => false);
+const servicesReachable: boolean = await Promise.all([
+  fetch(`${BASE_URL}/`).then(() => true).catch(() => false),
+  fetch(`${TRUSTAUTH_URL}/api/is-registered`).then(() => true).catch(() => false),
+]).then(([s, t]) => s && t);
 
 // ─── Happy path ───────────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("submission — happy path", () => {
+describe.skipIf(!servicesReachable)("submission — happy path", () => {
   it("accepts a vote for a single candidate", async () => {
     const client = new TestClient();
     const session = await client.createMeeting();
@@ -95,7 +98,7 @@ describe.skipIf(!serverReachable)("submission — happy path", () => {
 
 // ─── State constraints ────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("submission — state constraints", () => {
+describe.skipIf(!servicesReachable)("submission — state constraints", () => {
   it("fails with 410 when no vote round is active", async () => {
     // Even a valid blind signature must be rejected if the round is no longer
     // open — submitting after the deadline would corrupt the tally.
@@ -143,7 +146,7 @@ describe.skipIf(!serverReachable)("submission — state constraints", () => {
 
 // ─── Signature attacks ────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("submission — signature attacks", () => {
+describe.skipIf(!servicesReachable)("submission — signature attacks", () => {
   it("fails with 401 when a fresh token is paired with an old signature", async () => {
     // The signature was blind-signed for the commitment of `token`. Submitting
     // `token2` (a completely different random value) with that signature must fail
@@ -255,7 +258,7 @@ describe.skipIf(!serverReachable)("submission — signature attacks", () => {
 
 // ─── Ballot validation ────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("submission — ballot validation", () => {
+describe.skipIf(!servicesReachable)("submission — ballot validation", () => {
   it("fails with 409 when the ballot metadata does not match the current round", async () => {
     // The server compares the metadata embedded in the ballot against the
     // metadata of the currently active round. A mismatch indicates either a
@@ -305,7 +308,7 @@ describe.skipIf(!serverReachable)("submission — ballot validation", () => {
 
 // ─── Authentication ───────────────────────────────────────────────────────────
 
-describe.skipIf(!serverReachable)("submission — authentication", () => {
+describe.skipIf(!servicesReachable)("submission — authentication", () => {
   it("fails with 401 when no session cookie is present", async () => {
     // The submit endpoint requires a valid JWT cookie to identify the meeting.
     // Without it the AuthUser extractor fails before any ballot parsing occurs.
