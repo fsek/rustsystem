@@ -7,14 +7,6 @@ pub struct AuthHost {
     pub uuuid: UUuid,
     pub muuid: MUuid,
 }
-impl From<AuthUser> for AuthHost {
-    fn from(value: AuthUser) -> Self {
-        Self {
-            uuuid: value.uuuid,
-            muuid: value.muuid,
-        }
-    }
-}
 
 impl FromRequestParts<AppState> for AuthHost {
     type Rejection = (StatusCode, Json<APIErrorFinal>);
@@ -25,7 +17,7 @@ impl FromRequestParts<AppState> for AuthHost {
     ) -> Result<Self, Self::Rejection> {
         let user = AuthUser::from_request_parts(parts, state).await?;
         if user.is_host {
-            Ok(user.into())
+            Ok(AuthHost { uuuid: user.uuuid, muuid: user.muuid })
         } else {
             let endpoint = EndpointMeta {
                 method: rustsystem_core::Method::from(parts.method.clone()),

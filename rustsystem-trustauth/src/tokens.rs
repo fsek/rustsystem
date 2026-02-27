@@ -1,19 +1,9 @@
 use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta, Method};
 use axum::{Json, extract::FromRequestParts, http::{StatusCode, request::Parts}};
 use axum_extra::extract::CookieJar;
-use jsonwebtoken::{DecodingKey, Validation, decode};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::AppState;
-
-#[derive(Serialize, Deserialize)]
-struct MeetingClaims {
-    uuuid: Uuid,
-    muuid: Uuid,
-    is_host: bool,
-    exp: usize,
-}
 
 pub struct TrustAuthUser {
     pub uuuid: Uuid,
@@ -27,9 +17,11 @@ impl FromRequestParts<AppState> for TrustAuthUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let jar = CookieJar::from_request_parts(parts, state)
-            .await
-            .expect("infallible");
+        // CookieJar extraction is infallible; match the Infallible variant exhaustively.
+        let jar = match CookieJar::from_request_parts(parts, state).await {
+            Ok(jar) => jar,
+            Err(infallible) => match infallible {},
+        };
 
         let endpoint = EndpointMeta {
             method: Method::from(parts.method.clone()),
@@ -46,20 +38,12 @@ impl FromRequestParts<AppState> for TrustAuthUser {
             .value()
             .to_owned();
 
-        let token_data = decode::<MeetingClaims>(
-            &access_token,
-            &DecodingKey::from_secret(state.secret()),
-            &Validation::default(),
-        )
-        .map_err(|_| {
-            APIError::from_error_code(APIErrorCode::AuthError)
-                .finalize(endpoint)
-                .response()
-        })?;
+        let claims = rustsystem_core::tokens::decode_jwt(&access_token, state.secret(), rustsystem_core::tokens::TRUSTAUTH_ISSUER)
+            .map_err(|e| e.finalize(endpoint).response())?;
 
         Ok(TrustAuthUser {
-            uuuid: token_data.claims.uuuid,
-            muuid: token_data.claims.muuid,
+            uuuid: claims.uuuid,
+            muuid: claims.muuid,
         })
     }
 }

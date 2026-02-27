@@ -5,22 +5,11 @@ use axum_extra::extract::{
     CookieJar,
     cookie::{self, Cookie},
 };
-use chrono::Utc;
-use jsonwebtoken::{EncodingKey, Header, encode};
-use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use serde::Deserialize;
 use tracing::info;
 use uuid::Uuid;
 
 use crate::AppState;
-
-#[derive(Serialize, Deserialize)]
-struct MeetingClaims {
-    uuuid: Uuid,
-    muuid: Uuid,
-    is_host: bool,
-    exp: usize,
-}
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -57,33 +46,15 @@ impl APIHandler for Login {
             return Err(APIError::from_error_code(APIErrorCode::UUuidNotFound));
         }
 
-        let expiration = Utc::now()
-            .checked_add_signed(chrono::Duration::hours(12))
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::TimestampError))?
-            .timestamp() as usize;
-
-        let claims = MeetingClaims {
-            uuuid,
-            muuid,
-            is_host: false,
-            exp: expiration,
-        };
-
-        let jwt = encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(state.secret()),
-        )
-        .map_err(|_| APIError::from_error_code(APIErrorCode::Other))?;
+        let jwt = rustsystem_core::tokens::encode_jwt(uuuid, muuid, false, state.secret(), rustsystem_core::tokens::TRUSTAUTH_ISSUER)?;
 
         let is_secure = state.is_secure();
         let cookie = Cookie::build(("trustauth_token", jwt))
             .http_only(true)
             .same_site(cookie::SameSite::Strict)
             .path("/")
-            .expires(OffsetDateTime::now_utc().checked_add(time::Duration::hours(12)))
-            .secure(is_secure)
             .max_age(time::Duration::hours(12))
+            .secure(is_secure)
             .build();
 
         info!(

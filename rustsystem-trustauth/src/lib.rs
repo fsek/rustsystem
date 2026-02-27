@@ -154,7 +154,7 @@ struct IsVoterResponse {
 
 pub fn init_state() -> Result<AppState, APIError> {
     use tracing::info;
-    let secret = rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-trustauth-secret")?;
+    let secret = rustsystem_core::secret::generate_secret();
     info!("Trustauth state initialised");
 
     let http_client = build_mtls_client(

@@ -7,84 +7,40 @@ use axum_extra::extract::{
     CookieJar,
     cookie::{self, Cookie},
 };
-use chrono::Utc;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
-use serde::{Deserialize, Serialize};
-use time::{self, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::{AppState, MUuid, UUuid};
 
-#[derive(Debug, Deserialize, Serialize)]
-struct MeetingClaims {
-    uuuid: Uuid,
-    muuid: Uuid,
-    is_host: bool,
-    exp: usize,
-}
-
 // TODO: Improve security by refreshing JWT or switching to server based sessions.
 // The 12 hours is fine for now. Realistically, stealing JWTs over TLS is very difficult.
-fn create_meeting_jwt(
-    uuuid: UUuid,
-    muuid: MUuid,
-    is_host: bool,
-    secret: &[u8; 32],
-) -> Result<String, APIError> {
-    let expiration = Utc::now()
-        .checked_add_signed(chrono::Duration::hours(12))
-        .ok_or_else(|| APIError::from_error_code(APIErrorCode::TimestampError))?
-        .timestamp() as usize;
-
-    let claims = MeetingClaims {
-        uuuid,
-        muuid,
-        is_host,
-        exp: expiration,
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret.as_ref()),
-    )
-    .map_err(|_| APIError::from_error_code(APIErrorCode::Other))
-}
-
 pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
     Cookie::build(("rustsystem_access_token", jwt))
         .http_only(true)
         .same_site(cookie::SameSite::Strict)
         .path("/")
-        .expires(OffsetDateTime::now_utc().checked_add(time::Duration::hours(12)))
-        .secure(is_secure)
         .max_age(time::Duration::hours(12))
+        .secure(is_secure)
         .into()
 }
 
 pub fn new_meeting_jwt(secret: &[u8; 32]) -> Result<(UUuid, MUuid, String), APIError> {
     let uuuid = Uuid::new_v4();
     let muuid = Uuid::new_v4();
-
     Ok((
         uuuid,
         muuid,
-        create_meeting_jwt(uuuid, muuid, true, secret)?,
+        rustsystem_core::tokens::encode_jwt(uuuid, muuid, true, secret, rustsystem_core::tokens::SERVER_ISSUER)?,
     ))
 }
 
 pub fn get_meeting_jwt(
-    uuid: UUuid,
-    muid: MUuid,
+    uuuid: UUuid,
+    muuid: MUuid,
     is_host: bool,
     secret: &[u8; 32],
 ) -> Result<String, APIError> {
-    create_meeting_jwt(uuid, muid, is_host, secret)
-}
-
-pub fn get_secret() -> Result<[u8; 32], APIError> {
-    rustsystem_core::secret::get_or_create_secret("/tmp/rustsystem-server-secret")
+    rustsystem_core::tokens::encode_jwt(uuuid, muuid, is_host, secret, rustsystem_core::tokens::SERVER_ISSUER)
 }
 
 pub struct AuthUser {
@@ -113,12 +69,13 @@ impl FromRequestParts<AppState> for AuthUser {
 
         let access_token = jar
             .get("rustsystem_access_token")
-            .ok_or(
+            .ok_or_else(|| {
                 APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint.clone())
-                    .response(),
-            )?
-            .value();
+                    .response()
+            })?
+            .value()
+            .to_owned();
 
         let state_guard = {
             let guard = state
@@ -127,16 +84,8 @@ impl FromRequestParts<AppState> for AuthUser {
             guard.clone()
         };
 
-        let token_data = decode::<MeetingClaims>(
-            access_token,
-            &DecodingKey::from_secret(state_guard.secret.as_ref()),
-            &Validation::default(),
-        )
-        .map_err(|_| {
-            APIError::from_error_code(APIErrorCode::AuthError)
-                .finalize(endpoint.clone())
-                .response()
-        })?;
+        let claims = rustsystem_core::tokens::decode_jwt(&access_token, &state_guard.secret, rustsystem_core::tokens::SERVER_ISSUER)
+            .map_err(|e| e.finalize(endpoint.clone()).response())?;
 
         // Verify the user still exists in the meeting. This implicitly revokes
         // tokens whenever a voter is removed or the meeting is closed — no
@@ -144,7 +93,7 @@ impl FromRequestParts<AppState> for AuthUser {
         // before we return so we don't hold it any longer than necessary.
         {
             let map = state_guard.meetings.read().await;
-            let meeting = map.get(&token_data.claims.muuid).cloned().ok_or_else(|| {
+            let meeting = map.get(&claims.muuid).cloned().ok_or_else(|| {
                 APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint.clone())
                     .response()
@@ -154,7 +103,7 @@ impl FromRequestParts<AppState> for AuthUser {
                 .voters
                 .read()
                 .await
-                .contains_key(&token_data.claims.uuuid)
+                .contains_key(&claims.uuuid)
             {
                 return Err(APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint)
@@ -163,9 +112,9 @@ impl FromRequestParts<AppState> for AuthUser {
         }
 
         Ok(AuthUser {
-            uuuid: token_data.claims.uuuid,
-            muuid: token_data.claims.muuid,
-            is_host: token_data.claims.is_host,
+            uuuid: claims.uuuid,
+            muuid: claims.muuid,
+            is_host: claims.is_host,
         })
     }
 }

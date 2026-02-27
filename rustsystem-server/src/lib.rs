@@ -11,7 +11,7 @@ use std::{
     },
     time::SystemTime,
 };
-use tokens::{AuthUser, get_secret};
+use tokens::AuthUser;
 use tokio::sync::RwLock as AsyncRwLock;
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
@@ -174,7 +174,7 @@ pub fn init_state() -> Result<AppState, APIError> {
     info!("Running rustsystem server with secure setting: {is_secure}");
 
     Ok(AppState(Arc::new(RwLock::new(AppStateInternal {
-        secret: get_secret()?,
+        secret: rustsystem_core::secret::generate_secret(),
         meetings: Arc::new(AsyncRwLock::new(HashMap::new())),
         is_secure,
         trustauth_client: build_mtls_client(

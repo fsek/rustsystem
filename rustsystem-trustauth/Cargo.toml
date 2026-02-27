@@ -20,8 +20,6 @@ rustsystem-core = { path = "../rustsystem-core"}
 zkryptium = "0.5.0"
 rand = "0.9.1"
 rand_core = { version = "0.6", features = ["getrandom"] }
-jsonwebtoken = "9.3.1"
-chrono = "0.4.41"
 tracing-subscriber = { version = "0.3.19", features = ["std", "env-filter"] }
 tracing = "0.1.41"
 bls12_381_plus = "0.8.18"
