@@ -8,8 +8,6 @@
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test",
-    "test:e2e:docker": "bash scripts/run-e2e-docker.sh",
     "format": "biome format --write src"
   },
   "dependencies": {

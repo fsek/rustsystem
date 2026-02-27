@@ -13,7 +13,7 @@
  * drive the actual production UI that voters and hosts will use.
  *
  * Prerequisites — both must be running before `pnpm test:e2e`:
- *   Rust backend:  API_ENDPOINT=http://localhost:3000 cargo run --bin rustsystem-server
+ *   Rust backend:  cargo run --bin rustsystem-server && cargo run --bin rustsystem-trustauth
  *   Vite server:   started automatically by playwright.config.ts webServer option
  *
  * Each test creates its own meeting so tests are fully independent and can run
@@ -46,6 +46,8 @@ async function createMeetingViaUI(
   await gotoCreateMeeting(page);
   await page.locator("#meeting-title").fill(title);
   await page.locator("#host-name").fill(hostName);
+  await page.locator("#meeting-password").fill("test-password");
+  await page.locator("#confirm-password").fill("test-password");
   await page.getByRole("button", { name: "Create Meeting" }).click();
   await page.waitForURL("**/admin");
   // Wait for the voter list panel to finish loading before proceeding.

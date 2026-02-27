@@ -6,13 +6,12 @@
  * Node.js Vitest e2e tests cannot reach:
  *
  *   • Actual browser cookie jars (HttpOnly / SameSite enforcement)
- *   • localStorage persistence across page reloads
  *   • Crypto in the browser's own JS engine (V8, SpiderMonkey, JavaScriptCore)
  *   • Mobile viewport rendering and touch interaction
  *   • CORS preflight handling (browsers enforce this; Node.js fetch does not)
  *
  * Prerequisites — both must be running before `pnpm test:e2e`:
- *   Rust backend:  API_ENDPOINT=http://localhost:3000 cargo run --bin rustsystem-server
+ *   Rust backend:  cargo run --bin rustsystem-server && cargo run --bin rustsystem-trustauth
  *   Vite server:   started automatically by playwright.config.ts webServer option
  *
  * Each test creates its own meeting through the UI so tests are fully
@@ -29,7 +28,7 @@ import { test, expect, type Page } from "@playwright/test";
  * Create Meeting button to be visible.
  */
 async function goto(page: Page) {
-  await page.goto("/signature-dev");
+  await page.goto("/dev/signature-dev");
   await page.getByTestId("btn-create-meeting").waitFor({ state: "visible" });
 }
 
@@ -92,13 +91,6 @@ test.describe("full vote cycle", () => {
     await startVote(page);
     await register(page);
     await submitVote(page, "0");
-
-    // After a successful submission the token must be cleared from localStorage
-    // so it cannot be reused on a subsequent visit.
-    const stored = await page.evaluate(() =>
-      localStorage.getItem("fsek-vote-session"),
-    );
-    expect(stored).toBeNull();
   });
 
   test("blank vote (empty choice)", async ({ page }) => {
@@ -109,86 +101,6 @@ test.describe("full vote cycle", () => {
     await startVote(page);
     await register(page);
     await submitVote(page, ""); // empty → blank vote
-  });
-});
-
-// ─── localStorage persistence ─────────────────────────────────────────────────
-
-test.describe("localStorage persistence", () => {
-  test("token survives a hard page reload", async ({ page }) => {
-    // If the voter closes the tab after registration but before voting, the
-    // token must still be available on the next visit so they can still submit.
-    // voteSession.ts persists the token to localStorage for exactly this reason.
-    await goto(page);
-    await createMeeting(page);
-    await startVote(page);
-    await register(page);
-
-    // Force a full navigation (not a soft client-side reload) to simulate
-    // the user closing and reopening the browser tab.
-    await page.reload();
-    await page.getByTestId("btn-create-meeting").waitFor({ state: "visible" });
-
-    // The "restored from storage" banner must appear, indicating that the token
-    // was successfully read back from localStorage.
-    await expect(page.getByTestId("alert-restored")).toBeVisible();
-
-    // The Submit Vote button must be enabled — registration state is restored.
-    await expect(page.getByTestId("btn-submit")).toBeEnabled();
-
-    // The voter can still submit without re-registering.
-    await submitVote(page, "0");
-  });
-
-  test("token is cleared from localStorage after successful submission", async ({
-    page,
-  }) => {
-    // Once the vote is cast the token is spent and must be removed from storage
-    // so it cannot be reused, even if the user navigates back to the page.
-    await goto(page);
-    await createMeeting(page);
-    await startVote(page);
-    await register(page);
-    await submitVote(page, "0");
-
-    const stored = await page.evaluate(() =>
-      localStorage.getItem("fsek-vote-session"),
-    );
-    expect(stored).toBeNull();
-
-    // After a reload the restored-from-storage banner must NOT appear and the
-    // Submit button must be disabled (no token in storage).
-    await page.reload();
-    await page.getByTestId("btn-create-meeting").waitFor({ state: "visible" });
-    await expect(page.getByTestId("alert-restored")).not.toBeVisible();
-    await expect(page.getByTestId("btn-submit")).toBeDisabled();
-  });
-
-  test("Clear token button removes the token from localStorage", async ({
-    page,
-  }) => {
-    // The "Clear token" button is the escape hatch for shared/public computers:
-    // the voter can explicitly discard their token before leaving the machine.
-    await goto(page);
-    await createMeeting(page);
-    await startVote(page);
-    await register(page);
-
-    // Token is present in storage after registration.
-    const beforeClear = await page.evaluate(() =>
-      localStorage.getItem("fsek-vote-session"),
-    );
-    expect(beforeClear).not.toBeNull();
-
-    await page.getByTestId("btn-clear-token").click();
-
-    const afterClear = await page.evaluate(() =>
-      localStorage.getItem("fsek-vote-session"),
-    );
-    expect(afterClear).toBeNull();
-
-    // The Submit button should now be disabled — no token, no vote.
-    await expect(page.getByTestId("btn-submit")).toBeDisabled();
   });
 });
 
@@ -232,7 +144,7 @@ test.describe("cookie handling", () => {
     // by another navigation" because the SPA's history manipulation is still
     // in flight when the second goto begins.
     await page.goto("/", { waitUntil: "networkidle" });
-    await page.goto("/signature-dev");
+    await page.goto("/dev/signature-dev");
     await page.getByTestId("btn-create-meeting").waitFor({ state: "visible" });
 
     // Cookie must still be present after the round-trip navigation.

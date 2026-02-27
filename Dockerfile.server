@@ -31,10 +31,6 @@ ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH
 ARG SALT_HEX
 ARG KEYGEN_ITERATIONS
-# Build with empty PEM stubs to cache all dependency compilation.
-# include_bytes! compiles fine with empty files; PEM parsing only happens at runtime.
-RUN mkdir -p mtls/ca mtls/server && touch mtls/ca/ca.crt mtls/server/server.crt mtls/server/server.key
-RUN cargo build --release --bin rustsystem-server
 # Now overwrite stubs with real certs and recompile only the crates that embed them.
 COPY mtls-prod/ca/ ./mtls/ca/
 COPY mtls-prod/server/ ./mtls/server/

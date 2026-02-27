@@ -13,9 +13,6 @@ ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER
 ARG API_ENDPOINT_TRUSTAUTH
 # Build with empty PEM stubs to cache all dependency compilation.
 # include_bytes! compiles fine with empty files; PEM parsing only happens at runtime.
-RUN mkdir -p mtls/ca mtls/trustauth && touch mtls/ca/ca.crt mtls/trustauth/trustauth.crt mtls/trustauth/trustauth.key
-RUN cargo build --release --bin rustsystem-trustauth
-# Now overwrite stubs with real certs and recompile only the crates that embed them.
 COPY mtls-prod/ca/ ./mtls/ca/
 COPY mtls-prod/trustauth/ ./mtls/trustauth/
 RUN touch rustsystem-trustauth/src/main.rs

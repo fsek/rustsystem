@@ -27,6 +27,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Route /api/trustauth to trustauth's /api prefix (must come before /api).
+      "/api/trustauth": {
+        target: "http://localhost:2443",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/trustauth/, "/api"),
+      },
       "/api": "http://localhost:1443",
     },
   },
@@ -36,9 +42,11 @@ export default defineConfig({
     "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(
       process.env.KEYGEN_ITERATIONS,
     ),
-    "import.meta.env.API_ENDPOINT_TRUSTAUTH": process.env.API_ENDPOINT_TRUSTAUTH
-      ? JSON.stringify(process.env.API_ENDPOINT_TRUSTAUTH)
-      : undefined,
+    // In dev, default to the Vite proxy path so browsers can reach trustauth
+    // without CORS issues. Override with an absolute URL in production.
+    "import.meta.env.API_ENDPOINT_TRUSTAUTH": JSON.stringify(
+      process.env.API_ENDPOINT_TRUSTAUTH ?? "/api/trustauth",
+    ),
   },
   build: {
     outDir: "dist",

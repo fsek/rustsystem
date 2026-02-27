@@ -1,4 +1,3 @@
-use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use axum::{
     Json,
     extract::FromRequestParts,
@@ -10,6 +9,7 @@ use axum_extra::extract::{
 };
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use rustsystem_core::{APIError, APIErrorCode, APIErrorFinal, EndpointMeta};
 use serde::{Deserialize, Serialize};
 use time::{self, OffsetDateTime};
 use uuid::Uuid;
@@ -53,7 +53,7 @@ fn create_meeting_jwt(
 }
 
 pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
-    Cookie::build(("access_token", jwt))
+    Cookie::build(("rustsystem_access_token", jwt))
         .http_only(true)
         .same_site(cookie::SameSite::Strict)
         .path("/")
@@ -63,9 +63,7 @@ pub fn new_cookie(jwt: String, is_secure: bool) -> Cookie<'static> {
         .into()
 }
 
-pub fn new_meeting_jwt(
-    secret: &[u8; 32],
-) -> Result<(UUuid, MUuid, String), APIError> {
+pub fn new_meeting_jwt(secret: &[u8; 32]) -> Result<(UUuid, MUuid, String), APIError> {
     let uuuid = Uuid::new_v4();
     let muuid = Uuid::new_v4();
 
@@ -146,16 +144,18 @@ impl FromRequestParts<AppState> for AuthUser {
         // before we return so we don't hold it any longer than necessary.
         {
             let map = state_guard.meetings.read().await;
-            let meeting = map
-                .get(&token_data.claims.muuid)
-                .cloned()
-                .ok_or_else(|| {
-                    APIError::from_error_code(APIErrorCode::AuthError)
-                        .finalize(endpoint.clone())
-                        .response()
-                })?;
+            let meeting = map.get(&token_data.claims.muuid).cloned().ok_or_else(|| {
+                APIError::from_error_code(APIErrorCode::AuthError)
+                    .finalize(endpoint.clone())
+                    .response()
+            })?;
             drop(map);
-            if !meeting.voters.read().await.contains_key(&token_data.claims.uuuid) {
+            if !meeting
+                .voters
+                .read()
+                .await
+                .contains_key(&token_data.claims.uuuid)
+            {
                 return Err(APIError::from_error_code(APIErrorCode::AuthError)
                     .finalize(endpoint)
                     .response());
