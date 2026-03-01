@@ -4,6 +4,7 @@
 
 import { apiFetch } from "@/signatures/voteSession";
 import type { BallotMetaData } from "@/signatures/signatures";
+import type { APIError } from "./error";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export async function addVoter(
     method: "POST",
     body: JSON.stringify({ voterName: name, isHost: isHost }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
   return res.json();
 }
 
@@ -54,12 +55,12 @@ export async function removeVoter(voterUuuid: string): Promise<void> {
     method: "DELETE",
     body: JSON.stringify({ voter_uuuid: voterUuuid }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 export async function removeAllVoters(): Promise<void> {
   const res = await apiFetch("/api/host/remove-all", { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 // ─── Tally files ──────────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ export interface TallyFileEntry {
 
 export async function getAllTallyFiles(): Promise<TallyFileEntry[]> {
   const res = await apiFetch("/api/host/get-all-tally");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
   return res.json();
 }
 
@@ -79,13 +80,26 @@ export async function getAllTallyFiles(): Promise<TallyFileEntry[]> {
 
 export async function closeMeeting(): Promise<void> {
   const res = await apiFetch("/api/host/close-meeting", { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 // ─── Vote progress ────────────────────────────────────────────────────────────
 
 export async function fetchVoteProgress(): Promise<VoteProgress> {
   const res = await apiFetch("/api/common/vote-progress");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
   return res.json();
+}
+
+// ─── Handle errors ────────────────────────────────────────────────────────────
+
+async function handleErrorResponse(res: Response) {
+  let errorMessage = `HTTP ${res.status}`;
+  try {
+    const apiError: APIError = await res.json();
+    console.error(apiError);
+    if (apiError?.error?.message) errorMessage = apiError.error.message;
+  } finally {
+    throw new Error(errorMessage);
+  }
 }
