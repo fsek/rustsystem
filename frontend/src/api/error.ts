@@ -31,10 +31,12 @@ export const APIErrorCodes = {
 export type APIErrorCode = (typeof APIErrorCodes)[keyof typeof APIErrorCodes];
 
 export type APIError = {
-  code: APIErrorCode;
-  message: string;
-  httpStatus: number;
-  timestamp: string;
+  error: {
+    code: APIErrorCode;
+    message: string;
+    httpStatus: number;
+    timestamp: string;
+  };
   endpoint: {
     method: string;
     path: string;
