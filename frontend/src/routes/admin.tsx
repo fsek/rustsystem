@@ -333,7 +333,7 @@ function VoterListPanel({
               className="flex-1"
             />
           </div>
-          {sortedVoters.map((v, i) => (
+          {sortedVoters.map((v, _) => (
             <div
               key={v.uuid}
               className="flex items-center gap-3 px-5 py-3"
