@@ -309,25 +309,30 @@ function VoterListPanel({
         </p>
       ) : (
         <div className="flex flex-col overflow-y-auto max-h-72">
-          <div className="flex items-center px-2.5 py-2 space-x-2">
+          <div
+            className="flex items-center gap-2 px-5 py-2"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
             <svg
-              width="20"
-              height="20"
+              width="16"
+              height="16"
               viewBox="0 0 16 16"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              style={{ color: "var(--textSecondary)", flexShrink: 0 }}
             >
               <path
                 d="M10 6.5C10 8.433 8.433 10 6.5 10C4.567 10 3 8.433 3 6.5C3 4.567 4.567 3 6.5 3C8.433 3 10 4.567 10 6.5ZM9.30884 10.0159C8.53901 10.6318 7.56251 11 6.5 11C4.01472 11 2 8.98528 2 6.5C2 4.01472 4.01472 2 6.5 2C8.98528 2 11 4.01472 11 6.5C11 7.56251 10.6318 8.53901 10.0159 9.30884L12.8536 12.1464C13.0488 12.3417 13.0488 12.6583 12.8536 12.8536C12.6583 13.0488 12.3417 13.0488 12.1464 12.8536L9.30884 10.0159Z"
-                fill="var(--support)"
-                fill-rule="evenodd"
-                clip-rule="evenodd"
-              ></path>
+                fill="currentColor"
+                fillRule="evenodd"
+                clipRule="evenodd"
+              />
             </svg>
             <Input
               size="sm"
               color="secondary"
-              placeholder={`Search name`}
+              placeholder="Search name"
               value={searchPredicate}
               onChange={(e) => setSearchPredicate(e.target.value)}
               className="flex-1"
