@@ -269,6 +269,7 @@ const IconEye = () => (
 
 function Hero() {
   const [mounted, setMounted] = useState(false);
+  const [showRejoin, setShowRejoin] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -366,6 +367,45 @@ function Hero() {
               View on Github
             </Button>
           </a>
+        </div>
+
+        <div className="flex flex-col items-center gap-3">
+          <Button
+            size="sm"
+            color="buttonSecondary"
+            variant="outline"
+            onClick={() => setShowRejoin((v) => !v)}
+          >
+            Already in a meeting?
+          </Button>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateRows: showRejoin ? "1fr" : "0fr",
+              transition: "grid-template-rows 0.3s ease",
+            }}
+          >
+            <div style={{ overflow: "hidden" }}>
+              <div className="flex items-center gap-3 pt-1 flex-wrap justify-center">
+                <Button
+                  size="sm"
+                  color="buttonPrimary"
+                  variant="outline"
+                  onClick={() => navigate({ to: "/admin" })}
+                >
+                  I'm the host
+                </Button>
+                <Button
+                  size="sm"
+                  color="buttonSecondary"
+                  variant="outline"
+                  onClick={() => navigate({ to: "/meeting" })}
+                >
+                  I'm a voter
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap justify-center pt-2">
