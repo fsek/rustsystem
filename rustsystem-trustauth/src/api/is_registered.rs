@@ -1,10 +1,10 @@
-use rustsystem_core::{APIError, APIHandler, Method};
 use async_trait::async_trait;
 use axum::{
     Json,
     extract::{FromRequest, State},
     http::StatusCode,
 };
+use rustsystem_core::{APIError, APIHandler, Method};
 use serde::Serialize;
 
 use crate::{AppState, tokens::TrustAuthUser};
@@ -35,20 +35,12 @@ impl APIHandler for IsRegistered {
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let IsRegisteredRequest { auth, state } = request;
 
-        let mut is_registered = true;
-
-        if !state.vote_active(auth.muuid).await? {
-            is_registered = false;
-        }
-
-        if !state.is_voter(auth.uuuid, auth.muuid).await? {
-            is_registered = false;
-        }
-
         let round = state.get_round(auth.muuid).await?;
-        if !round.registered_voters.read().await.contains_key(&auth.uuuid) {
-            is_registered = false;
-        }
+        let is_registered = round
+            .registered_voters
+            .read()
+            .await
+            .contains_key(&auth.uuuid);
 
         Ok(Json(IsRegisteredResponse { is_registered }))
     }
