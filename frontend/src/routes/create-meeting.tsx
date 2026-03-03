@@ -4,7 +4,7 @@ import { Navbar } from "@/components/Navbar/Navbar";
 import { Panel } from "@/components/Panel/Panel";
 import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
-import { Alert } from "@/components/Alert/Alert";
+import { ErrorAlert } from "@/components/Alert/ErrorAlert";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { createMeeting } from "@/signatures/voteSession";
 import {
@@ -108,7 +108,7 @@ function CreateMeetingPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -135,7 +135,7 @@ function CreateMeetingPage() {
       await createMeeting(trimTitle, trimHost, x25519PublicKeyToPem(publicKey));
       navigate({ to: "/admin" });
     } catch (err) {
-      setError(String(err));
+      setError(err);
       setLoading(false);
     }
   }
@@ -223,11 +223,7 @@ function CreateMeetingPage() {
                 />
               </div>
 
-              {error && (
-                <Alert size="sm" color="accent">
-                  {error}
-                </Alert>
-              )}
+              <ErrorAlert error={error} />
 
               <Button
                 size="m"

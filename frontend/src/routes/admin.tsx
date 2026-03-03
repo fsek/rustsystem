@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/Button/Button";
 import { Input } from "@/components/Input/Input";
 import { Alert } from "@/components/Alert/Alert";
+import { ErrorAlert } from "@/components/Alert/ErrorAlert";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Badge } from "@/components/Badge/Badge";
 import { Panel } from "@/components/Panel/Panel";
@@ -78,7 +79,7 @@ function AddVoterPanel({
   const [name, setName] = useState("");
   const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   async function handleAdd() {
     const trimmed = name.trim();
@@ -91,7 +92,7 @@ function AddVoterPanel({
       setName("");
       setIsHost(false);
     } catch (err) {
-      setError(String(err));
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -136,11 +137,7 @@ function AddVoterPanel({
           Grant host privileges
         </label>
 
-        {error && (
-          <Alert size="sm" color="accent">
-            {error}
-          </Alert>
-        )}
+        <ErrorAlert error={error} />
       </div>
     </Panel>
   );
@@ -600,7 +597,7 @@ function HostVoteRoundPanel({
   const [starting, setStarting] = useState(false);
   const [tallying, setTallying] = useState(false);
   const [ending, setEnding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   async function handleStart() {
     const validOpts = options.filter((o) => o.trim());
@@ -618,7 +615,7 @@ function HostVoteRoundPanel({
         shuffle,
       );
     } catch (err) {
-      setError(String(err));
+      setError(err);
     } finally {
       setStarting(false);
     }
@@ -630,7 +627,7 @@ function HostVoteRoundPanel({
     try {
       await onTally();
     } catch (err) {
-      setError(String(err));
+      setError(err);
     } finally {
       setTallying(false);
     }
@@ -642,7 +639,7 @@ function HostVoteRoundPanel({
     try {
       await onEndRound();
     } catch (err) {
-      setError(String(err));
+      setError(err);
     } finally {
       setEnding(false);
     }
@@ -873,11 +870,7 @@ function HostVoteRoundPanel({
           </div>
         )}
 
-        {error && (
-          <Alert size="sm" color="accent">
-            {error}
-          </Alert>
-        )}
+        <ErrorAlert error={error} />
       </div>
     </Panel>
   );
@@ -898,15 +891,14 @@ function Admin() {
   const [joinedVoterName, setJoinedVoterName] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [closeError, setCloseError] = useState<string | null>(null);
+  const [closeError, setCloseError] = useState<unknown>(null);
   const [tallyPassword, setTallyPassword] = useState("");
   const [downloadingTallies, setDownloadingTallies] = useState(false);
-  const [tallyDownloadError, setTallyDownloadError] = useState<string | null>(
-    null,
-  );
+  const [tallyDownloadError, setTallyDownloadError] = useState<unknown>(null);
   // Ref so the SSE closure always reads the current qrInfo without re-subscribing.
   const qrInfoRef = useRef(qrInfo);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
+  const [backgroundError, setBackgroundError] = useState<unknown>(null);
 
   useEffect(() => {
     qrInfoRef.current = qrInfo;
@@ -917,7 +909,7 @@ function Admin() {
       const list = await fetchVoterList();
       setVoters(list);
     } catch (err) {
-      console.error("Failed to reload voters:", err);
+      setBackgroundError(err);
     }
   }, []);
 
@@ -934,10 +926,10 @@ function Admin() {
         const state = deriveVoteState(progress);
         setVoteState(state);
         if (state === "Tally") {
-          getTally().then(setTallyResult).catch(console.error);
+          getTally().then(setTallyResult).catch(setLoadError);
         }
       } catch (err) {
-        setLoadError(String(err));
+        setLoadError(err);
       } finally {
         setVotersLoading(false);
       }
@@ -955,7 +947,7 @@ function Admin() {
       if (raw === "Creation" || raw === "Voting" || raw === "Tally") {
         setVoteState(raw);
         if (raw === "Tally") {
-          getTally().then(setTallyResult).catch(console.error);
+          getTally().then(setTallyResult).catch(setBackgroundError);
         }
         if (raw === "Creation") {
           setTallyResult(null);
@@ -1053,7 +1045,7 @@ function Admin() {
       await closeMeeting();
       navigate({ to: "/create-meeting" });
     } catch (err) {
-      setCloseError(String(err));
+      setCloseError(err);
       setClosing(false);
     }
   }
@@ -1081,10 +1073,7 @@ function Admin() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setTallyDownloadError(
-        "Failed to decrypt — check that you entered the correct password.",
-      );
-      console.error(err);
+      setTallyDownloadError(err);
     } finally {
       setDownloadingTallies(false);
     }
@@ -1101,9 +1090,7 @@ function Admin() {
   if (loadError) {
     return (
       <div className="max-w-xl mx-auto p-8">
-        <Alert size="m" color="accent">
-          Failed to load admin panel: {loadError}
-        </Alert>
+        <ErrorAlert error={loadError} />
       </div>
     );
   }
@@ -1140,6 +1127,8 @@ function Admin() {
         </Button>
       </div>
 
+      <ErrorAlert error={backgroundError} />
+
       {confirmClose && (
         <Panel title="Close meeting">
           <div className="flex flex-col gap-4">
@@ -1151,11 +1140,7 @@ function Admin() {
               below before closing.
             </p>
 
-            {closeError && (
-              <Alert size="sm" color="accent">
-                {closeError}
-              </Alert>
-            )}
+            <ErrorAlert error={closeError} />
             <div className="flex gap-3">
               <Button
                 size="m"
@@ -1227,11 +1212,7 @@ function Admin() {
                   )}
                 </Button>
               </div>
-              {tallyDownloadError && (
-                <Alert size="sm" color="accent">
-                  {tallyDownloadError}
-                </Alert>
-              )}
+              <ErrorAlert error={tallyDownloadError} />
             </div>
           </div>
         </Panel>

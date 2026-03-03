@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/Spinner/Spinner";
-import { Alert } from "@/components/Alert/Alert";
+import { ErrorAlert } from "@/components/Alert/ErrorAlert";
 import { apiFetch, trustAuthLogin } from "@/signatures/voteSession";
+import { handleErrorResponse } from "@/api/error";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -29,7 +30,7 @@ function hexToBytes(hex: string): number[] {
 function LoginPage() {
   const { muuid, uuuid, admin_msg, admin_sig } = Route.useSearch();
   const claimsHost = admin_msg && admin_sig;
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const nav = useNavigate();
 
@@ -79,12 +80,10 @@ function LoginPage() {
         return;
       }
 
-      if (res.status === 409) {
-        setError("This invite link has already been used.");
-      } else if (res.status === 404) {
-        setError("Meeting or voter not found. The meeting may have ended.");
-      } else {
-        setError(`Login failed (HTTP ${res.status}).`);
+      try {
+        await handleErrorResponse(res);
+      } catch (err) {
+        setError(err);
       }
     }
 
@@ -100,9 +99,7 @@ function LoginPage() {
         style={{ backgroundColor: "var(--pageBg)" }}
       >
         <div className="max-w-sm w-full">
-          <Alert size="m" color="accent">
-            {error}
-          </Alert>
+          <ErrorAlert error={error} />
         </div>
       </div>
     );

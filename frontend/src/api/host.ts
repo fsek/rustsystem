@@ -4,7 +4,7 @@
 
 import { apiFetch } from "@/signatures/voteSession";
 import type { BallotMetaData } from "@/signatures/signatures";
-import type { APIError } from "./error";
+import { handleErrorResponse } from "./error";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,15 +91,3 @@ export async function fetchVoteProgress(): Promise<VoteProgress> {
   return res.json();
 }
 
-// ─── Handle errors ────────────────────────────────────────────────────────────
-
-async function handleErrorResponse(res: Response) {
-  let errorMessage = `HTTP ${res.status}`;
-  try {
-    const apiError: APIError = await res.json();
-    console.error(apiError);
-    if (apiError?.error?.message) errorMessage = apiError.error.message;
-  } finally {
-    throw new Error(errorMessage);
-  }
-}

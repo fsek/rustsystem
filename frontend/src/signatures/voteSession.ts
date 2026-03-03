@@ -11,6 +11,7 @@ import {
   uuidToBytes,
   type BallotMetaData,
 } from "./signatures";
+import { handleErrorResponse } from "@/api/error";
 
 // ─── API fetch ────────────────────────────────────────────────────────────────
 // Set VITE_API_ENDPOINT at build time (e.g. https://server.fsek.studentorg.lu.se).
@@ -68,7 +69,7 @@ export async function trustAuthLogin(
     method: "POST",
     body: JSON.stringify({ uuuid, muuid }),
   });
-  if (!res.ok) throw new Error(`TrustAuth login failed (HTTP ${res.status})`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -103,8 +104,8 @@ export async function createMeeting(
     body: JSON.stringify({ title, host_name: hostName, pub_key: pubKey }),
   });
 
+  if (!res.ok) await handleErrorResponse(res);
   const data = await res.json();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   // CreateMeetingResponse: { uuuid, muuid }
   // uuuid = voter/user UUID of the host, muuid = meeting UUID
@@ -128,7 +129,7 @@ export async function startVoteRound(
     body: JSON.stringify({ name, shuffle, metadata }),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 /**
@@ -141,7 +142,7 @@ export async function endVoteRound(): Promise<void> {
     method: "DELETE",
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 // ─── Tally ────────────────────────────────────────────────────────────────────
@@ -159,9 +160,8 @@ export interface TallyResult {
  */
 export async function tally(): Promise<TallyResult> {
   const res = await apiFetch("/api/host/tally", { method: "POST" });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return data as TallyResult;
+  if (!res.ok) await handleErrorResponse(res);
+  return res.json() as Promise<TallyResult>;
 }
 
 /**
@@ -171,9 +171,8 @@ export async function tally(): Promise<TallyResult> {
  */
 export async function getTally(): Promise<TallyResult> {
   const res = await apiFetch("/api/host/get-tally", { method: "GET" });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return data as TallyResult;
+  if (!res.ok) await handleErrorResponse(res);
+  return res.json() as Promise<TallyResult>;
 }
 
 // ─── Voter status queries ─────────────────────────────────────────────────────
@@ -184,8 +183,8 @@ export async function getTally(): Promise<TallyResult> {
  */
 export async function isRegistered(): Promise<boolean> {
   const res = await trustAuthFetch("/api/is-registered");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  let body = await res.json();
+  if (!res.ok) await handleErrorResponse(res);
+  const body = await res.json();
   return body["isRegistered"];
 }
 
@@ -198,7 +197,7 @@ export async function isSubmitted(signature: unknown): Promise<boolean> {
     method: "POST",
     body: JSON.stringify({ signature }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
   return res.json();
 }
 
@@ -228,7 +227,7 @@ export async function registerVoter(session: SessionIds): Promise<void> {
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
 
 // ─── Vote data retrieval ───────────────────────────────────────────────────────
@@ -247,9 +246,8 @@ export interface VoteData {
  */
 export async function getVoteData(): Promise<VoteData> {
   const res = await trustAuthFetch("/api/vote-data");
-  const data = await res.json();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return data as VoteData;
+  if (!res.ok) await handleErrorResponse(res);
+  return res.json() as Promise<VoteData>;
 }
 
 // ─── Vote submission ──────────────────────────────────────────────────────────
@@ -277,5 +275,5 @@ export async function submitVote(
     body: JSON.stringify(ballot),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) await handleErrorResponse(res);
 }
