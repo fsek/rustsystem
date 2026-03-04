@@ -352,21 +352,22 @@ Each authority is locked independently. Operations that only need `vote_auth` do
 
 When an operation must acquire more than one field lock, it always does so in this order to prevent deadlock:
 
-1. `voters`
-2. `vote_auth`
-3. `invite_auth`
-4. `admin_auth`
+1. `vote_auth`
+2. `voters`
+3. `admin_auth`
+4. `invite_auth`
 
-Operations that currently acquire multiple locks:
+`invite_auth` is never held simultaneously with any other lock, so its position in the ordering has no current deadlock implications; it is listed last to reflect this.
 
-| Endpoint      | Locks acquired (in order)                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------- |
-| `start-vote`  | `vote_auth.write` → `voters.write` (safe: nothing holds `voters.write` and waits for `vote_auth`) |
-| `login`       | `voters.write` → `invite_auth.write` → `admin_auth.write`                                         |
-| `new-voter`   | `voters.write` → `admin_auth.write`                                                               |
-| `reset-login` | `voters.write` → `admin_auth.write`                                                               |
+Operations that currently acquire multiple locks simultaneously:
 
-`start-vote` acquires `vote_auth.write` before `voters.write` to make the "check inactive, then start" sequence atomic. This does not violate the ordering because no other operation holds `voters.write` and then waits for `vote_auth.write`.
+| Endpoint      | Locks acquired (in order)           |
+| ------------- | ----------------------------------- |
+| `start-vote`  | `vote_auth.write` → `voters.write`  |
+| `new-voter`   | `voters.write` → `admin_auth.write` |
+| `reset-login` | `voters.write` → `admin_auth.write` |
+
+`login` acquires `voters.write`, `invite_auth.write`, and `admin_auth.write` in that order, but releases each guard before acquiring the next — they are never held simultaneously and impose no ordering constraint.
 
 #### RwLock structure — rustsystem-trustauth
 
