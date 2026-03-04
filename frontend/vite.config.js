@@ -3,6 +3,15 @@ import viteReact from "@vitejs/plugin-react";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
+import { execSync } from "node:child_process";
+
+const APP_VERSION = (() => {
+  try {
+    return execSync("git describe --tags --abbrev=0", { encoding: "utf8" }).trim();
+  } catch {
+    return "dev";
+  }
+})();
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -37,6 +46,7 @@ export default defineConfig({
     },
   },
   define: {
+    "import.meta.env.APP_VERSION": JSON.stringify(APP_VERSION),
     "import.meta.env.DEV": JSON.stringify(process.env.DEV),
     "import.meta.env.SALT_HEX": JSON.stringify(process.env.SALT_HEX),
     "import.meta.env.KEYGEN_ITERATIONS": JSON.stringify(

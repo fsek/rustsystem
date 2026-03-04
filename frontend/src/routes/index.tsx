@@ -414,13 +414,24 @@ function Hero() {
           ))}
         </div>
 
-        <div className="flex items-center gap-1 flex-wrap justify-center text-sm" style={{ color: "var(--textSecondary)" }}>
+        <div
+          className="flex items-center gap-1 flex-wrap justify-center text-sm"
+          style={{ color: "var(--textSecondary)" }}
+        >
           <span>Learn more:</span>
-          <Link to="/guide" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+          <Link
+            to="/guide"
+            style={{ color: "var(--primary)" }}
+            className="font-medium hover:underline"
+          >
             Guide
           </Link>
           <span>·</span>
-          <Link to="/encryption" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
+          <Link
+            to="/encryption"
+            style={{ color: "var(--primary)" }}
+            className="font-medium hover:underline"
+          >
             Cryptography
           </Link>
         </div>
@@ -667,37 +678,6 @@ function CTA() {
   );
 }
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
-function Footer() {
-  return (
-    <footer
-      className="py-10 px-6 text-center flex flex-col items-center gap-3"
-      style={{
-        borderTop: "1px solid var(--border)",
-      }}
-    >
-      <div className="flex items-center gap-4 text-sm">
-        <Link to="/guide" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
-          Guide
-        </Link>
-        <span style={{ color: "var(--border)" }}>|</span>
-        <Link to="/encryption" style={{ color: "var(--primary)" }} className="font-medium hover:underline">
-          Cryptography
-        </Link>
-      </div>
-      <p className="text-sm" style={{ color: "var(--textSecondary)" }}>
-        Built for{" "}
-        <span style={{ color: "var(--primary)", fontWeight: 600 }}>
-          F-sektionen
-        </span>{" "}
-        · Lund University · Anonymous voting powered by BLS12-381 blind
-        signatures
-      </p>
-    </footer>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Landing() {
@@ -717,7 +697,6 @@ function Landing() {
       <Guarantees />
       <Divider />
       <CTA />
-      <Footer />
     </div>
   );
 }
