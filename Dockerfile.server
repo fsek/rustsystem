@@ -18,7 +18,7 @@ ARG API_ENDPOINT_TRUSTAUTH
 ARG DEV
 ARG SALT_HEX
 ARG KEYGEN_ITERATIONS
-RUN pnpm run build
+RUN --mount=type=bind,source=.git,target=/app/frontend/.git pnpm run build
 RUN ls
 
 FROM rust:1.91-bullseye AS backend-builder
