@@ -3,6 +3,7 @@ import { Panel } from "@/components/Panel/Panel";
 import { Button } from "@/components/Button/Button";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Alert } from "@/components/Alert/Alert";
+import { ErrorAlert } from "@/components/Alert/ErrorAlert";
 import {
   registerVoter,
   submitVote,
@@ -34,7 +35,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
   const [status, setStatus] = useState<VoterStatus>("idle");
   const [voteData, setVoteData] = useState<VoteData | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   // Track the vote name at derivation time to avoid redundant checks.
   const derivedForVoteName = useRef<string | null | undefined>(undefined);
@@ -70,7 +71,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
         setSelected([]);
         setStatus("selecting");
       } catch (err) {
-        setError(String(err));
+        setError(err);
         setStatus("idle");
       }
     }
@@ -304,11 +305,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
           </>
         )}
 
-        {error && (
-          <Alert size="sm" color="accent">
-            {error}
-          </Alert>
-        )}
+        <ErrorAlert error={error} />
       </div>
     </Panel>
   );
