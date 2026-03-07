@@ -52,19 +52,23 @@ impl APIHandler for StartVote {
         let candidates = metadata.get_candidates();
         let num_candidates = candidates.len();
 
-        // Ask trustauth to generate a BLS keypair for this round; it owns the private key.
-        let public_key = state
-            .start_round_on_trustauth(auth.muuid, &body.name)
-            .await?;
-
         let meeting = state.get_meeting(auth.muuid).await?;
 
         // Hold the vote_auth write lock for the whole check-and-start sequence to
         // prevent a concurrent start-vote from racing past the is_inactive check.
+        // The state guard is acquired BEFORE calling trustauth so that a rejected
+        // duplicate never causes trustauth to replace the active round's keypair.
         let mut vote_auth = meeting.vote_auth.write().await;
         if !vote_auth.is_inactive() {
             return Err(APIError::from_error_code(APIErrorCode::InvalidState));
         }
+
+        // Ask trustauth to generate a BLS keypair for this round; it owns the private key.
+        // Called only after confirming the server is in Idle state, so the round is
+        // created in trustauth if and only if the server will also transition to Voting.
+        let public_key = state
+            .start_round_on_trustauth(auth.muuid, &body.name)
+            .await?;
 
         // Remove unclaimed voters and mark the meeting as locked.
         // Acquiring voters.write() while holding vote_auth.write() is safe: no other
