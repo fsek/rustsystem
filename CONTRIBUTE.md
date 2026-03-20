@@ -54,11 +54,13 @@ flowchart LR
 
 Versions follow **MAJOR.MINOR.PATCH**, optionally suffixed with `-beta` for pre-releases.
 
-| Component | When to increment                                                                                                                                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **MAJOR** | Complete redesign of the system — e.g. a full frontend and/or backend rewrite, a fundamental change to the cryptographic protocol, or a structural reorganisation so large that upgrading requires rebuilding the deployment from scratch. |
-| **MINOR** | Breaking or significant changes — endpoint changes or additions, workflow changes, logic changes, large UI changes.                                                                                                                        |
-| **PATCH** | Small non-breaking changes — documentation fixes, small visual changes, small backend changes that do not affect the API or workflow.                                                                                                      |
+MAJOR and MINOR versions are **milestone-based**: each number corresponds to a defined project milestone. PATCH versions are used for incremental development updates made while working towards the next milestone.
+
+| Component | When to increment                                                                                                                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MAJOR** | Reaching a top-level milestone that represents a new generation of the project — e.g. a complete rewrite, a fundamental protocol change, or a shift in overall project direction so significant that it warrants a new major milestone series. |
+| **MINOR** | Reaching a planned minor milestone — a defined set of features, goals, or deliverables that has been completed. What constitutes a milestone should be agreed upon before development begins (tracked on github milestones).                   |
+| **PATCH** | Development updates made while working towards the next milestone — bug fixes, partial feature progress, documentation changes, small visual tweaks, or any change that does not yet complete a milestone.                                     |
 
 ### Beta Pre-releases
 
@@ -192,7 +194,7 @@ Use a Mermaid diagram when the relationship between steps, services, or states i
 
 ## Checklist Before Publishing a Release
 
-- [ ] Version number follows MAJOR.MINOR.PATCH rules above.
+- [ ] Version number follows MAJOR.MINOR.PATCH rules above (MAJOR/MINOR = milestone reached, PATCH = development update).
 - [ ] If MINOR or MAJOR changed, this is a `-beta` pre-release.
 - [ ] The PR from `stage` → `main` has been reviewed and testing passed.
 - [ ] Preamble includes date, base version, and status.
