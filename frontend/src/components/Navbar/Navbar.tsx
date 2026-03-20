@@ -25,7 +25,7 @@ export function Navbar() {
         Rustsystem
       </a>
 
-      <div className="flex items-center gap-6 ml-8">
+      <div className="hidden sm:flex items-center gap-6 ml-8">
         {NAV_LINKS.map(({ to, label }) => (
           <Link
             key={to}
