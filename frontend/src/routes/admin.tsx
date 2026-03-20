@@ -179,10 +179,6 @@ function QRPanel({
       }
     >
       <div className="flex flex-col gap-4">
-        <Alert size="sm" color="secondary">
-          Waiting for {result.voterName} to scan the QR code…
-        </Alert>
-
         {/* QR code — white background ensures readability regardless of theme */}
         <div className="flex justify-center">
           <div
@@ -945,13 +941,7 @@ function Admin() {
   const [tallyDownloadError, setTallyDownloadError] = useState<string | null>(
     null,
   );
-  // Ref so the SSE closure always reads the current qrInfo without re-subscribing.
-  const qrInfoRef = useRef(qrInfo);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    qrInfoRef.current = qrInfo;
-  }, [qrInfo]);
 
   const reloadVoters = useCallback(async () => {
     try {
@@ -1050,13 +1040,9 @@ function Admin() {
       withCredentials: true,
     });
     es.onmessage = (e) => {
-      const raw = (e.data as string).replace(/^"|"$/g, "");
-      if (raw === "Ready") {
-        const name = qrInfoRef.current?.voterName ?? null;
-        setQrInfo(null);
-        setJoinedVoterName(name);
-        reloadVoters();
-      }
+      const name = e.data as string;
+      setJoinedVoterName(name);
+      reloadVoters();
     };
     es.onerror = () => console.warn("invite-watch SSE disconnected");
     return () => es.close();
@@ -1283,7 +1269,7 @@ function Admin() {
         <div className="flex flex-col gap-6">
           <AddVoterPanel onAdded={handleVoterAdded} voteState={voteState} />
 
-          {joinedVoterName && !qrInfo && (
+          {joinedVoterName && (
             <Alert
               size="m"
               color="primary"

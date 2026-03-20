@@ -60,8 +60,8 @@ impl APIHandler for Login {
             voter.name.clone()
         }; // voters write guard released
 
-        // Signal the invite watcher.
-        meeting.invite_auth.write().await.set_state(true);
+        // Signal the invite watcher with the voter's name.
+        meeting.invite_auth.write().await.notify_login(voter_name.clone());
 
         // Validate optional admin credentials.
         let is_host = if let Some(admin_cred) = body.admin_cred {
