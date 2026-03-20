@@ -160,7 +160,10 @@ class ConcurrentClient {
     const adminSig = url.searchParams.get("admin_sig");
     const admin_cred =
       adminMsg && adminSig
-        ? { msg: adminMsg.match(/.{2}/g)!.map((b) => parseInt(b, 16)), sig: adminSig }
+        ? {
+            msg: adminMsg.match(/.{2}/g)!.map((b) => parseInt(b, 16)),
+            sig: adminSig,
+          }
         : undefined;
 
     const serverRes = await this.req(`${BASE_URL}/api/login`, {
@@ -323,7 +326,10 @@ describe.skipIf(!servicesReachable)("concurrent host invites", () => {
       const hosts = await Promise.all(
         Array.from({ length: N_MEETINGS }, async (_, i) => {
           const host = new ConcurrentClient();
-          await host.createMeeting(`Concurrent Meeting ${i + 1}`, `Host ${i + 1}`);
+          await host.createMeeting(
+            `Concurrent Meeting ${i + 1}`,
+            `Host ${i + 1}`,
+          );
           return host;
         }),
       );
@@ -331,8 +337,9 @@ describe.skipIf(!servicesReachable)("concurrent host invites", () => {
       // ── Every host adds all its voters simultaneously ────────────────────────
       // Flatten to a single Promise.all so all 100 requests fire at once.
       const allTasks = hosts.flatMap((host, hi) =>
-        Array.from({ length: VOTERS_PER_MEETING }, (_, vi) => () =>
-          host.addVoter(`M${hi + 1} Voter ${vi + 1}`),
+        Array.from(
+          { length: VOTERS_PER_MEETING },
+          (_, vi) => () => host.addVoter(`M${hi + 1} Voter ${vi + 1}`),
         ),
       );
       const inviteLinks = await Promise.all(allTasks.map((fn) => fn()));
@@ -461,19 +468,19 @@ describe.skipIf(!servicesReachable)("500-voter full system flow", () => {
         {
           name: "Round 1 — mixed",
           choices: [
-            ...Array<null>(125).fill(null),     // blank
-            ...Array<number[]>(150).fill([0]),  // Option A
-            ...Array<number[]>(125).fill([1]),  // Option B
-            ...Array<number[]>(100).fill([2]),  // Option C
+            ...Array<null>(125).fill(null), // blank
+            ...Array<number[]>(150).fill([0]), // Option A
+            ...Array<number[]>(125).fill([1]), // Option B
+            ...Array<number[]>(100).fill([2]), // Option C
           ] as Array<number[] | null>,
           expected: { blank: 125, A: 150, B: 125, C: 100 },
         },
         {
           name: "Round 2 — no blanks",
           choices: [
-            ...Array<number[]>(200).fill([0]),  // Option A
-            ...Array<number[]>(150).fill([1]),  // Option B
-            ...Array<number[]>(150).fill([2]),  // Option C
+            ...Array<number[]>(200).fill([0]), // Option A
+            ...Array<number[]>(150).fill([1]), // Option B
+            ...Array<number[]>(150).fill([2]), // Option C
           ] as Array<number[] | null>,
           expected: { blank: 0, A: 200, B: 150, C: 150 },
         },
@@ -538,10 +545,12 @@ describe.skipIf(!servicesReachable)("500-voter full system flow", () => {
       // Verified once before any round to keep the per-round hot path clean.
       // Starting a round is tested below; duplicate-start is checked BEFORE the
       // round goes live so it can never corrupt an active keypair.
-      const idleTally = await master["req"](`${BASE_URL}/api/host/tally`, { method: "POST" });
+      const idleTally = await master["req"](`${BASE_URL}/api/host/tally`, {
+        method: "POST",
+      });
       expect(idleTally.status).toBe(410); // VotingInactive — no active round yet
 
-      for (const [ri, round] of ROUNDS.entries()) {
+      for (const round of ROUNDS.values()) {
         // ── 6a. Start round ─────────────────────────────────────────────────
         await master.startVoteRound(round.name);
 
@@ -551,7 +560,14 @@ describe.skipIf(!servicesReachable)("500-voter full system flow", () => {
         // never reaches trustauth and cannot replace the active keypair.
         const dupStart = await master["req"](
           `${BASE_URL}/api/host/start-vote`,
-          { method: "POST", body: JSON.stringify({ name: "dup", shuffle: false, metadata: DEFAULT_METADATA }) },
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: "dup",
+              shuffle: false,
+              metadata: DEFAULT_METADATA,
+            }),
+          },
         );
         expect(dupStart.status).toBe(409);
 
@@ -578,30 +594,33 @@ describe.skipIf(!servicesReachable)("500-voter full system flow", () => {
         const result = await master.tally();
 
         expect(result.blank).toBe(round.expected.blank);
-        expect(result.score[DEFAULT_METADATA.candidates[0]]).toBe(round.expected.A);
-        expect(result.score[DEFAULT_METADATA.candidates[1]]).toBe(round.expected.B);
-        expect(result.score[DEFAULT_METADATA.candidates[2]]).toBe(round.expected.C);
+        expect(result.score[DEFAULT_METADATA.candidates[0]]).toBe(
+          round.expected.A,
+        );
+        expect(result.score[DEFAULT_METADATA.candidates[1]]).toBe(
+          round.expected.B,
+        );
+        expect(result.score[DEFAULT_METADATA.candidates[2]]).toBe(
+          round.expected.C,
+        );
 
         const total =
-          result.blank +
-          Object.values(result.score).reduce((a, b) => a + b, 0);
+          result.blank + Object.values(result.score).reduce((a, b) => a + b, 0);
         expect(total).toBe(N);
 
         // Tallying again from Tally state must be rejected (410).
-        const dupTally = await master["req"](
-          `${BASE_URL}/api/host/tally`,
-          { method: "POST" },
-        );
+        const dupTally = await master["req"](`${BASE_URL}/api/host/tally`, {
+          method: "POST",
+        });
         expect(dupTally.status).toBe(410);
 
         // ── 6f. Reset state machine for the next round ───────────────────────
         await master.endVoteRound();
 
         // Tallying after reset (Idle state) must also be rejected (410).
-        const staleTally = await master["req"](
-          `${BASE_URL}/api/host/tally`,
-          { method: "POST" },
-        );
+        const staleTally = await master["req"](`${BASE_URL}/api/host/tally`, {
+          method: "POST",
+        });
         expect(staleTally.status).toBe(410);
       }
 
