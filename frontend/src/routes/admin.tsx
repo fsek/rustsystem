@@ -948,9 +948,6 @@ function Admin() {
     null,
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selfUuuid, setSelfUuuid] = useState<string | null>(null);
-  // null = still checking, true = in meeting, false = removed/not logged in
-  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
 
   const reloadVoters = useCallback(async () => {
     try {
