@@ -413,33 +413,11 @@ function Hero() {
             <FeaturePill key={f} label={f} />
           ))}
         </div>
-
-        <div
-          className="flex items-center gap-1 flex-wrap justify-center text-sm"
-          style={{ color: "var(--textSecondary)" }}
-        >
-          <span>Learn more:</span>
-          <Link
-            to="/guide"
-            style={{ color: "var(--primary)" }}
-            className="font-medium hover:underline"
-          >
-            Guide
-          </Link>
-          <span>·</span>
-          <Link
-            to="/encryption"
-            style={{ color: "var(--primary)" }}
-            className="font-medium hover:underline"
-          >
-            Cryptography
-          </Link>
-        </div>
       </div>
 
       {/* Scroll cue */}
       <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-2"
         style={{
           opacity: mounted ? 0.5 : 0,
           transition: "opacity 1.2s ease 1s",
