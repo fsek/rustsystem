@@ -33,8 +33,7 @@ impl APIHandler for StartInvite {
             state: State(state),
         } = request;
 
-        let meeting = state.get_meeting(auth.muuid).await?;
-        meeting.invite_auth.write().await.set_state(true);
+        state.get_meeting(auth.muuid).await?;
 
         info!(muuid = %auth.muuid, "Invite watch opened");
 

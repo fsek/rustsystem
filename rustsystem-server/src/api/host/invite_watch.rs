@@ -28,7 +28,7 @@ impl APIHandler for InviteWatch {
     const PATH: &'static str = "/invite-watch";
     const SUCCESS_CODE: StatusCode = StatusCode::OK;
     type SuccessResponse =
-        Sse<FilterMap<WatchStream<bool>, fn(bool) -> Option<Result<Event, APIError>>>>;
+        Sse<FilterMap<WatchStream<Option<String>>, fn(Option<String>) -> Option<Result<Event, APIError>>>>;
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let InviteWatchRequest {
@@ -36,12 +36,8 @@ impl APIHandler for InviteWatch {
             state: State(state),
         } = request;
 
-        let upon_event = |new_state| {
-            if new_state {
-                Some(Ok::<Event, APIError>(Event::default().data("Ready")))
-            } else {
-                Some(Ok::<Event, APIError>(Event::default().data("Wait")))
-            }
+        let upon_event = |new_state: Option<String>| {
+            new_state.map(|name| Ok::<Event, APIError>(Event::default().data(name)))
         };
 
         let meeting = state.get_meeting(auth.muuid).await?;
