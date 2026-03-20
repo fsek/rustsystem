@@ -264,87 +264,58 @@ impl APIErrorFinal {
 
 pub trait APIEndpointError: Into<APIError> {}
 
-/// Defines one API route. Implementing this trait for an empty struct will requires the `handler`
-/// method that can be used as a [`Handler`] for a [`MethodRouter`].
+/// Defines one API route. Implement this trait on an empty struct, then register it with
+/// [`add_handler`].
 ///
-/// The `State` should be set to the type expected when calling upon the server State.
+/// - `State` — the Axum application state type.
+/// - `Request` — any type implementing [`FromRequest`]. Typically a tuple of extractors
+///   (e.g. `(State<AppState>, Json<Body>)`).
+/// - `SuccessResponse` — the response body type on success. Use `()` for no body.
 ///
-/// The `Request` type can be any type that implements [`FromRequest`]. The simplest case is for
-/// `Request` to be a tuple of the parameters that would form the parameters of the equivalent
-/// handler function.
+/// Errors are always returned as [`APIError`]. The provided `handler` method wraps `route`,
+/// converts any `APIError` into a JSON [`APIErrorFinal`] response, and attaches the correct
+/// HTTP status code. Implementors only need to write `route`.
 ///
-/// The `SuccessResponse` is the type that forms the response in the successful case (i.e. the
-/// expected success structure)
-///
-/// Equivalently, the `ErrorResponse` is the structure of the unsuccessful case.
-///
-/// Note that the StatusCode should not be included in either `SuccessResponse` or `ErrorResponse`.
-/// rather, the StatusCode is enforced in the `APIResult` and `APIResponse` return types. A
-/// response cannot be sent without a StatusCode.
+/// Route registration is done via [`add_handler`], which reads `METHOD` and `PATH` to call
+/// the appropriate Axum routing method automatically.
 ///
 /// Example:
-/// ```rust
-///
+/// ```rust,ignore
+/// use serde::{Deserialize, Serialize};
+/// use axum::{Json, extract::State, http::StatusCode};
+/// use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method, add_handler};
 ///
 /// #[derive(Deserialize)]
 /// struct ExampleRequestBody {
 ///     name: String,
-///     age: u8,
-///     id: usize,
-/// }
-///
-/// #[derive(Serialize)]
-/// enum ExampleError {
-///     SomethingFailed,
-///     ServerSadness { tears: u8 },
-///     Other,
 /// }
 ///
 /// #[derive(Serialize)]
 /// struct ExampleSuccess {
-///     epoch: u64,
-///     reference: String,
+///     greeting: String,
 /// }
 ///
 /// struct ExampleHandler;
+///
+/// #[async_trait::async_trait]
 /// impl APIHandler for ExampleHandler {
 ///     type State = AppState;
-///     // Any type that can be found in `FromRequestParts` can be included in the Request
-///     type Request = (
-///         CookieJar,
-///         State<AppState>,
-///         AuthUser,
-///         Json<ExampleRequestBody>,
-///     );
-///
-///     // Note that the `SuccessResponse` can also be unit type if there should be no response body
+///     type Request = (State<AppState>, Json<ExampleRequestBody>);
+///     // Use () if there is no response body
 ///     type SuccessResponse = Json<ExampleSuccess>;
-///     type ErrorResponse = Json<ExampleError>;
 ///
-///     async fn handler(
-///         request: Self::Request,
-///     ) -> APIResponse<Self::SuccessResponse, Self::ErrorResponse> {
-///         // Destructure, just like you would in a handler function
-///         let (
-///             jar,
-///             State(state),
-///             AuthUser {
-///                 uuid,
-///                 muid,
-///                 is_host,
-///             },
-///             Json(body),
-///         ) = request;
+///     const METHOD: Method = Method::Post;
+///     const PATH: &'static str = "/example";
+///     const SUCCESS_CODE: StatusCode = StatusCode::OK;
 ///
-///         // Do some stuff
-///         unimplemented!()
+///     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
+///         let (State(state), Json(body)) = request;
+///         Ok(Json(ExampleSuccess { greeting: format!("Hello, {}!", body.name) }))
 ///     }
 /// }
 ///
-/// fn main() {
-///     // The `handler` function can now be used in the router
-///     Router::new().route("/example", post(ExampleHandler::handler));
-/// }
+/// // Register in a router:
+/// let router = add_handler::<ExampleHandler>(Router::new());
 /// ```
 
 #[async_trait]
