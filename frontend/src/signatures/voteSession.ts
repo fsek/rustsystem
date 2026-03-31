@@ -80,6 +80,7 @@ export interface SessionIds {
 
 export async function getSessionIds(): Promise<SessionIds> {
   const res = await apiFetch("/api/session-ids");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const { uuuid, muuid } = await res.json();
 
   return { uuuid, muuid };
