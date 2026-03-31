@@ -10,11 +10,13 @@ import { Badge } from "@/components/Badge/Badge";
 import { Panel } from "@/components/Panel/Panel";
 import { VotePanel, type VoteState } from "@/components/VotePanel/VotePanel";
 import {
+  apiFetch,
   apiUrl,
   startVoteRound,
   tally as tallyVote,
   getTally,
   endVoteRound,
+  getSessionIds,
   type TallyResult,
 } from "@/signatures/voteSession";
 import {
@@ -224,12 +226,14 @@ function QRPanel({
 function VoterListPanel({
   voters,
   loading,
+  selfUuuid,
   onRemove,
   onRemoveAll,
   onReload,
 }: {
   voters: VoterInfo[];
   loading: boolean;
+  selfUuuid: string | null;
   onRemove: (uuid: string) => Promise<void>;
   onRemoveAll: () => Promise<void>;
   onReload: () => void;
@@ -365,7 +369,7 @@ function VoterListPanel({
                 </Badge>
               )}
 
-              {!v.is_host && (
+              {v.uuid !== selfUuuid && (
                 <button
                   type="button"
                   onClick={() => handleRemove(v.uuid)}
@@ -922,6 +926,8 @@ function HostVoteRoundPanel({
 
 // ─── Admin page ───────────────────────────────────────────────────────────────
 
+const SESSION_POLL_MS = 10_000;
+
 function Admin() {
   const navigate = useNavigate();
   const [voters, setVoters] = useState<VoterInfo[]>([]);
@@ -942,6 +948,9 @@ function Admin() {
     null,
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selfUuuid, setSelfUuuid] = useState<string | null>(null);
+  // null = still checking, true = in meeting, false = removed/not logged in
+  const [sessionValid, setSessionValid] = useState<boolean | null>(null);
 
   const reloadVoters = useCallback(async () => {
     try {
@@ -952,23 +961,46 @@ function Admin() {
     }
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    let res: Response;
+    try {
+      res = await apiFetch("/api/common/vote-progress");
+    } catch {
+      return; // network error — don't invalidate session
+    }
+    if (res.status === 401) {
+      setSessionValid(false);
+      return;
+    }
+    if (!res.ok) return; // other server error — keep current session state
+    setSessionValid(true);
+  }, []);
+
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       try {
-        const [voterList, progress] = await Promise.all([
+        const [voterList, progress, sessionIds] = await Promise.all([
           fetchVoterList(),
           fetchVoteProgress(),
+          getSessionIds(),
         ]);
         setVoters(voterList);
+        setSelfUuuid(sessionIds.uuuid);
         setVoteProgress(progress);
         const state = deriveVoteState(progress);
         setVoteState(state);
+        setSessionValid(true);
         if (state === "Tally") {
           getTally().then(setTallyResult).catch(console.error);
         }
       } catch (err) {
-        setLoadError(String(err));
+        if (err instanceof Error && err.message.includes("401")) {
+          setSessionValid(false);
+        } else {
+          setSessionValid(true);
+          setLoadError(String(err));
+        }
       } finally {
         setVotersLoading(false);
       }
@@ -1048,6 +1080,12 @@ function Admin() {
     return () => es.close();
   }, [reloadVoters]);
 
+  // ── Periodic session check ───────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(refreshSession, SESSION_POLL_MS);
+    return () => clearInterval(timer);
+  }, [refreshSession]);
+
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   async function handleStartVote(
@@ -1124,6 +1162,28 @@ function Admin() {
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (sessionValid === null) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Spinner size="l" color="primary" />
+      </div>
+    );
+  }
+
+  if (!sessionValid) {
+    return (
+      <div className="max-w-md mx-auto px-6 py-10">
+        <Panel title="Not an administrator">
+          <p className="text-sm" style={{ color: "var(--textSecondary)" }}>
+            You are not currently an administrator in a meeting. You may have
+            been removed or your session may have expired. If you believe this
+            is a mistake, please contact your meeting administrator.
+          </p>
+        </Panel>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (
@@ -1287,6 +1347,7 @@ function Admin() {
           <VoterListPanel
             voters={voters}
             loading={votersLoading}
+            selfUuuid={selfUuuid}
             onRemove={removeVoter}
             onRemoveAll={removeAllVoters}
             onReload={reloadVoters}
