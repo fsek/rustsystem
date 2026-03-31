@@ -1,15 +1,15 @@
-use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
 };
 use reqwest::{Client, Response};
+use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock as AsyncRwLock;
 use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tracing::error;
+use tracing::{error, info};
 use uuid::Uuid;
 use zkryptium::{keys::pair::KeyPair, schemes::algorithms::BbsBls12381Sha256};
 
@@ -36,8 +36,8 @@ pub struct VoterRegistration {
 
 /// Per-round state owned by trustauth.
 pub struct RoundState {
-    pub keys: AuthenticationKeys,    // immutable after construction — no lock
-    pub header: Vec<u8>,             // immutable after construction — no lock
+    pub keys: AuthenticationKeys, // immutable after construction — no lock
+    pub header: Vec<u8>,          // immutable after construction — no lock
     pub registered_voters: AsyncRwLock<HashMap<Uuid, VoterRegistration>>,
 }
 
@@ -189,9 +189,13 @@ pub fn new_test_state(server_url: impl Into<String>) -> AppState {
 fn build_cors() -> Result<CorsLayer, APIError> {
     // Allow both the canonical origin and its localhost/127.0.0.1 counterpart,
     // since browsers may use either form even when pointing at the same host.
-    let origin: HeaderValue = API_ENDPOINT_SERVER
-        .parse()
-        .map_err(|_| APIError::new(APIErrorCode::InitError, "API_ENDPOINT_SERVER is not a valid CORS origin", 500))?;
+    let origin: HeaderValue = API_ENDPOINT_SERVER.parse().map_err(|_| {
+        APIError::new(
+            APIErrorCode::InitError,
+            "API_ENDPOINT_SERVER is not a valid CORS origin",
+            500,
+        )
+    })?;
     let mut origins: Vec<HeaderValue> = vec![origin];
 
     let alt = if API_ENDPOINT_SERVER.contains("127.0.0.1") {
@@ -213,26 +217,33 @@ fn build_cors() -> Result<CorsLayer, APIError> {
 }
 
 pub fn app_public(state: AppState) -> Result<Router, APIError> {
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(10)
-            .burst_size(30)
-            .finish()
-            .unwrap(),
-    );
-
-    // Periodically remove stale entries to prevent unbounded memory growth.
-    let limiter = governor_conf.limiter().clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
-        loop {
-            interval.tick().await;
-            limiter.retain_recent();
-        }
-    });
+    // Rate limiting is only active in HTTPS (production) mode.
+    // In HTTP mode (local dev and E2E tests) it is skipped so tests can send requests freely.
+    let api = if state.is_secure() {
+        let governor_conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(10)
+                .burst_size(30)
+                .finish()
+                .unwrap(),
+        );
+        // Periodically remove stale entries to prevent unbounded memory growth.
+        let limiter = governor_conf.limiter().clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                limiter.retain_recent();
+            }
+        });
+        public_routes().layer(GovernorLayer::new(governor_conf))
+    } else {
+        info!("Rate limiting disabled (non-HTTPS endpoint)");
+        public_routes()
+    };
 
     Ok(Router::new()
-        .nest("/api", public_routes().layer(GovernorLayer::new(governor_conf)))
+        .nest("/api", api)
         .layer(build_cors()?)
         .with_state(state))
 }

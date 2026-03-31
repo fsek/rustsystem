@@ -11,9 +11,9 @@ use std::{
     },
     time::{Duration, SystemTime},
 };
-use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tokens::AuthUser;
 use tokio::sync::RwLock as AsyncRwLock;
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 use zkryptium::bbsplus::keys::BBSplusPublicKey;
@@ -111,6 +111,10 @@ impl AppState {
         self.0
             .read()
             .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
+    }
+
+    pub fn is_secure(&self) -> bool {
+        self.read().map(|g| g.is_secure).unwrap_or(false)
     }
 
     /// Use when you need to look up or read from an existing meeting.
@@ -217,27 +221,34 @@ pub fn app_public(state: AppState) -> Router {
     let serve_dir = ServeDir::new("frontend/dist")
         .not_found_service(ServeFile::new("frontend/dist/index.html"));
 
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(10)
-            .burst_size(30)
-            .finish()
-            .unwrap(),
-    );
-
-    // Periodically remove stale entries to prevent unbounded memory growth.
-    let limiter = governor_conf.limiter().clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
-        loop {
-            interval.tick().await;
-            limiter.retain_recent();
-        }
-    });
+    // Rate limiting is only active in HTTPS (production) mode.
+    // In HTTP mode (local dev and E2E tests) it is skipped so tests can send requests freely.
+    let api = if state.is_secure() {
+        let governor_conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(10)
+                .burst_size(30)
+                .finish()
+                .unwrap(),
+        );
+        // Periodically remove stale entries to prevent unbounded memory growth.
+        let limiter = governor_conf.limiter().clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                limiter.retain_recent();
+            }
+        });
+        api_routes().layer(GovernorLayer::new(governor_conf))
+    } else {
+        info!("Rate limiting disabled (non-HTTPS endpoint)");
+        api_routes()
+    };
 
     Router::new()
         .fallback_service(serve_dir)
-        .nest("/api", api_routes().layer(GovernorLayer::new(governor_conf)))
+        .nest("/api", api)
         .with_state(state)
 }
 
