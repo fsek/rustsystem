@@ -42,7 +42,7 @@ impl APIHandler for InviteWatch {
 
         let meeting = state.get_meeting(auth.muuid).await?;
         let state_rx = meeting.invite_auth.read().await.new_watcher();
-        let stream = WatchStream::new(state_rx).filter_map(upon_event as _);
+        let stream = WatchStream::from_changes(state_rx).filter_map(upon_event as _);
         Ok(Sse::new(stream))
     }
 }
