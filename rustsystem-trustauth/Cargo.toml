@@ -10,6 +10,7 @@ axum-server = { version = "0.7.2", features = ["tls-rustls"] }
 axum-extra = { version = "0.10.1", features = ["cookie"]}
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6.4", features = ["fs", "trace", "set-header", "cors"] }
+tower_governor = "0.8"
 serde.workspace = true
 serde_json = "1.0.140"
 
