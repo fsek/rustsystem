@@ -9,8 +9,9 @@ use std::{
         Arc, RwLock, RwLockReadGuard,
         atomic::{AtomicBool, Ordering},
     },
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
+use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tokens::AuthUser;
 use tokio::sync::RwLock as AsyncRwLock;
 use tower_http::services::{ServeDir, ServeFile};
@@ -201,17 +202,42 @@ pub fn new_test_state(trustauth_url: impl Into<String>) -> AppState {
 
 /// Combines public and internal routers on a single `Router`. Used by
 /// integration tests that run both services in the same process on a single port.
+/// Rate limiting is intentionally omitted here — tests don't provide `ConnectInfo`.
 pub fn app_combined(state: AppState) -> Router {
-    app_public(state.clone()).merge(app_internal(state))
+    let serve_dir = ServeDir::new("frontend/dist")
+        .not_found_service(ServeFile::new("frontend/dist/index.html"));
+    let public = Router::new()
+        .fallback_service(serve_dir)
+        .nest("/api", api_routes())
+        .with_state(state.clone());
+    public.merge(app_internal(state))
 }
 
 pub fn app_public(state: AppState) -> Router {
     let serve_dir = ServeDir::new("frontend/dist")
         .not_found_service(ServeFile::new("frontend/dist/index.html"));
 
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(10)
+            .burst_size(30)
+            .finish()
+            .unwrap(),
+    );
+
+    // Periodically remove stale entries to prevent unbounded memory growth.
+    let limiter = governor_conf.limiter().clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            limiter.retain_recent();
+        }
+    });
+
     Router::new()
         .fallback_service(serve_dir)
-        .nest("/api", api_routes())
+        .nest("/api", api_routes().layer(GovernorLayer::new(governor_conf)))
         .with_state(state)
 }
 

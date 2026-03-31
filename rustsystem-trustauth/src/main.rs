@@ -27,7 +27,8 @@ async fn main() -> Result<(), APIError> {
 
     info!("Running trustauth on public={addr_public} internal={addr_internal}");
 
-    let public_serve = axum_server::bind(addr_public).serve(app_public.into_make_service());
+    let public_serve = axum_server::bind(addr_public)
+        .serve(app_public.into_make_service_with_connect_info::<SocketAddr>());
     let internal_serve = axum_server::bind_rustls(
         addr_internal,
         RustlsConfig::from_config(Arc::new(tls_config)),
