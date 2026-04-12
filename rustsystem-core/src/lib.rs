@@ -44,6 +44,7 @@ pub enum APIErrorCode {
     InvalidMetaData,
     InvalidVoteMethod,
     InvalidVoteLength,
+    InvalidCandidateId,
     VotingInactive,
 
     SignatureInvalid,
@@ -105,6 +106,7 @@ impl APIErrorCode {
                 409,
             ),
             Self::InvalidVoteLength => ("Too many candidates were provided.", 409),
+            Self::InvalidCandidateId => ("Vote contains an out-of-bounds candidate index.", 422),
             Self::VotingInactive => ("Vote has already been closed, or it was never opened.", 410),
 
             Self::SignatureInvalid => (

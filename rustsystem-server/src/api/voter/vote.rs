@@ -42,6 +42,7 @@ impl APIHandler for Submit {
 
         validate_metadata(metadata.clone(), round)?;
         validate_num_choices(choice.clone(), round)?;
+        validate_candidate_indices(choice.clone(), round)?;
         validate_signature(validation, round)?;
 
         let is_blank = choice.is_none();
@@ -79,6 +80,16 @@ fn validate_num_choices(choice: Option<Choice>, round: &VoteRound) -> Result<(),
         return Err(APIError::from_error_code(APIErrorCode::InvalidVoteLength));
     }
 
+    Ok(())
+}
+
+fn validate_candidate_indices(choice: Option<Choice>, round: &VoteRound) -> Result<(), APIError> {
+    if let Some(choices) = choice {
+        let num_candidates = round.metadata().get_candidates().len();
+        if choices.iter().any(|&id| id >= num_candidates) {
+            return Err(APIError::from_error_code(APIErrorCode::InvalidCandidateId));
+        }
+    }
     Ok(())
 }
 
