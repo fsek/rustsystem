@@ -1,3 +1,4 @@
+use axum::http;
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
@@ -198,11 +199,23 @@ fn build_cors() -> Result<CorsLayer, APIError> {
     })?;
     let mut origins: Vec<HeaderValue> = vec![origin];
 
-    let alt = if API_ENDPOINT_SERVER.contains("127.0.0.1") {
-        API_ENDPOINT_SERVER.replace("127.0.0.1", "localhost")
-    } else {
-        API_ENDPOINT_SERVER.replace("localhost", "127.0.0.1")
-    };
+    let alt = (|| -> Option<String> {
+        let uri: http::Uri = API_ENDPOINT_SERVER.parse().ok()?;
+        let authority = uri.authority()?;
+        let host = authority.host();
+        let (old_host, new_host) = if host == "127.0.0.1" {
+            ("127.0.0.1", "localhost")
+        } else if host == "localhost" {
+            ("localhost", "127.0.0.1")
+        } else {
+            return None;
+        };
+        let new_authority = authority.as_str().replacen(old_host, new_host, 1);
+        let mut parts = uri.into_parts();
+        parts.authority = new_authority.parse().ok();
+        http::Uri::from_parts(parts).ok().map(|u| u.to_string())
+    })()
+    .unwrap_or_else(|| API_ENDPOINT_SERVER.to_string());
     if alt != API_ENDPOINT_SERVER
         && let Ok(v) = alt.parse()
     {
