@@ -34,7 +34,7 @@ impl APIHandler for ResetLogin {
 
         let meeting = state.get_meeting(auth.muuid).await?;
 
-        let (new_uuuid, admin_cred, voter_name) = {
+        let (new_uuuid, admin_token, voter_name) = {
             let mut voters = meeting.voters.write().await;
             let mut user = voters
                 .remove(&user_uuuid)
@@ -44,7 +44,7 @@ impl APIHandler for ResetLogin {
 
             // Lock ordering: voters → admin_auth. We hold voters.write() and now acquire
             // admin_auth.write() — this ordering is consistent across the codebase.
-            let admin_cred = if user.is_host {
+            let admin_token = if user.is_host {
                 Some(meeting.admin_auth.write().await.new_token())
             } else {
                 None
@@ -52,7 +52,7 @@ impl APIHandler for ResetLogin {
 
             let new_uuuid = UUuid::new_v4();
             voters.insert(new_uuuid, user);
-            (new_uuuid, admin_cred, voter_name)
+            (new_uuuid, admin_token, voter_name)
         };
 
         info!(
@@ -63,7 +63,7 @@ impl APIHandler for ResetLogin {
             "Voter login reset — new invite link generated"
         );
 
-        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_token)?;
         Ok(Json(QrCodeResponse {
             qr_svg,
             invite_link,

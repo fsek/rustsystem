@@ -14,7 +14,6 @@ use tracing::info;
 use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 use uuid::Uuid;
 
-use crate::admin_auth::AdminCred;
 use crate::{API_ENDPOINT_SERVER, AppState, MUuid, UUuid, Voter};
 
 use super::auth::AuthHost;
@@ -69,7 +68,7 @@ impl APIHandler for NewVoter {
             return Err(APIError::from_error_code(APIErrorCode::InvalidState));
         }
 
-        let admin_cred = {
+        let admin_token = {
             // Acquire voters.write() first, then admin_auth.write() if needed —
             // consistent with the voters → admin_auth lock ordering.
             let mut voters = meeting.voters.write().await;
@@ -100,7 +99,7 @@ impl APIHandler for NewVoter {
             "Voter slot created"
         );
 
-        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_cred)?;
+        let (qr_svg, invite_link) = gen_qr_code_with_link(auth.muuid, new_uuuid, admin_token)?;
         Ok(Json(QrCodeResponse {
             qr_svg,
             invite_link,
@@ -111,15 +110,11 @@ impl APIHandler for NewVoter {
 pub fn gen_qr_code_with_link(
     muuid: MUuid,
     uuuid: UUuid,
-    admin_cred: Option<AdminCred>,
+    admin_token: Option<[u8; 16]>,
 ) -> Result<(String, String), APIError> {
     let mut url = format!("{API_ENDPOINT_SERVER}/login?muuid={muuid}&uuuid={uuuid}");
-    if let Some(admin_cred) = admin_cred {
-        url.push_str(&format!(
-            "&admin_msg={}&admin_sig={}",
-            hex::encode(admin_cred.get_msg()),
-            admin_cred.get_sig_str()
-        ));
+    if let Some(token) = admin_token {
+        url.push_str(&format!("&admin_token={}", hex::encode(token)));
     }
 
     let code = QrCode::with_error_correction_level(url.as_bytes(), EcLevel::H)

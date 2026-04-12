@@ -144,10 +144,10 @@ class ConcurrentClient {
   /**
    * Log in by following an invite link (voter or host).
    *
-   * Host invite links carry admin_msg (hex-encoded bytes) and admin_sig as
-   * extra query parameters. When present they are forwarded as admin_cred in
-   * the login body, causing the server to issue a host JWT (is_host=true).
-   * Without them a regular voter JWT is issued. Mirrors the logic in login.tsx.
+   * Host invite links carry an admin_token query parameter. When present it is
+   * forwarded in the login body, causing the server to issue a host JWT
+   * (is_host=true). Without it a regular voter JWT is issued. Mirrors the
+   * logic in login.tsx.
    */
   async loginFromInviteLink(
     inviteLink: string,
@@ -156,19 +156,11 @@ class ConcurrentClient {
     const url = new URL(inviteLink, BASE_URL);
     const muuid = url.searchParams.get("muuid")!;
     const uuuid = url.searchParams.get("uuuid")!;
-    const adminMsg = url.searchParams.get("admin_msg");
-    const adminSig = url.searchParams.get("admin_sig");
-    const admin_cred =
-      adminMsg && adminSig
-        ? {
-            msg: adminMsg.match(/.{2}/g)!.map((b) => parseInt(b, 16)),
-            sig: adminSig,
-          }
-        : undefined;
+    const admin_token = url.searchParams.get("admin_token") ?? undefined;
 
     const serverRes = await this.req(`${BASE_URL}/api/login`, {
       method: "POST",
-      body: JSON.stringify({ uuuid, muuid, admin_cred }),
+      body: JSON.stringify({ uuuid, muuid, admin_token }),
     });
     if (!serverRes.ok)
       throw new Error(`voter server login HTTP ${serverRes.status}`);
