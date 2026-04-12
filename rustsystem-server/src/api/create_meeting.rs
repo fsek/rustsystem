@@ -50,14 +50,23 @@ impl APIHandler for CreateMeeting {
         let (uuuid, muuid, jwt) = new_meeting_jwt(&secret)?;
         let new_cookie = new_cookie(jwt, is_secure);
 
-        // Write public key to per-meeting directory
+        // Write public key to per-meeting directory atomically (tmp → rename).
+        // A direct create_dir + write leaves a window where the directory exists
+        // but the key file is absent or partial. rename(2) is atomic within a
+        // filesystem, so readers never see an incomplete file.
         let meeting_dir = format!("meetings/{muuid}");
+        let tmp_path = format!("{meeting_dir}/pub_key.pem.tmp");
+        let final_path = format!("{meeting_dir}/pub_key.pem");
         if let Err(e) = fs::create_dir_all(&meeting_dir) {
             error!("Failed to create meeting directory {meeting_dir}: {e}");
             return Err(APIError::from_error_code(APIErrorCode::Other));
         }
-        if let Err(e) = fs::write(format!("{meeting_dir}/pub_key.pem"), &query.pub_key) {
-            error!("Failed to write pub_key.pem for meeting {muuid}: {e}");
+        if let Err(e) = fs::write(&tmp_path, &query.pub_key) {
+            error!("Failed to write pub_key.pem.tmp for meeting {muuid}: {e}");
+            return Err(APIError::from_error_code(APIErrorCode::Other));
+        }
+        if let Err(e) = fs::rename(&tmp_path, &final_path) {
+            error!("Failed to rename pub_key.pem for meeting {muuid}: {e}");
             return Err(APIError::from_error_code(APIErrorCode::Other));
         }
 
