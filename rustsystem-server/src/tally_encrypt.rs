@@ -85,6 +85,11 @@ pub fn save_encrypted_tally(
         .map_err(|_| APIError::from_error_code(APIErrorCode::IoError))?;
     let encrypted = encrypt_for_x25519(pub_key, &plaintext)?;
 
-    std::fs::write(&out_path, &encrypted)
+    // Write to a temp file then rename so a crash mid-write never produces a
+    // corrupt file that is indistinguishable from a valid one.
+    let tmp_path = format!("{out_path}.tmp");
+    std::fs::write(&tmp_path, &encrypted)
+        .map_err(|_| APIError::from_error_code(APIErrorCode::IoError))?;
+    std::fs::rename(&tmp_path, &out_path)
         .map_err(|_| APIError::from_error_code(APIErrorCode::IoError))
 }
