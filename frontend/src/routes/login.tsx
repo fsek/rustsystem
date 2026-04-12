@@ -8,27 +8,16 @@ export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     muuid: (search.muuid as string) || "",
     uuuid: (search.uuuid as string) || "",
-    admin_msg: search.admin_msg as string | undefined,
-    admin_sig: search.admin_sig as string | undefined,
+    admin_token: search.admin_token as string | undefined,
   }),
   component: LoginPage,
 });
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function hexToBytes(hex: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes.push(parseInt(hex.substring(i, i + 2), 16));
-  }
-  return bytes;
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function LoginPage() {
-  const { muuid, uuuid, admin_msg, admin_sig } = Route.useSearch();
-  const claimsHost = admin_msg && admin_sig;
+  const { muuid, uuuid, admin_token } = Route.useSearch();
+  const claimsHost = !!admin_token;
   const [error, setError] = useState<string | null>(null);
 
   const nav = useNavigate();
@@ -47,16 +36,11 @@ function LoginPage() {
         return;
       }
 
-      const admin_cred =
-        admin_msg && admin_sig
-          ? { msg: hexToBytes(admin_msg), sig: admin_sig }
-          : undefined;
-
       let res: Response;
       try {
         res = await apiFetch("/api/login", {
           method: "POST",
-          body: JSON.stringify({ uuuid, muuid, admin_cred }),
+          body: JSON.stringify({ uuuid, muuid, admin_token }),
         });
       } catch {
         setError("Could not reach the server. Check your connection.");

@@ -93,7 +93,7 @@ async fn voter_login(app: &MockApp, res: Response) -> Response {
         serde_json::to_value(LoginRequest {
             uuuid,
             muuid,
-            admin_cred: None,
+            admin_token: None,
         })
         .unwrap(),
         None,
