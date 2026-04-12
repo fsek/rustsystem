@@ -56,8 +56,6 @@ impl APIHandler for Tally {
             .map(|v| v.name.clone())
             .collect();
 
-        let total_votes = tally_result.score.values().sum::<usize>() + tally_result.blank;
-
         if let Err(e) = save_encrypted_tally(&auth.muuid, &tally_result, voter_names) {
             error!(
                 muuid = %auth.muuid,
@@ -66,18 +64,9 @@ impl APIHandler for Tally {
             );
         }
 
-        let score_summary: Vec<String> = {
-            let mut pairs: Vec<_> = tally_result.score.iter().collect();
-            pairs.sort_by_key(|(k, _)| k.as_str());
-            pairs.iter().map(|(k, v)| format!("{k}:{v}")).collect()
-        };
-
         info!(
             muuid = %auth.muuid,
             round = %round_name,
-            total_votes = total_votes,
-            blank_votes = tally_result.blank,
-            scores = %score_summary.join(", "),
             "Vote round tallied"
         );
 
