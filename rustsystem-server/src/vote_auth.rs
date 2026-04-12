@@ -104,8 +104,7 @@ impl VoteRound {
     }
 
     pub fn tally(self) -> Result<Tally, APIError> {
-        let votes = self.votes.clone();
-        Tally::compute(votes, &self.metadata.get_candidates())
+        Tally::compute(self.votes, &self.metadata.get_candidates())
     }
 }
 
@@ -158,7 +157,12 @@ impl VoteAuthority {
         *self.state_tx.borrow() == VoteState::Creation
     }
 
-    pub fn start_round(&mut self, metadata: BallotMetaData, header: String, public_key: BBSplusPublicKey) {
+    pub fn start_round(
+        &mut self,
+        metadata: BallotMetaData,
+        header: String,
+        public_key: BBSplusPublicKey,
+    ) {
         let header_bytes = header.as_bytes().to_vec();
         let expired_signatures = HashSet::new();
         if let Err(e) = self.state_tx.send(VoteState::Voting) {
