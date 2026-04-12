@@ -8,7 +8,6 @@ use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
 
 use crate::{
     AppState,
-    admin_auth::AdminCred,
     tokens::{get_meeting_jwt, new_cookie},
 };
 
@@ -16,7 +15,7 @@ use crate::{
 pub struct LoginRequest {
     pub uuuid: String,
     pub muuid: String,
-    pub admin_cred: Option<AdminCred>,
+    pub admin_token: Option<String>,
 }
 
 /// Endpoint for logging in and claiming a UUID (voter)
@@ -63,9 +62,17 @@ impl APIHandler for Login {
         // Signal the invite watcher with the voter's name.
         meeting.invite_auth.write().await.notify_login(voter_name.clone());
 
-        // Validate optional admin credentials.
-        let is_host = if let Some(admin_cred) = body.admin_cred {
-            meeting.admin_auth.write().await.validate_token(admin_cred)
+        // Validate optional admin token.
+        let is_host = if let Some(token_hex) = body.admin_token {
+            if let Ok(bytes) = hex::decode(&token_hex) {
+                if let Ok(token) = <[u8; 16]>::try_from(bytes.as_slice()) {
+                    meeting.admin_auth.write().await.redeem_token(token)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         } else {
             false
         };
