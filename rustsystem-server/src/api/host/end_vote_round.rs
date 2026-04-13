@@ -41,16 +41,21 @@ impl APIHandler for EndVoteRound {
             .read()
             .await
             .get_current_vote_name()
-            .cloned()
-            .unwrap_or_default();
+            .cloned();
 
         meeting.vote_auth.write().await.reset();
         // Upon a hard reset (i.e. cancelling the voting round), we unlock
         meeting.unlock();
 
+        // Remove the round's BLS keypair and registered-voter set from trustauth,
+        // but only if a round was actually active (round_name is None in Creation state).
+        if round_name.is_some() {
+            state.end_round_on_trustauth(auth.muuid).await?;
+        }
+
         info!(
             muuid = %auth.muuid,
-            round = %round_name,
+            round = %round_name.as_deref().unwrap_or("(none)"),
             "Vote round ended (state reset to creation)"
         );
 
