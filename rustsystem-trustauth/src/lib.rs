@@ -179,7 +179,7 @@ pub fn init_state() -> Result<AppState, APIError> {
 /// services to random ports.
 pub fn new_test_state(server_url: impl Into<String>) -> AppState {
     AppState(Arc::new(AppStateInternal {
-        secret: [0u8; 32],
+        secret: rustsystem_core::secret::generate_secret(),
         http_client: reqwest::Client::new(),
         rounds: Arc::new(AsyncRwLock::new(HashMap::new())),
         server_url: server_url.into(),
