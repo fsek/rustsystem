@@ -172,6 +172,23 @@ impl AppState {
         BBSplusPublicKey::from_bytes(&resp.pub_key_bytes)
             .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))
     }
+
+    pub async fn end_round_on_trustauth(&self, muuid: MUuid) -> Result<(), APIError> {
+        let (client, trustauth_url) = {
+            let guard = self.read()?;
+            (guard.trustauth_client.clone(), guard.trustauth_url.clone())
+        };
+
+        client
+            .post(format!("{trustauth_url}/server/api/end-round"))
+            .json(&serde_json::json!({ "muuid": muuid }))
+            .send()
+            .await
+            .and_then(|r| r.error_for_status())
+            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))?;
+
+        Ok(())
+    }
 }
 
 pub fn init_state() -> Result<AppState, APIError> {
