@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tracing::info;
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, MAX_NAME_LENGTH, Method};
 use uuid::Uuid;
 
 use crate::{API_ENDPOINT_SERVER, AppState, MUuid, UUuid, Voter};
@@ -60,6 +60,10 @@ impl APIHandler for NewVoter {
                     is_host,
                 }),
         } = request;
+
+        if voter_name.chars().count() > MAX_NAME_LENGTH {
+            return Err(APIError::from_error_code(APIErrorCode::FieldTooLong));
+        }
 
         let new_uuuid = Uuid::new_v4();
         let meeting = state.get_meeting(auth.muuid).await?;

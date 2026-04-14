@@ -11,7 +11,7 @@ use crate::{
     tokens::{new_cookie, new_meeting_jwt},
 };
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, MAX_LABEL_LENGTH, MAX_NAME_LENGTH, Method};
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateMeetingRequest {
@@ -41,6 +41,13 @@ impl APIHandler for CreateMeeting {
     const SUCCESS_CODE: StatusCode = StatusCode::CREATED;
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (jar, State(state), Json(query)) = request;
+
+        if query.title.chars().count() > MAX_LABEL_LENGTH {
+            return Err(APIError::from_error_code(APIErrorCode::FieldTooLong));
+        }
+        if query.host_name.chars().count() > MAX_NAME_LENGTH {
+            return Err(APIError::from_error_code(APIErrorCode::FieldTooLong));
+        }
 
         let (secret, is_secure) = {
             let guard = state.read()?;
