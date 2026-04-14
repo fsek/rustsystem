@@ -193,11 +193,16 @@ impl VoteAuthority {
             .take()
             .ok_or(APIError::from_error_code(APIErrorCode::VotingInactive))?
             .tally();
-        if let Err(e) = self.state_tx.send(VoteState::Tally) {
-            error!("{e}");
-        }
-        if let Ok(ref tally) = res {
-            self.last_tally = Some(tally.clone());
+        match res {
+            Ok(ref tally) => {
+                self.last_tally = Some(tally.clone());
+                if let Err(e) = self.state_tx.send(VoteState::Tally) {
+                    error!("Failed to broadcast tally state to SSE subscribers: {e}");
+                }
+            }
+            Err(ref e) => {
+                error!("Tally computation failed; vote state not advanced: {e}");
+            }
         }
         res
     }
