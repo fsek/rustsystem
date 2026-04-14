@@ -1,5 +1,8 @@
 #![allow(async_fn_in_trait)]
 
+pub const MAX_NAME_LENGTH: usize = 80;
+pub const MAX_LABEL_LENGTH: usize = 120;
+
 use async_trait::async_trait;
 use axum::{
     Json, Router,
@@ -62,6 +65,8 @@ pub enum APIErrorCode {
     MeetingClosed,
     /// JWT was valid and the meeting exists, but the voter is not in the roster.
     VoterUnrecognized,
+
+    FieldTooLong,
 
     InvalidStatusCode,
 
@@ -126,6 +131,8 @@ impl APIErrorCode {
             Self::SignatureFailure => ("Failed to create blindsignature from token.", 500),
 
             Self::InvalidState => ("Action cannot be executed while in the current state.", 409),
+
+            Self::FieldTooLong => ("The provided value exceeds the maximum allowed length.", 422),
 
             Self::AuthError => ("Authentication Failed", 401),
             Self::SessionExpired => ("Your session has expired. Please log in again.", 401),

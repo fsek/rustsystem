@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { LimitsContext } from "@/routes/__root";
 import type { ReactNode } from "react";
 import { rankItem, compareItems } from "@tanstack/match-sorter-utils";
 import { Button } from "@/components/Button/Button";
@@ -78,6 +79,7 @@ function AddVoterPanel({
   onAdded: (r: NewVoterResponse & { voterName: string }) => void;
   voteState: VoteState;
 }) {
+  const limits = useContext(LimitsContext);
   const [name, setName] = useState("");
   const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -112,6 +114,7 @@ function AddVoterPanel({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            maxLength={limits?.maxNameLength}
             className="flex-1"
           />
           <Button
@@ -397,9 +400,11 @@ function VoterListPanel({
 function VoteOptionsInput({
   options,
   onChange,
+  maxNameLength,
 }: {
   options: string[];
   onChange: (opts: string[]) => void;
+  maxNameLength?: number;
 }) {
   function update(i: number, val: string) {
     const next = [...options];
@@ -423,6 +428,7 @@ function VoteOptionsInput({
             placeholder={`Option ${i + 1}`}
             value={opt}
             onChange={(e) => update(i, e.target.value)}
+            maxLength={maxNameLength}
             className="flex-1"
           />
           {options.length > 2 && (
@@ -634,6 +640,7 @@ function HostVoteRoundPanel({
   onTally: () => Promise<void>;
   onEndRound: () => Promise<void>;
 }) {
+  const limits = useContext(LimitsContext);
   const [voteName, setVoteName] = useState("");
   const [options, setOptions] = useState(["", "", ""]);
   const [maxChoices, setMaxChoices] = useState(1);
@@ -731,12 +738,13 @@ function HostVoteRoundPanel({
                 placeholder="e.g. Board election"
                 value={voteName}
                 onChange={(e) => setVoteName(e.target.value)}
+                maxLength={limits?.maxLabelLength}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Options</FieldLabel>
-              <VoteOptionsInput options={options} onChange={setOptions} />
+              <VoteOptionsInput options={options} onChange={setOptions} maxNameLength={limits?.maxNameLength} />
             </div>
 
             <div className="flex gap-6 items-end flex-wrap">
