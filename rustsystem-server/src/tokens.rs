@@ -94,7 +94,7 @@ impl FromRequestParts<AppState> for AuthUser {
         {
             let map = state_guard.meetings.read().await;
             let meeting = map.get(&claims.muuid).cloned().ok_or_else(|| {
-                APIError::from_error_code(APIErrorCode::AuthError)
+                APIError::from_error_code(APIErrorCode::MeetingClosed)
                     .finalize(endpoint.clone())
                     .response()
             })?;
@@ -105,7 +105,7 @@ impl FromRequestParts<AppState> for AuthUser {
                 .await
                 .contains_key(&claims.uuuid)
             {
-                return Err(APIError::from_error_code(APIErrorCode::AuthError)
+                return Err(APIError::from_error_code(APIErrorCode::VoterUnrecognized)
                     .finalize(endpoint)
                     .response());
             }

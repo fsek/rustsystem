@@ -150,7 +150,7 @@ async fn test_lifecycle_close_meeting_revokes_access() {
         .send()
         .await
         .unwrap();
-    assert_eq!(voter_list_resp.status(), 401);
+    assert_eq!(voter_list_resp.status(), 410);
 }
 
 /// Multiple voters can register concurrently without corrupting each other's data.
