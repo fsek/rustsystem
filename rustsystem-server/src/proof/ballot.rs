@@ -75,6 +75,14 @@ impl BallotMetaData {
     }
 
     pub fn check_valid(&self) -> bool {
+        if self.candidates.is_empty() {
+            return false;
+        }
+
+        if self.max_choices == 0 {
+            return false;
+        }
+
         let set: HashSet<_> = self.candidates.iter().collect();
         if set.len() != self.candidates.len() {
             return false;
