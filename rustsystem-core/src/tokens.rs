@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::ErrorKind};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -61,5 +61,8 @@ pub fn decode_jwt(
         &validation,
     )
     .map(|data| data.claims)
-    .map_err(|_| APIError::from_error_code(APIErrorCode::AuthError))
+    .map_err(|e| match e.kind() {
+        ErrorKind::ExpiredSignature => APIError::from_error_code(APIErrorCode::SessionExpired),
+        _ => APIError::from_error_code(APIErrorCode::AuthError),
+    })
 }

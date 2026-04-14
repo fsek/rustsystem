@@ -24,9 +24,9 @@ async fn test_close_meeting_success() {
 
     // The auth extractor validates that the meeting still exists before passing the
     // request through. Once the meeting is deleted the JWT is implicitly revoked,
-    // so any subsequent request with that cookie is rejected with 401.
+    // so any subsequent request with that cookie is rejected with 410 (MeetingClosed).
     let list_res = voter_list(&app, cookie).await;
-    assert_eq!(list_res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(list_res.status(), StatusCode::GONE);
 }
 
 /// remove-all removes every non-host voter; the host remains.

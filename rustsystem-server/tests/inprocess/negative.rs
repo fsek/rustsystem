@@ -111,8 +111,8 @@ async fn test_voter_id_after_removal() {
 }
 
 /// After close-meeting the host cookie is implicitly revoked: any subsequent request
-/// is rejected with 401 because the auth extractor validates that both the meeting and
-/// the voter still exist, and neither do once the meeting is deleted.
+/// is rejected with 410 (MeetingClosed) because the auth extractor validates that the
+/// meeting still exists, and it no longer does once it is deleted.
 #[tokio::test]
 async fn test_cookie_revoked_after_close() {
     let app = MockApp::new_inprocess();
@@ -124,10 +124,10 @@ async fn test_cookie_revoked_after_close() {
     assert_eq!(close_res.status(), StatusCode::OK);
 
     let list_res = voter_list(&app, cookie).await;
-    assert_eq!(list_res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(list_res.status(), StatusCode::GONE);
 
     let id_res = voter_id(&app, cookie, "Creator".into()).await;
-    assert_eq!(id_res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(id_res.status(), StatusCode::GONE);
 }
 
 /// The host's own name is always in the voter list after meeting creation.
