@@ -111,9 +111,9 @@ async fn test_concurrent_reads_during_writes() {
 ///
 /// The auth extractor validates the meeting exists before passing the request to the
 /// handler. After the first close-meeting removes the meeting, any subsequent auth check
-/// fails with 401 (implicit JWT revocation). Depending on scheduling some concurrent
-/// requests may reach the handler body while the meeting is still present but find it
-/// already removed (404). We only pin down the guarantee that matters: exactly one 200.
+/// fails with 410 MeetingClosed (implicit JWT revocation). Depending on scheduling some
+/// concurrent requests may reach the handler body while the meeting is still present but
+/// find it already removed (404). We only pin down the guarantee that matters: exactly one 200.
 #[tokio::test]
 async fn test_concurrent_close_meeting() {
     let app = MockApp::new_inprocess();
@@ -141,12 +141,12 @@ async fn test_concurrent_close_meeting() {
 
     assert_eq!(successes, 1, "exactly one close should succeed");
 
-    // All other responses must be non-200 (either 401 — auth revoked — or 404 —
-    // handler reached the missing meeting). Both are correct depending on scheduling.
+    // All other responses must be non-200 (either 410 — auth revoked, meeting closed —
+    // or 404 — handler reached the missing meeting). Both are correct depending on scheduling.
     for res in responses.iter().filter(|r| r.status() != StatusCode::OK) {
         assert!(
-            res.status() == StatusCode::UNAUTHORIZED || res.status() == StatusCode::NOT_FOUND,
-            "expected 401 or 404, got {}",
+            res.status() == StatusCode::GONE || res.status() == StatusCode::NOT_FOUND,
+            "expected 410 or 404, got {}",
             res.status()
         );
     }

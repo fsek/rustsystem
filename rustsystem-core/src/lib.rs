@@ -53,9 +53,15 @@ pub enum APIErrorCode {
 
     InvalidState,
 
-    // TODO: AuthError should be expanded to be more specific as to what exactly failed during
-    // authentication
+    // Authentication failures — distinct so the frontend can show meaningful messages.
+    /// Cookie missing or JWT signature/structure invalid.
     AuthError,
+    /// JWT was structurally valid but the expiry timestamp has passed.
+    SessionExpired,
+    /// JWT was valid but the meeting it references no longer exists (meeting closed).
+    MeetingClosed,
+    /// JWT was valid and the meeting exists, but the voter is not in the roster.
+    VoterUnrecognized,
 
     InvalidStatusCode,
 
@@ -122,6 +128,9 @@ impl APIErrorCode {
             Self::InvalidState => ("Action cannot be executed while in the current state.", 409),
 
             Self::AuthError => ("Authentication Failed", 401),
+            Self::SessionExpired => ("Your session has expired. Please log in again.", 401),
+            Self::MeetingClosed => ("This meeting has been closed.", 410),
+            Self::VoterUnrecognized => ("Your voter identity is not recognized in this meeting.", 403),
 
             // System faults - Immediate cause for patch.
             Self::InvalidStatusCode => ("Invalid HTTP status code.", 500),
