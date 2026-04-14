@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useLimits } from "@/routes/__root";
 import { Navbar } from "@/components/Navbar/Navbar";
 import { Panel } from "@/components/Panel/Panel";
 import { Input } from "@/components/Input/Input";
@@ -103,6 +104,7 @@ function PasswordInput({
 
 function CreateMeetingPage() {
   const navigate = useNavigate();
+  const limits = useLimits();
   const [title, setTitle] = useState("");
   const [hostName, setHostName] = useState("");
   const [password, setPassword] = useState("");
@@ -165,6 +167,7 @@ function CreateMeetingPage() {
                   placeholder="e.g. Annual General Meeting"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  maxLength={limits.maxLabelLength}
                   autoFocus
                   disabled={loading}
                 />
@@ -185,6 +188,7 @@ function CreateMeetingPage() {
                   placeholder="e.g. Jane Smith"
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
+                  maxLength={limits.maxNameLength}
                   disabled={loading}
                 />
               </div>

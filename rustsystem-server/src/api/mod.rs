@@ -6,6 +6,9 @@ use rustsystem_core::add_handler;
 pub mod create_meeting;
 use create_meeting::CreateMeeting;
 
+pub mod limits;
+use limits::Limits;
+
 pub mod login;
 use login::Login;
 
@@ -27,6 +30,7 @@ pub fn api_routes() -> Router<AppState> {
     router = add_handler::<CreateMeeting>(router);
     router = add_handler::<SessionIds>(router);
     router = add_handler::<Login>(router);
+    router = add_handler::<Limits>(router);
     router
         .nest("/host", host_routes())
         .nest("/voter", voter_routes())

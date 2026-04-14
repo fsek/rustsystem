@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tracing::info;
 
-use rustsystem_core::{APIError, APIErrorCode, APIHandler, Method};
+use rustsystem_core::{APIError, APIErrorCode, APIHandler, MAX_LABEL_LENGTH, MAX_NAME_LENGTH, Method};
 
 use crate::AppState;
 
@@ -36,6 +36,13 @@ impl APIHandler for StartVote {
 
     async fn route(request: Self::Request) -> Result<Self::SuccessResponse, APIError> {
         let (auth, State(state), Json(body)) = request;
+
+        if body.name.chars().count() > MAX_LABEL_LENGTH {
+            return Err(APIError::from_error_code(APIErrorCode::FieldTooLong));
+        }
+        if body.metadata.get_candidates().iter().any(|c| c.chars().count() > MAX_NAME_LENGTH) {
+            return Err(APIError::from_error_code(APIErrorCode::FieldTooLong));
+        }
 
         if !body.metadata.check_valid() {
             return Err(APIError::from_error_code(APIErrorCode::InvalidMetaData));
