@@ -4,10 +4,14 @@ ARG API_ENDPOINT_TRUSTAUTH=https://rosta.trustauth.fsektionen.se
 
 FROM rust:1.91-bullseye AS builder
 WORKDIR /app
-COPY Cargo.trustauth.toml ./Cargo.toml
-COPY Cargo.lock ./
+COPY Cargo.toml Cargo.lock ./
 COPY rustsystem-trustauth/ ./rustsystem-trustauth/
 COPY rustsystem-core/ ./rustsystem-core/
+# Stub out workspace members not needed for this binary
+COPY rustsystem-server/Cargo.toml ./rustsystem-server/
+RUN mkdir -p rustsystem-server/src && touch rustsystem-server/src/lib.rs rustsystem-server/src/main.rs
+COPY decrypt-tally/Cargo.toml ./decrypt-tally/
+RUN mkdir -p decrypt-tally/src && touch decrypt-tally/src/main.rs
 ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER
 ARG API_ENDPOINT_TRUSTAUTH
