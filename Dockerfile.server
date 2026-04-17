@@ -23,10 +23,15 @@ RUN ls
 
 FROM rust:1.91-bullseye AS backend-builder
 WORKDIR /app
-COPY Cargo.server.toml ./Cargo.toml
-COPY Cargo.lock ./
+COPY Cargo.toml Cargo.lock ./
 COPY rustsystem-server/ ./rustsystem-server/
 COPY rustsystem-core/ ./rustsystem-core/
+# Stub out trustauth: cargo resolves it as a dev-dependency but never compiles it in --release
+COPY rustsystem-trustauth/Cargo.toml ./rustsystem-trustauth/
+RUN mkdir -p rustsystem-trustauth/src && touch rustsystem-trustauth/src/lib.rs
+# decrypt-tally is a workspace member but not needed here
+COPY decrypt-tally/Cargo.toml ./decrypt-tally/
+RUN mkdir -p decrypt-tally/src && touch decrypt-tally/src/main.rs
 ARG API_ENDPOINT_SERVER
 ARG API_ENDPOINT_SERVER_TO_TRUSTAUTH
 ARG SALT_HEX
