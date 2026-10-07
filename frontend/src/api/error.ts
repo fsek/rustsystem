@@ -20,6 +20,7 @@ export type ErrorCode =
   | "RoundInProgress"
   | "VotingClosed"
   | "WrongRound"
+  | "NoAgenda"
   | "NotEligible"
   | "AlreadySigned"
   | "MalformedBallot"

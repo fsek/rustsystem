@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navbar } from "@/components/Navbar/Navbar";
 import { VotePanel, phaseToVoteState } from "@/components/VotePanel/VotePanel";
+import { AgendaPanel } from "@/components/AgendaPanel/AgendaPanel";
 import { Panel } from "@/components/Panel/Panel";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { isLoggedOut } from "@/api/error";
@@ -26,11 +27,13 @@ function MeetingPage() {
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const [view, setView] = useState<MeetingView | null>(null);
   const roundVersion = useRef<number | null>(null);
+  const agendaVersion = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const v = await getMeeting();
       roundVersion.current = v.roundVersion;
+      agendaVersion.current = v.agendaVersion;
       setView(v);
       setSessionValid(true);
     } catch (err) {
@@ -55,11 +58,15 @@ function MeetingPage() {
     return () => clearInterval(timer);
   }, [refresh]);
 
-  // ── Live updates: refetch only when a round opens, closes or resets ─────────
+  // ── Live updates: refetch only when a round or the agenda changes ─────────
   useEffect(() => {
     if (sessionValid !== true) return;
     return watchMeeting((versions) => {
-      if (versions === null || versions.round !== roundVersion.current)
+      if (
+        versions === null ||
+        versions.round !== roundVersion.current ||
+        versions.agenda !== agendaVersion.current
+      )
         refresh();
     });
   }, [sessionValid, refresh]);
@@ -106,7 +113,7 @@ function MeetingPage() {
     >
       <Navbar />
       <main className="flex-1 flex items-start justify-center px-6 py-10">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md flex flex-col gap-6">
           <VotePanel
             key={view?.round?.id ?? "vote"}
             voteState={phaseToVoteState(view?.phase ?? "idle")}
@@ -114,6 +121,7 @@ function MeetingPage() {
             round={view?.round ?? null}
             meetingId={meetingId}
           />
+          <AgendaPanel agenda={view?.agenda ?? null} />
         </div>
       </main>
     </div>

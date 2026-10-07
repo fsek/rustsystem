@@ -171,6 +171,10 @@ impl Browser {
         parts(self.http.post(format!("{}{path}", self.server)).json(&body).send().await.unwrap()).await
     }
 
+    pub async fn put(&self, path: &str, body: Value) -> (StatusCode, Value) {
+        parts(self.http.put(format!("{}{path}", self.server)).json(&body).send().await.unwrap()).await
+    }
+
     pub async fn delete(&self, path: &str) -> (StatusCode, Value) {
         parts(self.http.delete(format!("{}{path}", self.server)).send().await.unwrap()).await
     }

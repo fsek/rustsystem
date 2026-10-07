@@ -12,7 +12,8 @@ plain words; everything after that is detail you can jump to.
 1. [The idea in one minute](#1-the-idea-in-one-minute)
 2. [Who knows what](#2-who-knows-what)
 3. [Identifiers and secrets](#3-identifiers-and-secrets)
-4. [Meeting lifecycle](#4-meeting-lifecycle) — creating a meeting, inviting, logging in
+4. [Meeting lifecycle](#4-meeting-lifecycle) — creating a meeting, inviting, logging in,
+   [agenda and attendance](#45-agenda-and-attendance)
 5. [Voting round](#5-voting-round) — starting, signing, submitting, closing
 6. [Ballot format and validation](#6-ballot-format-and-validation)
 7. [Refreshing, closing the browser, and lost votes](#7-refreshing-closing-the-browser-and-lost-votes)
@@ -163,6 +164,71 @@ sequenceDiagram
 trustauth to drop its sessions and round (`DELETE /internal/meetings/{id}`). Meetings older
 than 12 hours are pruned the same way. Tally files stay on disk (they're encrypted).
 
+### 4.5 Agenda and attendance
+
+Hosts can give a meeting an agenda and record who is present. Neither touches voting: they
+run entirely on the server, never involve trustauth, and say nothing about ballots.
+
+**The agenda** is Markdown that a host uploads or writes (`PUT /api/host/agenda`
+`{"markdown": "..."}`; at most 64 KiB like every request body). Every heading, `#` to
+`######` or setext, is an agenda point; its level is the number of `#`s, and the Markdown up
+to the next heading is its body. Text before the first heading is ignored, and so are `#`
+lines inside code blocks. An agenda needs 1–200 points, and every title must be a valid
+label (at most 120 characters, no control characters). A rejected agenda changes nothing.
+
+```markdown
+# Opening
+
+Welcome, and election of a secretary.
+
+# Election of chair
+
+## Nominations
+
+- Alice
+- Bob
+
+## Vote
+
+# Closing
+```
+
+This is five points: _Opening_, _Election of chair_, _Nominations_, _Vote_, _Closing_.
+
+Every member sees the same agenda in `GET /api/meeting` (`agenda: {points: [{level, title,
+body}], current}`, or `null`). Browsers show bodies as plain text, never as HTML.
+
+- **Moving** — `PUT /api/host/agenda/current` `{"index": n}` makes point `n` (0-based) the
+  current one, forward or back. The index is absolute rather than "next", so two hosts
+  clicking at the same moment can't skip a point. It fails with `NoAgenda` without an agenda
+  and `InvalidInput` for an index that doesn't exist.
+- **Editing** — uploading again replaces the agenda. The meeting stays on the same point if
+  a point with that title still exists (the first at or after the old position, else the
+  nearest before it); otherwise it keeps the same position, clamped to the new length.
+- **Removing** — `DELETE /api/host/agenda`. `GET /api/host/agenda` returns the Markdown for
+  editing.
+
+None of this is blocked while a round is open.
+
+**Attendance.** `POST /api/host/attendance` records everyone **logged in** at that moment:
+they have used their invite, and have not been removed or had their invite reset since. It
+does not matter whether their page is open. This is the same set that would be eligible if
+a round started. Each record is
+
+```json
+{
+  "takenAt": "2026-10-07T18:02:11.200+00:00",
+  "point": { "index": 1, "title": "Election of chair" },
+  "present": [{ "id": "…", "name": "Alice", "isHost": true }]
+}
+```
+
+`point` is a copy of the current agenda point (`null` without an agenda), so later edits to
+the agenda never rewrite a record. `GET /api/host/attendance` returns every record, oldest
+first, as `{meeting, exportedAt, records}`; hosts download it as `attendance.json`. Like all
+meeting state, attendance lives only in memory and is gone when the meeting closes, so
+download it first.
+
 ## 5. Voting round
 
 A meeting is always in exactly one phase:
@@ -263,11 +329,14 @@ is written) or from `Tallied`. Trustauth drops the round.
 
 ### 5.6 Live updates
 
-`GET /api/meeting/events` is a Server-Sent Events stream of two change counters,
-`{"version": 12, "round": 3}`, sent on connect and on every change:
+`GET /api/meeting/events` is a Server-Sent Events stream of three change counters,
+`{"version": 12, "round": 3, "agenda": 5}`, sent on connect and on every change:
 
-- `round` goes up when a round opens, closes or is reset, or the meeting closes — everything
-  a voter's page shows. Voter pages refetch `GET /api/meeting` only when it changes.
+- `round` goes up when a round opens, closes or is reset, or the meeting closes.
+- `agenda` goes up when the agenda is set, edited or removed, or its current point changes
+  ([§4.5](#45-agenda-and-attendance)).
+- Together these cover everything a voter's page shows: voter pages refetch
+  `GET /api/meeting` only when one of them changes.
 - `version` goes up on every change, including each counted ballot and each login. Host pages
   refetch (at most twice a second) when it changes.
 
