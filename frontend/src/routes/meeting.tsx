@@ -1,79 +1,68 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navbar } from "@/components/Navbar/Navbar";
-import { VotePanel, type VoteState } from "@/components/VotePanel/VotePanel";
+import { VotePanel, phaseToVoteState } from "@/components/VotePanel/VotePanel";
 import { Panel } from "@/components/Panel/Panel";
 import { Spinner } from "@/components/Spinner/Spinner";
-import { apiFetch, apiUrl } from "@/signatures/voteSession";
-import type { BallotMetaData } from "@/signatures/signatures";
-import type { VoteProgress } from "@/api/host";
+import { isLoggedOut } from "@/api/error";
+import {
+  type MeetingView,
+  ensureTrustauthSession,
+  getMeeting,
+  getSession,
+  watchMeeting,
+} from "@/api/meeting";
 
 export const Route = createFileRoute("/meeting")({
   component: MeetingPage,
 });
 
+/** A safety net in case an event is missed; the event stream does the real work. */
 const SESSION_POLL_MS = 10_000;
 
 function MeetingPage() {
   // null = still checking, true = in meeting, false = removed/not logged in
   const [sessionValid, setSessionValid] = useState<boolean | null>(null);
-  const [voteState, setVoteState] = useState<VoteState>("Creation");
-  const [voteName, setVoteName] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<BallotMetaData | null>(null);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [view, setView] = useState<MeetingView | null>(null);
+  const roundVersion = useRef<number | null>(null);
 
-  // Fetch vote progress. Returns false when the session is no longer valid.
-  const refreshProgress = useCallback(async (): Promise<boolean> => {
-    let res: Response;
+  const refresh = useCallback(async () => {
     try {
-      res = await apiFetch("/api/common/vote-progress");
-    } catch {
-      return true; // network error — don't invalidate session
+      const v = await getMeeting();
+      roundVersion.current = v.roundVersion;
+      setView(v);
+      setSessionValid(true);
+    } catch (err) {
+      if (isLoggedOut(err)) setSessionValid(false);
+      // Other errors (network, server) keep the current state; the next event or poll retries.
     }
-    if (res.status === 401) {
-      setSessionValid(false);
-      return false;
-    }
-    if (!res.ok) return true; // other server error — keep current session state
-    const p: VoteProgress = await res.json();
-    setSessionValid(true);
-    setVoteName(p.voteName);
-    setMetadata(p.metadata);
-    if (p.isTally) setVoteState("Tally");
-    else if (p.isActive) setVoteState("Voting");
-    else setVoteState("Creation");
-    return true;
   }, []);
 
-  // ── Initial load + periodic session check ───────────────────────────────────
+  // ── Initial load + periodic check ───────────────────────────────────────────
   useEffect(() => {
-    refreshProgress();
-    const timer = setInterval(refreshProgress, SESSION_POLL_MS);
+    getSession()
+      .then((s) => {
+        setMeetingId(s.meeting);
+        // Repairs a trustauth login interrupted by a closed tab or lost connection.
+        return ensureTrustauthSession();
+      })
+      .catch((err) => {
+        if (isLoggedOut(err)) setSessionValid(false);
+      });
+    refresh();
+    const timer = setInterval(refresh, SESSION_POLL_MS);
     return () => clearInterval(timer);
-  }, [refreshProgress]);
+  }, [refresh]);
 
-  // ── SSE: vote state (only while session is valid) ────────────────────────────
+  // ── Live updates: refetch only when a round opens, closes or resets ─────────
   useEffect(() => {
     if (sessionValid !== true) return;
-
-    const es = new EventSource(apiUrl("/api/common/vote-state-watch"), {
-      withCredentials: true,
+    return watchMeeting((versions) => {
+      if (versions === null || versions.round !== roundVersion.current)
+        refresh();
     });
-    es.onmessage = (e) => {
-      const raw = (e.data as string).replace(/^"|"$/g, "");
-      if (raw === "Creation" || raw === "Voting" || raw === "Tally") {
-        setVoteState(raw);
-        if (raw === "Voting") {
-          refreshProgress().catch(console.error);
-        }
-        if (raw === "Creation") {
-          setVoteName(null);
-          setMetadata(null);
-        }
-      }
-    };
-    es.onerror = () => console.warn("vote-state-watch SSE disconnected");
-    return () => es.close();
-  }, [sessionValid, refreshProgress]);
+  }, [sessionValid, refresh]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -119,10 +108,11 @@ function MeetingPage() {
       <main className="flex-1 flex items-start justify-center px-6 py-10">
         <div className="w-full max-w-md">
           <VotePanel
-            key={voteName ?? "vote"}
-            voteState={voteState}
-            voteName={voteName}
-            metadata={metadata}
+            key={view?.round?.id ?? "vote"}
+            voteState={phaseToVoteState(view?.phase ?? "idle")}
+            voteName={view?.round?.name ?? null}
+            round={view?.round ?? null}
+            meetingId={meetingId}
           />
         </div>
       </main>

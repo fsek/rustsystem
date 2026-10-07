@@ -10,7 +10,7 @@ use tracing_subscriber::{Layer, layer::Context, registry::LookupSpan};
 
 #[derive(Default)]
 struct FieldVisitor {
-    muuid: Option<String>,
+    meeting: Option<String>,
     message: Option<String>,
     extras: Vec<(String, String)>,
 }
@@ -23,7 +23,7 @@ impl Visit for FieldVisitor {
         // so we must capture "message" here too.
         let s = format!("{value:?}");
         match field.name() {
-            "muuid" => self.muuid = Some(s),
+            "meeting" => self.meeting = Some(s),
             "message" => self.message = Some(s),
             _ => self.extras.push((field.name().to_string(), s)),
         }
@@ -32,7 +32,7 @@ impl Visit for FieldVisitor {
     fn record_str(&mut self, field: &Field, value: &str) {
         // For static string messages, tracing calls record_str for the "message" field.
         match field.name() {
-            "muuid" => self.muuid = Some(value.to_string()),
+            "meeting" => self.meeting = Some(value.to_string()),
             "message" => self.message = Some(value.to_string()),
             _ => self.extras.push((field.name().to_string(), value.to_string())),
         }
@@ -56,12 +56,12 @@ impl Visit for FieldVisitor {
 
 // ─── Per-meeting log layer ────────────────────────────────────────────────────
 
-/// A tracing `Layer` that writes log events containing a `muuid` field to a
-/// per-meeting log file at `meetings/<muuid>/log`.  All other events are silently
+/// A tracing `Layer` that writes log events containing a `meeting` field to a
+/// per-meeting log file at `meetings/<meeting id>/log`.  All other events are silently
 /// ignored by this layer (they are still handled by the main formatter layer).
 ///
 /// Both `rustsystem-server` and `rustsystem-trustauth` use this layer so that
-/// a single `meetings/<muuid>/log` file contains the full picture of what
+/// a single `meetings/<meeting id>/log` file contains the full picture of what
 /// happened in a meeting across both services.
 pub struct MeetingLogLayer;
 
@@ -70,9 +70,9 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for MeetingLogLayer {
         let mut visitor = FieldVisitor::default();
         event.record(&mut visitor);
 
-        let Some(muuid) = visitor.muuid else { return };
+        let Some(meeting) = visitor.meeting else { return };
 
-        let dir = format!("meetings/{muuid}");
+        let dir = format!("meetings/{meeting}");
         if fs::create_dir_all(&dir).is_err() {
             return;
         }
@@ -129,7 +129,7 @@ pub struct LogGuard(tracing_appender::non_blocking::WorkerGuard);
 /// Layers configured:
 /// - `stderr` — human-readable coloured output for the terminal.
 /// - `logs/<log_file>` — machine-readable log rotated daily.
-/// - [`MeetingLogLayer`] — per-meeting files at `meetings/<muuid>/log`.
+/// - [`MeetingLogLayer`] — per-meeting files at `meetings/<meeting id>/log`.
 ///
 /// Returns a [`LogGuard`] that **must** be held for the lifetime of the
 /// process; dropping it flushes and shuts down the background log thread.

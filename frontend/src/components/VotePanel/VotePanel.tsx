@@ -3,124 +3,123 @@ import { Panel } from "@/components/Panel/Panel";
 import { Button } from "@/components/Button/Button";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Alert } from "@/components/Alert/Alert";
-import {
-  registerVoter,
-  submitVote,
-  getVoteData,
-  isRegistered,
-  isSubmitted,
-  getSessionIds,
-  type VoteData,
-} from "@/signatures/voteSession";
-import type { BallotMetaData } from "@/signatures/signatures";
+import { errorMessage, isApiError } from "@/api/error";
+import type { Phase, RoundView } from "@/api/meeting";
+import { signBallot, submitBallot, voteStatus } from "@/voting/ballot";
 
 export type VoteState = "Creation" | "Voting" | "Tally";
+
+export function phaseToVoteState(phase: Phase): VoteState {
+  if (phase === "voting") return "Voting";
+  if (phase === "tallied") return "Tally";
+  return "Creation";
+}
 
 export interface VotePanelProps {
   voteState: VoteState;
   voteName?: string | null;
-  metadata?: BallotMetaData | null;
+  /** The open round, from `GET /api/meeting`. */
+  round?: RoundView | null;
+  meetingId: string | null;
 }
 
 type VoterStatus =
-  | "checking" // querying server to derive state
-  | "idle" // not yet registered
-  | "registering" // registration request in flight
-  | "selecting" // registered, awaiting vote selection
-  | "submitting" // submission request in flight
-  | "done"; // vote successfully submitted
+  | "checking" // asking trustauth whether this voter has voted
+  | "selecting" // choosing
+  | "submitting" // signing and submitting
+  | "done" // submitted just now
+  | "voted"; // had already voted (e.g. after a refresh)
 
-export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
-  const [status, setStatus] = useState<VoterStatus>("idle");
-  const [voteData, setVoteData] = useState<VoteData | null>(null);
+export function VotePanel({
+  voteState,
+  voteName,
+  round,
+  meetingId,
+}: VotePanelProps) {
+  const [status, setStatus] = useState<VoterStatus>("checking");
   const [selected, setSelected] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Track the vote name at derivation time to avoid redundant checks.
-  const derivedForVoteName = useRef<string | null | undefined>(undefined);
+  // A ballot trustauth has signed but the server hasn't received yet. Kept only in memory, so a
+  // failed submission can be retried without asking trustauth again.
+  const signed = useRef<{ prepared: Uint8Array; sig: Uint8Array } | null>(null);
+  const checkedRound = useRef<string | null>(null);
 
-  // Derive the voter's state from the server whenever we enter the Voting phase.
+  // On entering a round (or loading the page mid-round), ask trustauth whether we've voted.
   useEffect(() => {
-    if (voteState !== "Voting") return;
-    if (derivedForVoteName.current === voteName) return;
-
-    derivedForVoteName.current = voteName;
-    setStatus("checking");
+    if (voteState !== "Voting" || !round) return;
+    if (checkedRound.current === round.id) return;
+    checkedRound.current = round.id;
+    signed.current = null;
+    setSelected([]);
     setError(null);
+    setStatus("checking");
 
-    async function deriveFromServer() {
-      try {
-        const registered = await isRegistered();
-
-        if (!registered) {
-          setVoteData(null);
-          setStatus("idle");
-          return;
-        }
-
-        // Fetch stored vote data from trustauth.
-        const data = await getVoteData();
-        const submitted = await isSubmitted(data.signature);
-        if (submitted) {
-          setStatus("done");
-          return;
-        }
-
-        setVoteData(data);
-        setSelected([]);
+    voteStatus()
+      .then((s) =>
+        setStatus(s.round === round.id && s.signed ? "voted" : "selecting"),
+      )
+      .catch((err) => {
+        setError(errorMessage(err));
         setStatus("selecting");
-      } catch (err) {
-        setError(String(err));
-        setStatus("idle");
-      }
-    }
+      });
+  }, [voteState, round]);
 
-    deriveFromServer();
-  }, [voteState, voteName]);
-
-  // Reset when the voting round ends.
+  // Reset when the round ends.
   useEffect(() => {
-    if (voteState === "Creation") {
-      derivedForVoteName.current = undefined;
-      setStatus("idle");
-      setVoteData(null);
+    if (voteState !== "Voting") {
+      checkedRound.current = null;
+      signed.current = null;
+      setStatus("checking");
       setSelected([]);
       setError(null);
     }
   }, [voteState]);
 
-  async function handleRegister() {
-    const session = await getSessionIds();
-    setStatus("registering");
-    setError(null);
-    try {
-      await registerVoter(session);
-      const data = await getVoteData();
-      setVoteData(data);
-      setSelected([]);
-      setStatus("selecting");
-    } catch (err) {
-      setError(String(err));
-      setStatus("idle");
-    }
-  }
+  // Closing the page between signing and submitting would lose the vote: ask first.
+  useEffect(() => {
+    if (status !== "submitting" && !signed.current) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [status]);
 
   async function handleSubmit(blank = false) {
-    if (!voteData || !metadata) return;
+    if (!round?.publicKey || !meetingId) return;
     setStatus("submitting");
     setError(null);
     try {
-      await submitVote(voteData, metadata, blank ? null : selected);
+      if (!signed.current) {
+        signed.current = await signBallot(
+          {
+            id: round.id,
+            candidates: round.candidates,
+            maxChoices: round.maxChoices,
+            publicKey: round.publicKey,
+          },
+          blank ? null : selected,
+        );
+      }
+      await submitBallot(meetingId, signed.current);
+      signed.current = null;
       setStatus("done");
     } catch (err) {
-      setError(String(err));
+      if (isApiError(err, "AlreadySigned")) {
+        setStatus("voted");
+        return;
+      }
+      setError(
+        signed.current
+          ? `Your vote could not be delivered yet: ${errorMessage(err)} Keep this page open and press Submit again.`
+          : errorMessage(err),
+      );
       setStatus("selecting");
     }
   }
 
   function toggleOption(idx: number) {
-    if (!metadata) return;
-    const max = metadata.max_choices;
+    if (!round || signed.current) return;
+    const max = round.maxChoices;
     setSelected((prev) => {
       if (prev.includes(idx)) return prev.filter((i) => i !== idx);
       if (max === 1) return [idx];
@@ -129,8 +128,9 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
     });
   }
 
-  const candidates = metadata?.candidates ?? [];
-  const maxChoices = metadata?.max_choices ?? 1;
+  const candidates = round?.candidates ?? [];
+  const maxChoices = round?.maxChoices ?? 1;
+  const locked = status === "submitting" || signed.current !== null;
 
   return (
     <Panel title="Your Vote">
@@ -166,7 +166,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
         {/* ── Voting ── */}
         {voteState === "Voting" && (
           <>
-            {voteName && status !== "done" && (
+            {voteName && status !== "done" && status !== "voted" && (
               <p
                 className="font-semibold text-sm"
                 style={{ color: "var(--textSecondary)" }}
@@ -183,37 +183,6 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
                   style={{ color: "var(--textSecondary)" }}
                 >
                   Checking vote status…
-                </span>
-              </div>
-            )}
-
-            {status === "idle" && (
-              <div className="flex flex-col gap-3">
-                <p
-                  className="text-sm"
-                  style={{ color: "var(--textSecondary)" }}
-                >
-                  Register a blind token to cast your anonymous vote.
-                </p>
-                <Button
-                  size="m"
-                  color="buttonPrimary"
-                  variant="filled"
-                  onClick={handleRegister}
-                >
-                  Register to vote
-                </Button>
-              </div>
-            )}
-
-            {status === "registering" && (
-              <div className="flex items-center gap-3 py-2">
-                <Spinner size="m" color="primary" />
-                <span
-                  className="text-sm"
-                  style={{ color: "var(--textSecondary)" }}
-                >
-                  Getting ballot…
                 </span>
               </div>
             )}
@@ -238,7 +207,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
                         key={idx}
                         type="button"
                         onClick={() => toggleOption(idx)}
-                        disabled={status === "submitting"}
+                        disabled={locked}
                         className="flex items-center gap-3 px-4 py-3 rounded-xl text-left w-full cursor-pointer transition-all"
                         style={{
                           background: isSelected
@@ -271,7 +240,10 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
                     color="buttonPrimary"
                     variant="filled"
                     onClick={() => handleSubmit(false)}
-                    disabled={status === "submitting" || selected.length === 0}
+                    disabled={
+                      status === "submitting" ||
+                      (selected.length === 0 && !signed.current)
+                    }
                   >
                     {status === "submitting" ? (
                       <span className="flex items-center gap-2">
@@ -287,7 +259,7 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
                     color="buttonSecondary"
                     variant="outline"
                     onClick={() => handleSubmit(true)}
-                    disabled={status === "submitting"}
+                    disabled={locked}
                   >
                     Blank vote
                   </Button>
@@ -301,6 +273,11 @@ export function VotePanel({ voteState, voteName, metadata }: VotePanelProps) {
               </Alert>
             )}
 
+            {status === "voted" && (
+              <Alert size="m" color="primary">
+                You have already voted in this round.
+              </Alert>
+            )}
           </>
         )}
 
