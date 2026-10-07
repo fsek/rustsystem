@@ -1,6 +1,6 @@
 /**
  * Error codes the backend can return. Mirrors `ErrorCode` in
- * `rustsystem-core/src/error.rs` — keep the two in sync.
+ * `rustsystem-core/src/error.rs`; keep the two in sync.
  *
  * `NetworkError` is client-side only: the request never got a response.
  */

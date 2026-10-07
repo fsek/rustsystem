@@ -7,10 +7,10 @@
 
 ## Unit tests (`pnpm test`)
 
-- `src/components/**` — every UI component.
-- `src/voting/ballot.test.ts` — the ballot rules (the same as `rustsystem-server/src/ballot.rs`), the exact message format, signing with a real RSA blind-signature key, rejecting a signature from a key other than the server's, and submission retries (`AlreadyReceived` counts as success; no cookies are sent).
-- `src/utils/cryptoGen.test.ts` — Argon2id key derivation against **test vectors shared with `decrypt-tally`**, fresh salts, and that only the public key leaves the browser.
-- `src/utils/tallyDecrypt.test.ts` — decrypts a **file written by the Rust server code**, and rejects a wrong password or a tampered header.
+- `src/components/**`: every UI component.
+- `src/voting/ballot.test.ts`: the ballot rules (the same as `rustsystem-server/src/ballot.rs`), the exact message format, signing with a real RSA blind-signature key, rejecting a signature from a key other than the server's, and submission retries (`AlreadyReceived` counts as success; no cookies are sent).
+- `src/utils/cryptoGen.test.ts`: Argon2id key derivation against **test vectors shared with `decrypt-tally`**, fresh salts, and that only the public key leaves the browser.
+- `src/utils/tallyDecrypt.test.ts`: decrypts a **file written by the Rust server code**, and rejects a wrong password or a tampered header.
 
 The shared vectors and the fixture are what keep the browser, the server and the CLI agreeing on bytes. If you change the tally format or the KDF, regenerate them from the Rust side.
 

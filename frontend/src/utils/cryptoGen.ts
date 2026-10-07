@@ -2,12 +2,12 @@
  * The meeting's tally key, derived from the meeting password (`docs/PROTOCOL.md` §4.1, §8).
  *
  *   salt  = 16 random bytes, new for every meeting
- *   seed  = Argon2id(password, salt, t=3, m=64 MiB, p=1)   — 32 bytes
+ *   seed  = Argon2id(password, salt, t=3, m=64 MiB, p=1)   (32 bytes)
  *   key   = X25519 key pair with `seed` as the private key
  *
  * At meeting creation only the public key, salt and costs go to the server. The salt and costs
- * are written into every tally file, so later the password alone re-derives the private key —
- * here in the browser, or in the `decrypt-tally` CLI, which must produce identical bytes
+ * are written into every tally file, so later the password alone re-derives the private key,
+ * either here in the browser or in the `decrypt-tally` CLI, which must produce identical bytes
  * (see the shared test vectors in `cryptoGen.test.ts` and `decrypt-tally/src/main.rs`).
  */
 

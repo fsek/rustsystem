@@ -212,7 +212,7 @@ function GuidePage() {
             Navigate to the home page and click <strong style={{ color: "var(--textPrimary)" }}>Create Meeting</strong>. You will be asked for a meeting title, your name, and a password.
           </p>
           <Note>
-            The password is used to derive an encryption key for tally files saved on the server. Only someone with the password can decrypt them. Keep it safe — if you lose the password, saved tally files cannot be recovered.
+            The password is used to derive an encryption key for tally files saved on the server. Only someone with the password can decrypt them. Keep it safe: if you lose the password, saved tally files cannot be recovered.
           </Note>
           <p className="mt-3">
             After creation you are logged in as the host and taken to the host dashboard.
@@ -242,7 +242,7 @@ function GuidePage() {
             <li>Whether to shuffle the option order</li>
           </ul>
           <p className="mt-3">
-            Press <strong style={{ color: "var(--textPrimary)" }}>Start vote round</strong>. The meeting is now locked — no new voters can join until the round ends.
+            Press <strong style={{ color: "var(--textPrimary)" }}>Start vote round</strong>. The meeting is now locked: no new voters can join until the round ends.
           </p>
           <Note>
             A <em>blank</em> option is always included automatically. Do not add one yourself.
@@ -258,7 +258,7 @@ function GuidePage() {
               <strong style={{ color: "var(--textPrimary)" }}>Seals the ballot</strong> and has the signing authority sign it. The signing authority checks the voter hasn't voted yet, but never sees the choice.
             </li>
             <li>
-              <strong style={{ color: "var(--textPrimary)" }}>Submits it anonymously</strong> — the signed ballot goes to the server without any login, so the server counts it without knowing whose it is.
+              <strong style={{ color: "var(--textPrimary)" }}>Submits it anonymously</strong>: the signed ballot goes to the server without any login, so the server counts it without knowing whose it is.
             </li>
           </ol>
           <p className="mt-3">
@@ -271,7 +271,7 @@ function GuidePage() {
             Once satisfied that everyone has voted, press <strong style={{ color: "var(--textPrimary)" }}>Tally votes</strong>. The server finalises the count, displays the results broken down by option, and saves an encrypted copy of the tally on disk.
           </p>
           <p className="mt-3">
-            The tally is only visible on the host dashboard. <strong style={{ color: "var(--textPrimary)" }}>Download the tally</strong> before ending the round — this is the primary way to keep a record.
+            The tally is only visible on the host dashboard. <strong style={{ color: "var(--textPrimary)" }}>Download the tally</strong> before ending the round. This is the primary way to keep a record.
           </p>
         </StepSection>
 
@@ -286,7 +286,7 @@ function GuidePage() {
             When the meeting is finished, press <strong style={{ color: "var(--textPrimary)" }}>Close meeting</strong>. All in-memory state is discarded. Encrypted tally files that were written to disk remain on the server.
           </p>
           <p className="mt-3">
-            The close-meeting panel includes a <strong style={{ color: "var(--textPrimary)" }}>Download tallies</strong> section. Enter the meeting password to fetch and decrypt every tally file saved during the meeting — they are delivered as a single <code>tallies.json</code>. Decryption happens entirely in your browser; nothing sensitive is sent back to the server.
+            The close-meeting panel includes a <strong style={{ color: "var(--textPrimary)" }}>Download tallies</strong> section. Enter the meeting password to fetch and decrypt every tally file saved during the meeting; they are delivered as a single <code>tallies.json</code>. Decryption happens entirely in your browser; nothing sensitive is sent back to the server.
           </p>
         </StepSection>
       </section>

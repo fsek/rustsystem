@@ -31,7 +31,7 @@ function LoginPage() {
 
     async function doLogin() {
       if (!meeting || !invite) {
-        setError("Invalid login link — missing parameters.");
+        setError("Invalid login link: missing parameters.");
         return;
       }
       try {

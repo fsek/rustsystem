@@ -2,7 +2,7 @@
 
 **Anonymous voting for FSEK meetings.**
 
-Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lund University. Every eligible voter can vote exactly once per round, and nobody — not the hosts, not the people running the servers — can tell who voted for what. That guarantee comes from **RSA blind signatures** ([RFC 9474](https://www.rfc-editor.org/rfc/rfc9474)), not from promises.
+Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lund University. Every eligible voter can vote exactly once per round, and nobody (not the hosts, not the people running the servers) can tell who voted for what. That guarantee comes from **RSA blind signatures** ([RFC 9474](https://www.rfc-editor.org/rfc/rfc9474)), not from promises.
 
 [![Rust](https://img.shields.io/badge/backend-Rust-orange?logo=rust)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/frontend-React%2019-61dafb?logo=react)](https://react.dev/)
@@ -15,15 +15,15 @@ Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lu
 ## Contents
 
 1. [What Rustsystem guarantees](#what-rustsystem-guarantees)
-2. [Running a meeting](#running-a-meeting) — a guide for hosts and voters, including the [agenda and attendance](#3-follow-the-agenda)
-3. [How it works](#how-it-works) — the two services, logging in, voting, results
+2. [Running a meeting](#running-a-meeting): a guide for hosts and voters, including the [agenda and attendance](#3-follow-the-agenda)
+3. [How it works](#how-it-works): the two services, logging in, voting, results
 4. [Project layout](#project-layout)
-5. [Development](#development) — running locally, testing
+5. [Development](#development): running locally, testing
 6. [Configuration](#configuration)
 7. [Deployment](#deployment)
 8. [Design decisions](#design-decisions)
 
-The full protocol — every message, rule and known limit — is specified in **[docs/PROTOCOL.md](docs/PROTOCOL.md)**. This README gives the overview and links there for detail.
+The full protocol, with every message, rule and known limit, is specified in **[docs/PROTOCOL.md](docs/PROTOCOL.md)**. This README gives the overview and links there for detail.
 
 ---
 
@@ -49,7 +49,7 @@ This section is for hosts. Voters only ever need to scan a QR code and press one
 
 Go to the Rustsystem home page and choose **Create Meeting**. Enter a title, your name, and a **password**.
 
-The password protects the results stored on the server: each round's results are saved in a file that only this password can decrypt. Your browser turns the password into a key pair and sends only the public half; the password itself never leaves your browser. Keep it — without it, the stored files can't be read ([details](#results)).
+The password protects the results stored on the server: each round's results are saved in a file that only this password can decrypt. Your browser turns the password into a key pair and sends only the public half; the password itself never leaves your browser. Keep it: without it, the stored files can't be read ([details](#results)).
 
 You're now the host and land on the **Admin** page.
 
@@ -124,7 +124,7 @@ flowchart LR
     S -. "mTLS: open round, login tickets" .-> T
 ```
 
-- **Trustauth** knows who you are. Once per round it signs one ballot for you — _blind_, so it never sees what you voted.
+- **Trustauth** knows who you are. Once per round it signs one ballot for you, _blind_, so it never sees what you voted.
 - **The server** runs the meeting and counts ballots. A ballot is valid if trustauth signed it; ballots arrive without any login, so the server can't tell whose they are.
 
 Neither can link a ballot to a voter on its own. The table of exactly who knows what is in [PROTOCOL.md §2](docs/PROTOCOL.md#2-who-knows-what).
@@ -180,7 +180,7 @@ When a round closes, the server encrypts the result for the meeting's **tally ke
 password ──Argon2id(salt unique to the meeting)──▶ X25519 private key ──▶ public key (sent to the server)
 ```
 
-The server only has the public key, so it can write these files but never read them. Each file records its salt and Argon2id settings, so the password alone decrypts it — in the browser at close, or offline with [`decrypt-tally`](#decrypting-results-offline). The file also records how many voters were eligible, signed and received. Format: [PROTOCOL.md §8](docs/PROTOCOL.md#8-tally-files).
+The server only has the public key, so it can write these files but never read them. Each file records its salt and Argon2id settings, so the password alone decrypts it, in the browser at close or offline with [`decrypt-tally`](#decrypting-results-offline). The file also records how many voters were eligible, signed and received. Format: [PROTOCOL.md §8](docs/PROTOCOL.md#8-tally-files).
 
 ---
 
@@ -282,7 +282,7 @@ Both services read their settings from environment variables **at runtime**, so 
 | Variable                        | Meaning                                                                                                                                           |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RUSTSYSTEM_TRUSTED_PROXIES`    | Comma-separated IPs of reverse proxies. Only requests from these may set the client address via `X-Forwarded-For`; see [Deployment](#deployment). |
-| `RUSTSYSTEM_DISABLE_RATE_LIMIT` | Turns rate limiting off, with a warning in the log. For the browser test suite only — **never in production**.                                    |
+| `RUSTSYSTEM_DISABLE_RATE_LIMIT` | Turns rate limiting off, with a warning in the log. For the browser test suite only; **never in production**.                                     |
 
 **Frontend**: the only build-time setting is `DEV=true`, which enables the `/dev` pages. The frontend learns where trustauth is from the server at runtime (`GET /api/config`), so one build works in every environment.
 
@@ -312,8 +312,8 @@ Things that must be true in production:
 
 **Why store nothing in the browser?** Anything kept in `localStorage` is lost when a voter clears their browser, and is readable by page scripts. Instead the ballot is signed and submitted in one click and never stored; after a refresh, trustauth tells the page whether the voter has voted.
 
-**Why RSA blind signatures?** They are standardised (RFC 9474), widely deployed (Privacy Pass, Apple's Private Access Tokens), simple to explain, and have maintained libraries on both sides — so no cryptography in this project is hand-written. The unblinded signature is mathematically independent of what the signer saw.
+**Why RSA blind signatures?** They are standardised (RFC 9474), widely deployed (Privacy Pass, Apple's Private Access Tokens), simple to explain, and have maintained libraries on both sides, so no cryptography in this project is hand-written. The unblinded signature is mathematically independent of what the signer saw.
 
 **Why keep everything in memory?** There is no database to breach or migrate, and nothing about voters outlives the meeting. The cost is that a restart ends running meetings.
 
-**What changed from v2.0?** v2.0 used BBS signatures, but the signature the signer issued was submitted unchanged, ballots were sent with the voter's session cookie, and trustauth stored each voter's secret token — so ballots could be linked to voters. v2.1 rewrote the backend around the protocol above. See [docs/PROTOCOL.md §11](docs/PROTOCOL.md#11-alternatives-we-rejected).
+**What changed from v2.0?** v2.0 used BBS signatures, but the signature the signer issued was submitted unchanged, ballots were sent with the voter's session cookie, and trustauth stored each voter's secret token, so ballots could be linked to voters. v2.1 rewrote the backend around the protocol above. See [docs/PROTOCOL.md §11](docs/PROTOCOL.md#11-alternatives-we-rejected).

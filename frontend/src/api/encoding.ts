@@ -1,4 +1,4 @@
-/** base64url without padding — how the backend encodes binary values in JSON. */
+/** base64url without padding: how the backend encodes binary values in JSON. */
 
 export function toBase64Url(bytes: Uint8Array): string {
   let bin = "";
