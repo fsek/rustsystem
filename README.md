@@ -6,7 +6,7 @@ Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lu
 
 [![Rust](https://img.shields.io/badge/backend-Rust-orange?logo=rust)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/frontend-React%2019-61dafb?logo=react)](https://react.dev/)
-[![RFC 9474](https://img.shields.io/badge/crypto-RSA%20blind%20signatures%20(RFC%209474)-blueviolet)](https://www.rfc-editor.org/rfc/rfc9474)
+[![RFC 9474](<https://img.shields.io/badge/crypto-RSA%20blind%20signatures%20(RFC%209474)-blueviolet>)](https://www.rfc-editor.org/rfc/rfc9474)
 [![X25519](https://img.shields.io/badge/tally%20encryption-X25519%20%2B%20ChaCha20--Poly1305-green)](https://cr.yp.to/ecdh.html)
 [![mTLS](https://img.shields.io/badge/internal%20comms-mTLS-lightgrey)](https://en.wikipedia.org/wiki/Mutual_authentication)
 
@@ -29,13 +29,13 @@ The full protocol — every message, rule and known limit — is specified in **
 
 ## What Rustsystem guarantees
 
-| Guarantee | How | Details |
-|---|---|---|
-| Only eligible voters vote, once per round | Trustauth signs one ballot per voter per round; the server counts each ballot once | [How voting works](#how-voting-works) |
-| Nobody can link a ballot to a voter | Ballots are signed blind and arrive without any login | [Who knows what](#the-two-services) |
-| Refreshing or closing the page loses nothing | Logins are `HttpOnly` cookies; nothing secret is stored in the browser | [Staying logged in](#logging-in) |
-| A lost ballot is noticed | The host sees *eligible / signed / received* for every round | [Results](#results) |
-| The server can't read stored results | Results are encrypted to a key derived from the meeting password | [Results](#results) |
+| Guarantee                                    | How                                                                                | Details                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- |
+| Only eligible voters vote, once per round    | Trustauth signs one ballot per voter per round; the server counts each ballot once | [How voting works](#how-voting-works) |
+| Nobody can link a ballot to a voter          | Ballots are signed blind and arrive without any login                              | [Who knows what](#the-two-services)   |
+| Refreshing or closing the page loses nothing | Logins are `HttpOnly` cookies; nothing secret is stored in the browser             | [Staying logged in](#logging-in)      |
+| A lost ballot is noticed                     | The host sees _eligible / signed / received_ for every round                       | [Results](#results)                   |
+| The server can't read stored results         | Results are encrypted to a key derived from the meeting password                   | [Results](#results)                   |
 
 What it does **not** protect against is written down too: see [Known limits](docs/PROTOCOL.md#9-guarantees-and-known-limits).
 
@@ -55,7 +55,7 @@ You're now the host and land on the **Admin** page.
 
 ### 2. Invite voters
 
-In **Add voter**, type a name and press **Add**. A QR code and a link appear; give one of them to that person. When they open it they are logged in, and the dashboard says *"Anna has logged in."* Tick **Grant host privileges** to invite a co-host.
+In **Add voter**, type a name and press **Add**. A QR code and a link appear; give one of them to that person. When they open it they are logged in, and the dashboard says _"Anna has logged in."_ Tick **Grant host privileges** to invite a co-host.
 
 - Each link works **once**. If someone needs to log in again on another device, remove them and invite them again.
 - Voters who never opened their link are removed automatically when a round starts.
@@ -102,7 +102,7 @@ flowchart LR
     S -. "mTLS: open round, login tickets" .-> T
 ```
 
-- **Trustauth** knows who you are. Once per round it signs one ballot for you — *blind*, so it never sees what you voted.
+- **Trustauth** knows who you are. Once per round it signs one ballot for you — _blind_, so it never sees what you voted.
 - **The server** runs the meeting and counts ballots. A ballot is valid if trustauth signed it; ballots arrive without any login, so the server can't tell whose they are.
 
 Neither can link a ballot to a voter on its own. The table of exactly who knows what is in [PROTOCOL.md §2](docs/PROTOCOL.md#2-who-knows-what).
@@ -145,7 +145,7 @@ sequenceDiagram
 
 1. **Seal.** The browser writes the ballot and blinds it with a random factor. Sealed, it's indistinguishable from random noise.
 2. **Sign.** Trustauth checks you're eligible and haven't voted this round, records that you now have, and signs the sealed ballot.
-3. **Unseal.** Removing the factor leaves a normal signature on your real ballot. The browser checks it against the round key it got from the *server*, so trustauth can't use a special key to recognise you later.
+3. **Unseal.** Removing the factor leaves a normal signature on your real ballot. The browser checks it against the round key it got from the _server_, so trustauth can't use a special key to recognise you later.
 4. **Submit.** The ballot goes to the server with no cookies. The server checks the signature and counts each distinct ballot once.
 
 Nothing is stored in the browser at any point. After a refresh, the page asks trustauth whether you've voted this round. Every rule a ballot must pass is listed in [PROTOCOL.md §5–6](docs/PROTOCOL.md#5-voting-round).
@@ -164,15 +164,15 @@ The server only has the public key, so it can write these files but never read t
 
 ## Project layout
 
-| Path | What it is |
-|---|---|
-| [`docs/PROTOCOL.md`](docs/PROTOCOL.md) | The protocol specification. Code follows this document. |
-| [`rustsystem-core`](rustsystem-core/src/lib.rs) | Shared by both services: the error type, the server ↔ trustauth API types, the blind-signature wrapper, request limits, sessions, mTLS. |
-| [`rustsystem-server`](rustsystem-server/src/lib.rs) | The server. `state.rs` holds every meeting rule; `ballot.rs` every ballot rule; `lib.rs` has the full route table. |
-| [`rustsystem-trustauth`](rustsystem-trustauth/src/lib.rs) | Trustauth. `state.rs` holds what it knows and the one-signature-per-voter rule. |
-| [`decrypt-tally`](decrypt-tally/src/main.rs) | CLI that decrypts a tally file with the meeting password. |
-| [`frontend`](frontend) | React 19 + TanStack Router. `src/api/` talks to the backends, `src/voting/ballot.ts` casts votes, `src/utils/` holds the tally-key crypto. |
-| [`mtls`](mtls/mkcerts.sh) | Generates the certificates the two services use to talk to each other. |
+| Path                                                      | What it is                                                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`docs/PROTOCOL.md`](docs/PROTOCOL.md)                    | The protocol specification. Code follows this document.                                                                                    |
+| [`rustsystem-core`](rustsystem-core/src/lib.rs)           | Shared by both services: the error type, the server ↔ trustauth API types, the blind-signature wrapper, request limits, sessions, mTLS.   |
+| [`rustsystem-server`](rustsystem-server/src/lib.rs)       | The server. `state.rs` holds every meeting rule; `ballot.rs` every ballot rule; `lib.rs` has the full route table.                         |
+| [`rustsystem-trustauth`](rustsystem-trustauth/src/lib.rs) | Trustauth. `state.rs` holds what it knows and the one-signature-per-voter rule.                                                            |
+| [`decrypt-tally`](decrypt-tally/src/main.rs)              | CLI that decrypts a tally file with the meeting password.                                                                                  |
+| [`frontend`](frontend)                                    | React 19 + TanStack Router. `src/api/` talks to the backends, `src/voting/ballot.ts` casts votes, `src/utils/` holds the tally-key crypto. |
+| [`mtls`](mtls/mkcerts.sh)                                 | Generates the certificates the two services use to talk to each other.                                                                     |
 
 Within the server, each meeting's state sits behind **one** lock, and every state change is a plain synchronous method on `MeetingState` that either fully succeeds or changes nothing. There is no lock ordering to get wrong. See the module docs in [`state.rs`](rustsystem-server/src/state.rs) and [`app.rs`](rustsystem-server/src/app.rs).
 
@@ -196,11 +196,11 @@ Open <http://localhost:1443> (use `localhost`, not `127.0.0.1`: trustauth's cook
 
 ### Testing
 
-| Suite | Command | Needs |
-|---|---|---|
-| Backend: unit tests and end-to-end tests with both services in-process | `cargo test --workspace` | nothing |
-| Frontend: unit tests, including the cross-checks against the Rust code | `cd frontend && pnpm test` | nothing |
-| Browsers: whole meetings in Chromium, Firefox and WebKit | `cd frontend && pnpm test:e2e` | running services (below) |
+| Suite                                                                  | Command                        | Needs                    |
+| ---------------------------------------------------------------------- | ------------------------------ | ------------------------ |
+| Backend: unit tests and end-to-end tests with both services in-process | `cargo test --workspace`       | nothing                  |
+| Frontend: unit tests, including the cross-checks against the Rust code | `cd frontend && pnpm test`     | nothing                  |
+| Browsers: whole meetings in Chromium, Firefox and WebKit               | `cd frontend && pnpm test:e2e` | running services (below) |
 
 For the browser tests, build the frontend and start the services with rate limiting off (the suite creates many meetings quickly):
 
@@ -236,31 +236,31 @@ Both services read their settings from environment variables **at runtime**, so 
 
 **Server** ([`config.rs`](rustsystem-server/src/config.rs))
 
-| Variable | Example | Meaning |
-|---|---|---|
-| `SERVER_PUBLIC_URL` | `https://rosta.fsektionen.se` | Where browsers reach the server; used in invite links. `https://` makes cookies `Secure`. |
-| `TRUSTAUTH_PUBLIC_URL` | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. The server tells the frontend (`GET /api/config`). |
-| `TRUSTAUTH_INTERNAL_URL` | `https://rustsystem-trustauth:2444` | Trustauth's internal mTLS API. |
-| `SERVER_PUBLIC_ADDR` | `0.0.0.0:1443` | Listen address (plain HTTP behind the TLS proxy). |
-| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY` | `mtls/ca/ca.crt`, … | PEM files for calling trustauth. |
-| `MEETINGS_DIR` | `meetings` | Where encrypted tally files and per-meeting logs go. |
-| `FRONTEND_DIR` | `frontend/dist` | The built frontend. |
+| Variable                                | Example                                 | Meaning                                                                                   |
+| --------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `SERVER_PUBLIC_URL`                     | `https://rosta.fsektionen.se`           | Where browsers reach the server; used in invite links. `https://` makes cookies `Secure`. |
+| `TRUSTAUTH_PUBLIC_URL`                  | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. The server tells the frontend (`GET /api/config`).        |
+| `TRUSTAUTH_INTERNAL_URL`                | `https://rustsystem-trustauth:2444`     | Trustauth's internal mTLS API.                                                            |
+| `SERVER_PUBLIC_ADDR`                    | `0.0.0.0:1443`                          | Listen address (plain HTTP behind the TLS proxy).                                         |
+| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY` | `mtls/ca/ca.crt`, …                     | PEM files for calling trustauth.                                                          |
+| `MEETINGS_DIR`                          | `meetings`                              | Where encrypted tally files and per-meeting logs go.                                      |
+| `FRONTEND_DIR`                          | `frontend/dist`                         | The built frontend.                                                                       |
 
 **Trustauth** ([`config.rs`](rustsystem-trustauth/src/config.rs))
 
-| Variable | Example | Meaning |
-|---|---|---|
-| `TRUSTAUTH_PUBLIC_URL` | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. `https://` makes cookies `Secure`. |
-| `SERVER_PUBLIC_URLS` | `https://rosta.fsektionen.se` | Comma-separated origins the voter page is served from (CORS). |
-| `TRUSTAUTH_PUBLIC_ADDR`, `TRUSTAUTH_INTERNAL_ADDR` | `0.0.0.0:2443`, `0.0.0.0:2444` | Public listener, and the internal mTLS listener. |
-| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY` | `mtls/ca/ca.crt`, … | PEM files for the internal listener. |
+| Variable                                           | Example                                 | Meaning                                                            |
+| -------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `TRUSTAUTH_PUBLIC_URL`                             | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. `https://` makes cookies `Secure`. |
+| `SERVER_PUBLIC_URLS`                               | `https://rosta.fsektionen.se`           | Comma-separated origins the voter page is served from (CORS).      |
+| `TRUSTAUTH_PUBLIC_ADDR`, `TRUSTAUTH_INTERNAL_ADDR` | `0.0.0.0:2443`, `0.0.0.0:2444`          | Public listener, and the internal mTLS listener.                   |
+| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY`            | `mtls/ca/ca.crt`, …                     | PEM files for the internal listener.                               |
 
 **Both**
 
-| Variable | Meaning |
-|---|---|
-| `RUSTSYSTEM_TRUSTED_PROXIES` | Comma-separated IPs of reverse proxies. Only requests from these may set the client address via `X-Forwarded-For`; see [Deployment](#deployment). |
-| `RUSTSYSTEM_DISABLE_RATE_LIMIT` | Turns rate limiting off, with a warning in the log. For the browser test suite only — **never in production**. |
+| Variable                        | Meaning                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RUSTSYSTEM_TRUSTED_PROXIES`    | Comma-separated IPs of reverse proxies. Only requests from these may set the client address via `X-Forwarded-For`; see [Deployment](#deployment). |
+| `RUSTSYSTEM_DISABLE_RATE_LIMIT` | Turns rate limiting off, with a warning in the log. For the browser test suite only — **never in production**.                                    |
 
 **Frontend**: the only build-time setting is `DEV=true`, which enables the `/dev` pages. The frontend learns where trustauth is from the server at runtime (`GET /api/config`), so one build works in every environment.
 
@@ -286,7 +286,7 @@ Things that must be true in production:
 
 ## Design decisions
 
-**Why two services?** So that the party who knows *who* voted (trustauth) is not the party who knows *what* was voted (the server). With blind signatures, even trustauth's own records can't link a ballot to its signing request; the separation additionally keeps login data and ballots in different processes and logs.
+**Why two services?** So that the party who knows _who_ voted (trustauth) is not the party who knows _what_ was voted (the server). With blind signatures, even trustauth's own records can't link a ballot to its signing request; the separation additionally keeps login data and ballots in different processes and logs.
 
 **Why store nothing in the browser?** Anything kept in `localStorage` is lost when a voter clears their browser, and is readable by page scripts. Instead the ballot is signed and submitted in one click and never stored; after a refresh, trustauth tells the page whether the voter has voted.
 
