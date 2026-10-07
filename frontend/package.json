@@ -2,15 +2,19 @@
   "name": "rustsystem-remote",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.11.0",
   "scripts": {
     "dev": "vite",
     "start": "vite",
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
-    "format": "biome format --write src"
+    "format": "biome format --write src",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@cloudflare/blindrsa-ts": "0.4.6",
+    "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@tailwindcss/vite": "^4.1.8",
@@ -19,7 +23,6 @@
     "@tanstack/react-router-devtools": "^1.114.3",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/router-plugin": "^1.114.3",
-    "libsodium-wrappers": "^0.8.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

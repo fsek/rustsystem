@@ -1,42 +1,67 @@
-export const APIErrorCodes = {
-  InvalidUUID: "InvalidUUID",
-  InvalidMUID: "InvalidMUID",
+/**
+ * Error codes the backend can return. Mirrors `ErrorCode` in
+ * `rustsystem-core/src/error.rs` — keep the two in sync.
+ *
+ * `NetworkError` is client-side only: the request never got a response.
+ */
+export type ErrorCode =
+  | "InvalidInput"
+  | "BodyTooLarge"
+  | "NotLoggedIn"
+  | "SessionExpired"
+  | "NotHost"
+  | "InviteInvalid"
+  | "TicketInvalid"
+  | "NotFound"
+  | "MeetingNotFound"
+  | "VoterNotFound"
+  | "NameTaken"
+  | "CannotRemoveSelf"
+  | "RoundInProgress"
+  | "VotingClosed"
+  | "WrongRound"
+  | "NotEligible"
+  | "AlreadySigned"
+  | "MalformedBallot"
+  | "InvalidSignature"
+  | "InvalidBallot"
+  | "AlreadyReceived"
+  | "BallotLimitReached"
+  | "RateLimited"
+  | "TooManyConnections"
+  | "TrustauthUnavailable"
+  | "Internal"
+  | "NetworkError";
 
-  UUIDNotFound: "UUIDNotFound",
-  MUIDNotFound: "MUIDNotFound",
+/** An error from the backend, carrying its code and human-readable message. */
+export class ApiError extends Error {
+  readonly code: ErrorCode;
+  readonly status: number;
 
-  VoterNameNotFound: "VoterNameNotFound",
+  constructor(code: ErrorCode, message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
 
-  UUIDAlreadyClaimed: "UUIDAlreadyClaimed",
-  NameTaken: "NameTaken",
-  AlreadyRegistered: "AlreadyRegistered",
+export function isApiError(
+  err: unknown,
+  ...codes: ErrorCode[]
+): err is ApiError {
+  return (
+    err instanceof ApiError && (codes.length === 0 || codes.includes(err.code))
+  );
+}
 
-  MUIDMismatch: "MUIDMismatch",
+/** The user is no longer (or never was) logged in to the service that answered. */
+export function isLoggedOut(err: unknown): boolean {
+  return isApiError(err, "NotLoggedIn", "SessionExpired");
+}
 
-  InvalidMetaData: "InvalidMetaData",
-  InvalidVoteMethod: "InvalidVoteMethod",
-  InvalidVoteLength: "InvalidVoteLength",
-  VotingInactive: "VotingInactive",
-
-  SignatureInvalid: "SignatureInvalid",
-  SignatureExpired: "SignatureExpired",
-  SignatureFailure: "SignatureFailure",
-
-  InvalidState: "InvalidState",
-  AuthError: "AuthError",
-
-  InvalidStatusCode: "InvalidStatusCode",
-};
-
-export type APIErrorCode = (typeof APIErrorCodes)[keyof typeof APIErrorCodes];
-
-export type APIError = {
-  code: APIErrorCode;
-  message: string;
-  httpStatus: number;
-  timestamp: string;
-  endpoint: {
-    method: string;
-    path: string;
-  };
-};
+/** A message suitable for showing to the user. */
+export function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
