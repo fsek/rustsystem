@@ -58,6 +58,10 @@ pub enum ErrorCode {
     /// The request names a round that is not the current one.
     WrongRound,
 
+    // ── Agenda ───────────────────────────────────────────────────────────────
+    /// The action needs an agenda, and the meeting has none.
+    NoAgenda,
+
     // ── Signing (trustauth) ──────────────────────────────────────────────────
     /// The voter is not in this round's eligible set.
     NotEligible,
@@ -94,7 +98,7 @@ impl ErrorCode {
             }
             NotHost | NotEligible => StatusCode::FORBIDDEN,
             NotFound | MeetingNotFound | VoterNotFound => StatusCode::NOT_FOUND,
-            NameTaken | CannotRemoveSelf | RoundInProgress | VotingClosed | WrongRound
+            NameTaken | CannotRemoveSelf | RoundInProgress | VotingClosed | WrongRound | NoAgenda
             | AlreadySigned | AlreadyReceived | BallotLimitReached => StatusCode::CONFLICT,
             RateLimited | TooManyConnections => StatusCode::TOO_MANY_REQUESTS,
             BodyTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -124,6 +128,7 @@ impl ErrorCode {
             RoundInProgress => "This can't be done while a vote round is open.",
             VotingClosed => "No vote round is open.",
             WrongRound => "That vote round is no longer the current one.",
+            NoAgenda => "This meeting has no agenda yet.",
             NotEligible => "You are not eligible to vote in this round.",
             AlreadySigned => "You have already voted in this round.",
             MalformedBallot => "The ballot could not be read.",

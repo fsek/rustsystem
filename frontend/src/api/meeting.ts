@@ -32,14 +32,31 @@ export interface RoundView {
   received: number;
 }
 
+/** One heading of the agenda (`docs/PROTOCOL.md` §4.5). */
+export interface AgendaPoint {
+  /** 1 for `#`, 2 for `##`, and so on. */
+  level: number;
+  title: string;
+  /** The Markdown under the heading. Shown as plain text, never as HTML. */
+  body: string;
+}
+
+export interface AgendaView {
+  points: AgendaPoint[];
+  /** Index into `points`. */
+  current: number;
+}
+
 export interface MeetingView {
   title: string;
   /** Change counters, the same as the event stream sends. */
   version: number;
   roundVersion: number;
+  agendaVersion: number;
   participants: number;
   phase: Phase;
   round: RoundView | null;
+  agenda: AgendaView | null;
 }
 
 /** The public half of the tally key, derived from the meeting password in the browser. */
@@ -99,16 +116,20 @@ export async function ensureTrustauthSession(): Promise<void> {
   }
 }
 
-/** `round` moves when a round opens, closes or resets; `version` moves on every change. */
+/**
+ * `round` moves when a round opens, closes or resets; `agenda` when the agenda or its current
+ * point changes; `version` moves on every change.
+ */
 export interface Versions {
   version: number;
   round: number;
+  agenda: number;
 }
 
 /**
  * Calls `onEvent` with the meeting's change counters, once on connect and then on every change.
  * Events carry no state: the caller refetches what it shows. Voter pages need to refetch only
- * when `round` moves; host pages whenever `version` moves. On a dropped connection `onEvent` is
+ * when `round` or `agenda` moves; host pages whenever `version` moves. On a dropped connection `onEvent` is
  * called with `null` (refetch to notice a closed meeting); `EventSource` then reconnects itself.
  * Returns a function that stops listening.
  */

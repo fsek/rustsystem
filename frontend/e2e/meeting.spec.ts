@@ -147,3 +147,64 @@ test("a removed voter is told they're no longer in the meeting", async ({
     timeout: 15_000,
   });
 });
+
+test("agenda: upload, step through live, take attendance, download", async ({
+  browser,
+}) => {
+  const host = await createMeeting(browser);
+  const voter = await join(browser, await invite(host, "Anna"));
+
+  // Upload the agenda as a file.
+  await host.getByRole("button", { name: "Add agenda" }).click();
+  await host.getByTestId("agenda-file").setInputFiles({
+    name: "agenda.md",
+    mimeType: "text/markdown",
+    buffer: Buffer.from(
+      "# Opening\nWelcome.\n\n# Election of chair\n## Nominations\n\n# Closing\n",
+    ),
+  });
+  await expect(host.getByLabel("Agenda (Markdown)")).toHaveValue(/# Closing/);
+  await host.getByRole("button", { name: "Save agenda" }).click();
+
+  const current = (page: Page) => page.locator('li[aria-current="step"]');
+  await expect(current(host)).toContainText("Opening");
+  await expect(current(voter)).toContainText("Welcome.");
+
+  // The voter's page follows the host forward and back by itself.
+  await host.getByRole("button", { name: "Next →" }).click();
+  await host.getByRole("button", { name: "Next →" }).click();
+  await expect(current(voter)).toContainText("Nominations");
+  await host.getByRole("button", { name: "← Previous" }).click();
+  await expect(current(voter)).toContainText("Election of chair");
+
+  await host.getByRole("button", { name: "Take attendance" }).click();
+  await expect(
+    host.getByText("Attendance recorded: 2 members at “Election of chair”."),
+  ).toBeVisible();
+
+  // Editing keeps the meeting on the same point.
+  await host.getByRole("button", { name: "Edit", exact: true }).click();
+  const editor = host.getByLabel("Agenda (Markdown)");
+  await editor.fill(`# Minutes\n${await editor.inputValue()}`);
+  await host.getByRole("button", { name: "Save agenda" }).click();
+  await expect(current(voter)).toContainText("Election of chair");
+  await expect(voter.locator("li")).toHaveCount(5);
+
+  // The log downloads from the close-meeting panel.
+  await host.getByRole("button", { name: "Close meeting" }).click();
+  const [download] = await Promise.all([
+    host.waitForEvent("download"),
+    host.getByRole("button", { name: "Download attendance" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe("attendance.json");
+  const log = JSON.parse(
+    await (await download.createReadStream())
+      .toArray()
+      .then((c) => Buffer.concat(c).toString()),
+  );
+  expect(log.records).toHaveLength(1);
+  expect(log.records[0].point.title).toBe("Election of chair");
+  expect(
+    log.records[0].present.map((p: { name: string }) => p.name).sort(),
+  ).toEqual(["Anna", "Host"]);
+});

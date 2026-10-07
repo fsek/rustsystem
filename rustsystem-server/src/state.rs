@@ -30,7 +30,10 @@ use rustsystem_core::{
     secret::{TokenHash, b64_decode, hash_token, new_token},
 };
 
-use crate::ballot::{self, RoundRules};
+use crate::{
+    agenda::Agenda,
+    ballot::{self, RoundRules},
+};
 
 // ── Limits (served to the frontend by `GET /api/config`) ─────────────────────
 
@@ -194,11 +197,43 @@ impl Phase {
     }
 }
 
+// ── Attendance ───────────────────────────────────────────────────────────────
+
+/// One attendance check: who was logged in, and where on the agenda the meeting was.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attendance {
+    /// RFC 3339, like the times in tally files.
+    pub taken_at: String,
+    /// The point as it was then. A copy, so later agenda edits don't rewrite the record.
+    pub point: Option<AttendancePoint>,
+    pub present: Vec<Present>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttendancePoint {
+    pub index: usize,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Present {
+    pub id: VoterId,
+    pub name: String,
+    pub is_host: bool,
+}
+
 // ── The meeting ──────────────────────────────────────────────────────────────
 
 pub struct MeetingState {
     voters: HashMap<VoterId, Voter>,
     phase: Phase,
+    agenda: Option<Agenda>,
+    /// Index into `agenda.points`; meaningless without an agenda.
+    current: usize,
+    attendance: Vec<Attendance>,
 }
 
 impl MeetingState {
@@ -216,6 +251,9 @@ impl MeetingState {
         let state = Self {
             voters: HashMap::from([(host, voter)]),
             phase: Phase::Idle,
+            agenda: None,
+            current: 0,
+            attendance: Vec::new(),
         };
         Ok((state, host))
     }
@@ -416,6 +454,73 @@ impl MeetingState {
     /// Returns whether there was anything to reset.
     pub fn reset_round(&mut self) -> bool {
         !matches!(std::mem::replace(&mut self.phase, Phase::Idle), Phase::Idle)
+    }
+
+    // ── Agenda (never blocked by a round) ────────────────────────────────────
+
+    /// The agenda and the index of the current point.
+    pub fn agenda(&self) -> Option<(&Agenda, usize)> {
+        self.agenda.as_ref().map(|a| (a, self.current))
+    }
+
+    /// Sets or replaces the agenda. An edit keeps the meeting on the same point if a point with
+    /// that title still exists (the first at or after the old position, else the first before);
+    /// otherwise the position is kept as close as the new length allows.
+    pub fn set_agenda(&mut self, source: &str) -> ApiResult<()> {
+        let new = Agenda::parse(source)?;
+        let current = match self.agenda() {
+            None => 0,
+            Some((old, i)) => {
+                let title = &old.points[i].title;
+                let after = new.points.iter().skip(i).position(|p| &p.title == title).map(|j| i + j);
+                let before = || new.points.iter().take(i).rposition(|p| &p.title == title);
+                after.or_else(before).unwrap_or(i.min(new.points.len() - 1))
+            }
+        };
+        self.agenda = Some(new);
+        self.current = current;
+        Ok(())
+    }
+
+    /// Returns whether there was an agenda to clear.
+    pub fn clear_agenda(&mut self) -> bool {
+        self.current = 0;
+        self.agenda.take().is_some()
+    }
+
+    /// Moves to point `index`. Absolute rather than "next", so two hosts clicking at once can't
+    /// skip a point.
+    pub fn go_to(&mut self, index: usize) -> ApiResult<()> {
+        let agenda = self.agenda.as_ref().ok_or(ErrorCode::NoAgenda)?;
+        if index >= agenda.points.len() {
+            return Err(ApiError::invalid_input(format!(
+                "The agenda has {} points; there is no point {}.",
+                agenda.points.len(),
+                index + 1
+            )));
+        }
+        self.current = index;
+        Ok(())
+    }
+
+    // ── Attendance ───────────────────────────────────────────────────────────
+
+    /// Records everyone logged in right now: invite used, not removed, not reset.
+    pub fn take_attendance(&mut self) -> &Attendance {
+        let point = self.agenda().map(|(a, i)| AttendancePoint { index: i, title: a.points[i].title.clone() });
+        let present = self
+            .voters()
+            .into_iter()
+            .filter(|(_, v)| v.logged_in)
+            .map(|(id, v)| Present { id, name: v.name.clone(), is_host: v.is_host })
+            .collect();
+        self.attendance.push(Attendance { taken_at: Utc::now().to_rfc3339(), point, present });
+        self.attendance.last().expect("just pushed")
+    }
+
+    /// Every attendance check so far, oldest first.
+    pub fn attendance(&self) -> &[Attendance] {
+        &self.attendance
     }
 }
 
@@ -675,5 +780,97 @@ mod tests {
         state.finish_close(closed).unwrap();
         assert!(state.reset_round());
         assert!(state.eligible_voters().is_ok());
+    }
+
+    // ── Agenda ───────────────────────────────────────────────────────────────
+
+    const AGENDA: &str = "# Opening\n# Budget\n## Vote\n# Closing\n";
+
+    fn current_title(state: &MeetingState) -> &str {
+        let (a, i) = state.agenda().unwrap();
+        &a.points[i].title
+    }
+
+    #[test]
+    fn moving_needs_an_agenda_and_a_real_point() {
+        let (mut state, _) = meeting();
+        assert_eq!(code(state.go_to(0)), ErrorCode::NoAgenda);
+        state.set_agenda(AGENDA).unwrap();
+        assert_eq!(current_title(&state), "Opening");
+        state.go_to(3).unwrap();
+        state.go_to(2).unwrap(); // back
+        assert_eq!(current_title(&state), "Vote");
+        assert_eq!(code(state.go_to(4)), ErrorCode::InvalidInput);
+        assert_eq!(current_title(&state), "Vote", "a failed move changes nothing");
+    }
+
+    #[test]
+    fn agenda_works_during_a_round() {
+        let (mut state, _) = meeting();
+        open(&mut state, spec(2, 1));
+        state.set_agenda(AGENDA).unwrap();
+        state.go_to(1).unwrap();
+    }
+
+    #[test]
+    fn editing_keeps_the_current_point_by_title() {
+        let (mut state, _) = meeting();
+        state.set_agenda(AGENDA).unwrap();
+        state.go_to(1).unwrap(); // Budget
+        state.set_agenda("# Opening\n# Minutes\n# Budget\n# Closing\n").unwrap();
+        assert_eq!(current_title(&state), "Budget", "a point inserted before it");
+        state.set_agenda("# Budget\n# Closing\n").unwrap();
+        assert_eq!(current_title(&state), "Budget", "points removed before it");
+        state.go_to(1).unwrap(); // Closing
+        state.set_agenda("# Opening\n# Ending\n").unwrap();
+        assert_eq!(state.agenda().unwrap().1, 1, "renamed: the position is kept");
+        state.set_agenda("# Only\n").unwrap();
+        assert_eq!(state.agenda().unwrap().1, 0, "clamped to the new length");
+    }
+
+    #[test]
+    fn a_bad_edit_changes_nothing() {
+        let (mut state, _) = meeting();
+        state.set_agenda(AGENDA).unwrap();
+        state.go_to(2).unwrap();
+        assert_eq!(code(state.set_agenda("no headings")), ErrorCode::InvalidInput);
+        assert_eq!(current_title(&state), "Vote");
+        assert!(state.clear_agenda());
+        assert!(state.agenda().is_none());
+        assert!(!state.clear_agenda());
+    }
+
+    // ── Attendance ───────────────────────────────────────────────────────────
+
+    fn names(a: &Attendance) -> Vec<&str> {
+        a.present.iter().map(|p| p.name.as_str()).collect()
+    }
+
+    #[test]
+    fn attendance_is_everyone_logged_in() {
+        let (mut state, _) = meeting();
+        let alice = joined(&mut state, "Alice");
+        let bob = joined(&mut state, "Bob");
+        state.add_voter("Never joined", false).unwrap();
+        assert_eq!(names(state.take_attendance()), ["Host", "Alice", "Bob"]);
+
+        state.remove_voter(alice, bob).unwrap();
+        state.reset_invite(alice).unwrap();
+        let second = state.take_attendance();
+        assert_eq!(names(second), ["Host"], "removed and reset voters are not logged in");
+        assert!(second.present[0].is_host);
+        assert_eq!(state.attendance().len(), 2);
+    }
+
+    #[test]
+    fn attendance_records_the_point_and_keeps_it() {
+        let (mut state, _) = meeting();
+        assert_eq!(state.take_attendance().point, None, "allowed without an agenda");
+        state.set_agenda(AGENDA).unwrap();
+        state.go_to(1).unwrap();
+        state.take_attendance();
+        state.set_agenda("# Something else\n").unwrap();
+        let point = state.attendance()[1].point.clone().unwrap();
+        assert_eq!((point.index, point.title.as_str()), (1, "Budget"), "edits don't rewrite history");
     }
 }

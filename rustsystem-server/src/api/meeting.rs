@@ -15,6 +15,7 @@ use rustsystem_core::{
 };
 
 use crate::{
+    api::agenda::{AgendaView, agenda_view},
     app::{AppState, Meeting},
     auth::{Host, Member},
     state::{MAX_CANDIDATES, MAX_LABEL_LENGTH, MAX_NAME_LENGTH, MeetingState, Phase, clean_text},
@@ -180,11 +181,13 @@ pub struct MeetingView {
     /// The same counters the event stream sends.
     version: u64,
     round_version: u64,
+    agenda_version: u64,
     /// Voters who have logged in.
     participants: usize,
     /// `"idle"`, `"voting"` or `"tallied"`.
     phase: &'static str,
     round: Option<RoundView>,
+    agenda: Option<AgendaView>,
 }
 
 #[derive(Serialize)]
@@ -232,9 +235,11 @@ pub async fn get(member: Member) -> Json<MeetingView> {
         title: member.meeting.title.clone(),
         version: versions.version,
         round_version: versions.round,
+        agenda_version: versions.agenda,
         participants: state.participants(),
         phase: state.phase().name(),
         round: round_view(state.phase()),
+        agenda: agenda_view(&state),
     })
 }
 

@@ -27,6 +27,7 @@ hkdf = "0.12"
 sha2 = "0.10"
 
 rustsystem-core = { path = "../rustsystem-core" }
+pulldown-cmark = { version = "0.13.4", default-features = false }
 
 [dev-dependencies]
 rustsystem-trustauth = { path = "../rustsystem-trustauth" }

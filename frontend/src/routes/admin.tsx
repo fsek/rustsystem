@@ -9,6 +9,10 @@ import { Spinner } from "@/components/Spinner/Spinner";
 import { Badge } from "@/components/Badge/Badge";
 import { Panel } from "@/components/Panel/Panel";
 import {
+  AgendaPanel,
+  type AgendaHostActions,
+} from "@/components/AgendaPanel/AgendaPanel";
+import {
   VotePanel,
   phaseToVoteState,
   type VoteState,
@@ -17,15 +21,21 @@ import { fromBase64 } from "@/api/encoding";
 import { errorMessage, isApiError, isLoggedOut } from "@/api/error";
 import {
   addVoter,
+  clearAgenda,
   closeMeeting,
   closeRound,
+  getAgendaSource,
+  getAttendance,
   getRound,
   getTallyFiles,
+  goToAgendaPoint,
   listVoters,
   removeAllVoters,
   removeVoter,
   resetRound,
+  setAgenda,
   startRound,
+  takeAttendance,
   toTallyResult,
   type HostRoundView,
   type Invite,
@@ -33,7 +43,9 @@ import {
   type VoterInfo,
 } from "@/api/host";
 import {
+  type AgendaView,
   ensureTrustauthSession,
+  getMeeting,
   getSession,
   watchMeeting,
 } from "@/api/meeting";
@@ -969,6 +981,7 @@ function Admin() {
   const [voters, setVoters] = useState<VoterInfo[]>([]);
   const [votersLoading, setVotersLoading] = useState(true);
   const [round, setRound] = useState<HostRoundView | null>(null);
+  const [agenda, setAgendaView] = useState<AgendaView | null>(null);
   const [qrInfo, setQrInfo] = useState<NewInvite | null>(null);
   const [joinedVoterName, setJoinedVoterName] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -979,6 +992,8 @@ function Admin() {
   const [tallyDownloadError, setTallyDownloadError] = useState<string | null>(
     null,
   );
+  const [downloadingAttendance, setDownloadingAttendance] = useState(false);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selfId, setSelfId] = useState<string | null>(null);
   const [meetingId, setMeetingId] = useState<string | null>(null);
@@ -996,7 +1011,11 @@ function Admin() {
 
   const refresh = useCallback(async () => {
     try {
-      const [list, r] = await Promise.all([listVoters(), getRound()]);
+      const [list, r, m] = await Promise.all([
+        listVoters(),
+        getRound(),
+        getMeeting(),
+      ]);
       const before = loggedIn.current;
       if (before) {
         const joined = list.find(
@@ -1007,6 +1026,7 @@ function Admin() {
       loggedIn.current = new Map(list.map((v) => [v.id, v.loggedIn]));
       setVoters(list);
       setRound(r);
+      setAgendaView(m.agenda);
       setSessionValid(true);
     } catch (err) {
       if (isLoggedOut(err) || isApiError(err, "NotHost"))
@@ -1094,6 +1114,38 @@ function Admin() {
     } catch (err) {
       setCloseError(errorMessage(err));
       setClosing(false);
+    }
+  }
+
+  const agendaActions: AgendaHostActions = {
+    goTo: async (index) => setAgendaView(await goToAgendaPoint(index)),
+    takeAttendance,
+    loadSource: async () => (await getAgendaSource()).source,
+    save: async (markdown) => setAgendaView(await setAgenda(markdown)),
+    clear: async () => {
+      await clearAgenda();
+      setAgendaView(null);
+    },
+  };
+
+  async function handleDownloadAttendance() {
+    setDownloadingAttendance(true);
+    setAttendanceError(null);
+    try {
+      const log = await getAttendance();
+      const blob = new Blob([JSON.stringify(log, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "attendance.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setAttendanceError(errorMessage(err));
+    } finally {
+      setDownloadingAttendance(false);
     }
   }
 
@@ -1191,6 +1243,7 @@ function Admin() {
             setConfirmClose(true);
             setCloseError(null);
             setTallyDownloadError(null);
+            setAttendanceError(null);
             setTallyPassword("");
           }}
         >
@@ -1291,6 +1344,45 @@ function Admin() {
                 </Alert>
               )}
             </div>
+
+            <div
+              className="flex flex-col gap-3 pt-3 border-t"
+              style={{ borderColor: "var(--borderPrimary)" }}
+            >
+              <p
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--textSecondary)" }}
+              >
+                Download attendance
+              </p>
+              <p className="text-xs" style={{ color: "var(--textSecondary)" }}>
+                Every attendance check taken in this meeting, with who was
+                logged in at each, as a JSON file.
+              </p>
+              <div>
+                <Button
+                  size="m"
+                  color="buttonSecondary"
+                  variant="outline"
+                  onClick={handleDownloadAttendance}
+                  disabled={downloadingAttendance || closing}
+                >
+                  {downloadingAttendance ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="s" color="secondary" />
+                      Downloading…
+                    </span>
+                  ) : (
+                    "Download attendance"
+                  )}
+                </Button>
+              </div>
+              {attendanceError && (
+                <Alert size="sm" color="accent">
+                  {attendanceError}
+                </Alert>
+              )}
+            </div>
           </div>
         </Panel>
       )}
@@ -1325,8 +1417,9 @@ function Admin() {
           />
         </div>
 
-        {/* Right column: vote round + host voting */}
+        {/* Right column: agenda, vote round + host voting */}
         <div className="flex flex-col gap-6">
+          <AgendaPanel agenda={agenda} host={agendaActions} />
           <HostVoteRoundPanel
             voteState={voteState}
             progress={round}

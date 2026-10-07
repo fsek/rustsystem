@@ -1,8 +1,9 @@
 //! `GET /api/meeting/events` — live updates (`docs/PROTOCOL.md` §5.6).
 //!
-//! The stream sends only change counters, `{"version": 12, "round": 3}`: once on connect, then
-//! on every change. `round` moves only when a round opens, closes or resets, so voters' pages
-//! refetch `GET /api/meeting` only then; hosts' pages refetch whenever `version` moves. Because
+//! The stream sends only change counters, `{"version": 12, "round": 3, "agenda": 5}`: once on
+//! connect, then on every change. `round` moves only when a round opens, closes or resets, and
+//! `agenda` when the agenda or its current point changes, so voters' pages refetch
+//! `GET /api/meeting` only then; hosts' pages refetch whenever `version` moves. Because
 //! events carry no state, a dropped and reconnected stream can never leave a page showing stale
 //! data. The stream ends when the meeting closes.
 

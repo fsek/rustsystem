@@ -15,7 +15,7 @@ Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lu
 ## Contents
 
 1. [What Rustsystem guarantees](#what-rustsystem-guarantees)
-2. [Running a meeting](#running-a-meeting) — a guide for hosts and voters
+2. [Running a meeting](#running-a-meeting) — a guide for hosts and voters, including the [agenda and attendance](#3-follow-the-agenda)
 3. [How it works](#how-it-works) — the two services, logging in, voting, results
 4. [Project layout](#project-layout)
 5. [Development](#development) — running locally, testing
@@ -61,7 +61,29 @@ In **Add voter**, type a name and press **Add**. A QR code and a link appear; gi
 - Voters who never opened their link are removed automatically when a round starts.
 - Hosts can remove anyone except themselves.
 
-### 3. Run a vote round
+### 3. Follow the agenda
+
+In **Agenda**, press **Add agenda** and upload a Markdown file (or type it in). Every heading becomes an agenda point; the text under a heading is shown with that point:
+
+```markdown
+# Opening
+
+Welcome, and election of a secretary.
+
+# Election of chair
+
+## Nominations
+
+## Vote
+
+# Closing
+```
+
+Everyone, voters included, sees the agenda with the current point highlighted. Hosts move through it with **Next** and **Previous**, or click any point to jump there. **Edit** changes the agenda mid-meeting; the meeting stays on the same point as long as its heading still exists.
+
+At any point, press **Take attendance** to record everyone who is logged in right now (whether or not their page is open). Each record notes which agenda point it was taken at. The full log is downloaded when you [close the meeting](#6-close-the-meeting). The exact rules are in [PROTOCOL.md §4.5](docs/PROTOCOL.md#45-agenda-and-attendance).
+
+### 4. Run a vote round
 
 In **Vote round**, enter what's being voted on, the options, how many options each voter may pick, and whether to shuffle their order. A **Blank vote** button is always available, so don't add a blank option. Press **Start vote round**.
 
@@ -71,7 +93,7 @@ Voters see the options on their phones, choose, and press **Submit vote** (or **
 
 The dashboard shows **Votes cast** (ballots received, out of eligible voters) and **Ballots signed**.
 
-### 4. Tally
+### 5. Tally
 
 Press **Tally votes**. The results appear on the dashboard, and an encrypted copy is saved on the server. Use the download button next to the results to save them as JSON, YAML, TOML, RON or binary JSON.
 
@@ -79,9 +101,9 @@ If more ballots were **signed** than **received**, a warning appears: someone cl
 
 Press **End round** to clear the result and start the next round.
 
-### 5. Close the meeting
+### 6. Close the meeting
 
-**Close meeting** opens a confirmation panel. Before confirming, you can enter the meeting password and press **Download** to decrypt every round's results in your browser and save them as one `tallies.json`. Closing logs everyone out; the encrypted files stay on the server and can still be decrypted later with [`decrypt-tally`](#decrypting-results-offline).
+**Close meeting** opens a confirmation panel. Before confirming, you can enter the meeting password and press **Download** to decrypt every round's results in your browser and save them as one `tallies.json`, and press **Download attendance** to save every attendance record as `attendance.json`. (You can open this panel and press **Cancel** at any time just to download.) Closing logs everyone out and discards the attendance records; the encrypted files stay on the server and can still be decrypted later with [`decrypt-tally`](#decrypting-results-offline).
 
 > **Never restart or redeploy the servers during a meeting.** All meeting state lives in memory by design ([why](#design-decisions)), so a restart ends every meeting.
 

@@ -48,12 +48,14 @@ pub struct Settings {
 }
 
 /// Change counters sent on the event stream. `round` changes only when a round opens, closes or
-/// is reset (or the meeting closes) — all a voter's page cares about. `version` changes on every
-/// change, including each ballot and login, which only hosts' pages track.
+/// is reset (or the meeting closes), and `agenda` when the agenda or its current point changes —
+/// all a voter's page cares about. `version` changes on every change, including each ballot and
+/// login, which only hosts' pages track.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Versions {
     pub version: u64,
     pub round: u64,
+    pub agenda: u64,
 }
 
 pub struct Meeting {
@@ -96,6 +98,14 @@ impl Meeting {
         self.versions.send_modify(|v| {
             v.version += 1;
             v.round += 1;
+        });
+    }
+
+    /// The agenda or its current point changed: every page refetches.
+    pub fn agenda_changed(&self) {
+        self.versions.send_modify(|v| {
+            v.version += 1;
+            v.agenda += 1;
         });
     }
 
