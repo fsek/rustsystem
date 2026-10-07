@@ -1,38 +1,8 @@
-use crate::AppState;
-use axum::Router;
+//! HTTP handlers, grouped by resource. The route table is in `lib.rs`.
 
-use rustsystem_core::add_handler;
-
-pub mod create_meeting;
-use create_meeting::CreateMeeting;
-
-pub mod limits;
-use limits::Limits;
-
-pub mod login;
-use login::Login;
-
-pub mod session_ids;
-use session_ids::SessionIds;
-
-pub mod voter;
-use voter::voter_routes;
-
-pub mod host;
-use host::host_routes;
-
-pub mod common;
-use common::common_routes;
-
-// Routes at /api/...
-pub fn api_routes() -> Router<AppState> {
-    let mut router = Router::new();
-    router = add_handler::<CreateMeeting>(router);
-    router = add_handler::<SessionIds>(router);
-    router = add_handler::<Login>(router);
-    router = add_handler::<Limits>(router);
-    router
-        .nest("/host", host_routes())
-        .nest("/voter", voter_routes())
-        .nest("/common", common_routes())
-}
+pub mod agenda;
+pub mod ballot;
+pub mod events;
+pub mod meeting;
+pub mod round;
+pub mod voters;

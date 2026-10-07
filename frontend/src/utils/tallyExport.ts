@@ -1,4 +1,4 @@
-import type { TallyResult } from "@/signatures/voteSession";
+import type { TallyResult } from "@/api/host";
 
 // ─── JSON ─────────────────────────────────────────────────────────────────────
 

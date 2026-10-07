@@ -30,8 +30,7 @@ export function Footer() {
         <span style={{ color: "var(--primary)", fontWeight: 600 }}>
           F-sektionen
         </span>{" "}
-        · Lund University · Anonymous voting powered by BLS12-381 blind
-        signatures
+        · Lund University · Anonymous voting powered by RSA blind signatures
       </p>
       <p className="text-xs" style={{ color: "var(--textSecondary)", opacity: 0.6 }}>
         {APP_VERSION}

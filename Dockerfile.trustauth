@@ -1,41 +1,35 @@
-ARG API_ENDPOINT_SERVER=https://rosta.fsektionen.se
-ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER=https://rustsystem-server:1444
-ARG API_ENDPOINT_TRUSTAUTH=https://rosta.trustauth.fsektionen.se
+# Rustsystem trustauth: logins and blind signatures.
+#
+#   docker build -f Dockerfile.trustauth -t rustsystem-trustauth .
+#
+# Expects mTLS certificates in mtls-prod/ (deploy.sh generates them). Every setting is a
+# runtime environment variable (see rustsystem-trustauth/src/config.rs); the defaults below
+# are production's.
 
-FROM rust:1.91-bullseye AS builder
+FROM rust:1.91-bookworm AS builder
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
-COPY rustsystem-trustauth/ ./rustsystem-trustauth/
 COPY rustsystem-core/ ./rustsystem-core/
-# Stub out workspace members not needed for this binary
-COPY rustsystem-server/Cargo.toml ./rustsystem-server/
-RUN mkdir -p rustsystem-server/src && touch rustsystem-server/src/lib.rs rustsystem-server/src/main.rs
-COPY decrypt-tally/Cargo.toml ./decrypt-tally/
-RUN mkdir -p decrypt-tally/src && touch decrypt-tally/src/main.rs
-ARG API_ENDPOINT_SERVER
-ARG API_ENDPOINT_TRUSTAUTH_TO_SERVER
-ARG API_ENDPOINT_TRUSTAUTH
-# Build with empty PEM stubs to cache all dependency compilation.
-# include_bytes! compiles fine with empty files; PEM parsing only happens at runtime.
-COPY mtls-prod/ca/ ./mtls/ca/
-COPY mtls-prod/trustauth/ ./mtls/trustauth/
-RUN touch rustsystem-trustauth/src/main.rs
+COPY rustsystem-server/ ./rustsystem-server/
+COPY rustsystem-trustauth/ ./rustsystem-trustauth/
+COPY decrypt-tally/ ./decrypt-tally/
 RUN cargo build --release --bin rustsystem-trustauth
 
-FROM debian:bullseye-slim AS runtime
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
 COPY --from=builder /app/target/release/rustsystem-trustauth ./rustsystem-trustauth
+COPY mtls-prod/ca/ca.crt mtls-prod/trustauth/trustauth.crt mtls-prod/trustauth/trustauth.key ./mtls/
+
+ENV TRUSTAUTH_PUBLIC_URL=https://rosta.trustauth.fsektionen.se \
+    SERVER_PUBLIC_URLS=https://rosta.fsektionen.se \
+    TRUSTAUTH_PUBLIC_ADDR=0.0.0.0:2443 \
+    TRUSTAUTH_INTERNAL_ADDR=0.0.0.0:2444 \
+    MTLS_CA_CERT=/app/mtls/ca.crt \
+    MTLS_CERT=/app/mtls/trustauth.crt \
+    MTLS_KEY=/app/mtls/trustauth.key
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
-
-EXPOSE 2443
-EXPOSE 2444
-
+EXPOSE 2443 2444
 CMD ["./rustsystem-trustauth"]

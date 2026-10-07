@@ -1,461 +1,319 @@
 # Rustsystem
 
-**Anonymous, cryptographically verifiable voting for FSEK meetings.**
+**Anonymous voting for FSEK meetings.**
 
-Rustsystem is a modern, zero-trust voting system built for [F-sektionen](https://fsektionen.se) at Lund University. Using **BBS blind signatures** over the BLS12-381 curve, the system guarantees that every eligible voter can vote exactly once — without the server ever learning who voted for what. Integrity and anonymity are enforced mathematically, not by policy.
+Rustsystem runs the votes at [F-sektionen](https://fsektionen.se) meetings at Lund University. Every eligible voter can vote exactly once per round, and nobody (not the hosts, not the people running the servers) can tell who voted for what. That guarantee comes from **RSA blind signatures** ([RFC 9474](https://www.rfc-editor.org/rfc/rfc9474)), not from promises.
 
 [![Rust](https://img.shields.io/badge/backend-Rust-orange?logo=rust)](https://www.rust-lang.org/)
 [![React 19](https://img.shields.io/badge/frontend-React%2019-61dafb?logo=react)](https://react.dev/)
-[![BBS%2B Blind Signatures](https://img.shields.io/badge/crypto-BBS%2B%20Blind%20Signatures-blueviolet)](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02)
-[![BLS12-381](https://img.shields.io/badge/curve-BLS12--381-blue)](https://hackmd.io/@benjaminion/bls12-381)
+[![RFC 9474](<https://img.shields.io/badge/crypto-RSA%20blind%20signatures%20(RFC%209474)-blueviolet>)](https://www.rfc-editor.org/rfc/rfc9474)
 [![X25519](https://img.shields.io/badge/tally%20encryption-X25519%20%2B%20ChaCha20--Poly1305-green)](https://cr.yp.to/ecdh.html)
 [![mTLS](https://img.shields.io/badge/internal%20comms-mTLS-lightgrey)](https://en.wikipedia.org/wiki/Mutual_authentication)
 
 ---
 
-## Table of Contents
+## Contents
 
-- [Quick-Start Guide](#quick-start-guide)
-  - [Creating a Meeting](#creating-a-meeting)
-  - [Inviting Voters](#inviting-voters)
-  - [Starting a Vote Round](#starting-a-vote-round)
-  - [Voting](#voting)
-  - [Tally](#tally)
-  - [Downloading the Tally](#downloading-the-tally)
-  - [Ending a Vote Round](#ending-a-vote-round)
-  - [Closing the Meeting](#closing-the-meeting)
-  - [Downloading All Tallies at Close](#downloading-all-tallies-at-close)
-- [Architecture](#architecture)
-  - [Overall Structure](#overall-structure)
-  - [Logging In](#logging-in)
-  - [Voting](#voting-architecture)
-  - [Tally](#tally-architecture)
-  - [RwLocks](#rwlocks)
-- [Cryptography](#cryptography)
-  - [BBS Blind Signatures (BLS12-381)](#bbs-blind-signatures-bls12-381)
-  - [X25519 Tally Encryption](#x25519-tally-encryption)
-- [Running Rustsystem](#running-rustsystem)
-  - [Development](#development)
-  - [Deployment](#deployment)
+1. [What Rustsystem guarantees](#what-rustsystem-guarantees)
+2. [Running a meeting](#running-a-meeting): a guide for hosts and voters, including the [agenda and attendance](#3-follow-the-agenda)
+3. [How it works](#how-it-works): the two services, logging in, voting, results
+4. [Project layout](#project-layout)
+5. [Development](#development): running locally, testing
+6. [Configuration](#configuration)
+7. [Deployment](#deployment)
+8. [Design decisions](#design-decisions)
+
+The full protocol, with every message, rule and known limit, is specified in **[docs/PROTOCOL.md](docs/PROTOCOL.md)**. This README gives the overview and links there for detail.
 
 ---
 
-## Quick-Start Guide
+## What Rustsystem guarantees
 
-This section explains how to run a meeting without going into implementation details. For the underlying mechanics, see [Architecture](#architecture).
+| Guarantee                                    | How                                                                                | Details                               |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- |
+| Only eligible voters vote, once per round    | Trustauth signs one ballot per voter per round; the server counts each ballot once | [How voting works](#how-voting-works) |
+| Nobody can link a ballot to a voter          | Ballots are signed blind and arrive without any login                              | [Who knows what](#the-two-services)   |
+| Refreshing or closing the page loses nothing | Logins are `HttpOnly` cookies; nothing secret is stored in the browser             | [Staying logged in](#logging-in)      |
+| A lost ballot is noticed                     | The host sees _eligible / signed / received_ for every round                       | [Results](#results)                   |
+| The server can't read stored results         | Results are encrypted to a key derived from the meeting password                   | [Results](#results)                   |
 
-### Creating a Meeting
-
-Navigate to the Rustsystem home page and click **Create Meeting**. You will be asked to provide:
-
-- A **meeting title**.
-- Your **name**
-- A **password**.
-
-The password is important: each tally is saved on the server in a file that is encrypted with a public key derived from this password. This means **only someone with the password can decrypt the tally file**. This is a last-resort safeguard, if the meeting hosts forget to download the tally before closing the vote round, the file can still be recovered offline using the password. Under normal operation the host downloads the tally during the meeting and never needs the file at all.
-
-After creation you will be logged in as the host and taken to the host dashboard.
-
-### Inviting Voters
-
-From the host dashboard, use the **Add Voter** panel to create an invitation for each participant. Give the voter a name and click **Add**. The system creates a voter account immediately, but the voter is not yet logged in.
-
-Each invitation generates a **QR code and a unique link**. Share either with the voter. When the voter scans the QR code or follows the link, their browser completes the login sequence automatically and they appear as active on the host dashboard.
-
-> **Note:** Voters who have been created but have never followed their login link are considered _unclaimed_. When a new vote round starts, all unclaimed voters are automatically removed so that no one can log in mid-vote.
-
-### Starting a Vote Round
-
-When all voters are present, the host configures the vote round:
-
-- **Motion / question** to vote on.
-- **Candidates or options** (yes/no, list of names, etc.).
-- **How many options** can be chosen.
-- Whether to **shuffle the candidate order** option order.
-
-> **Note:** A _blank_ option is always provided. Do not include this in your vote options.
-
-Press **Start vote round**. The meeting is now locked — no new voters can join until the round ends.
-
-> **Note:** Voters could still be removed during voting, although this is highly discouraged for security reasons. A voter could have already acquired a valid signature at this point which would make them eligible to vote.
-
-### Voting
-
-#### Registration
-
-Before a voter can cast a ballot, they must register for the current round. The voter presses **Register to vote** in their browser. This sends a cryptographic commitment to the signing authority; the authority creates a blind signature which is used later. See [Voting Architecture](#voting-architecture) for why this step is necessary.
-
-#### Choosing
-
-The voter sees the ballot with all available options and selects their choice(s).
-
-#### Submitting
-
-The voter presses **Submit**. Their browser retrieves their credentials and sends the vote together with a cryptographic proof derived from the blind signature. The server verifies the proof and records the vote. The blind signature is then marked as spent — it cannot be used again.
-
-The host dashboard shows vote progress in real time.
-
-### Tally
-
-Once the host is satisfied that everyone has voted, they press **Tally votes**. The server finalizes the count, returns the results, and saves an encrypted copy of the tally on the server.
-
-The results are shown on screen broken down by candidate with a separate count for blank votes. The tally is only visible on the admin page.
-
-### Downloading the Tally
-
-The host should **download the tally** before ending the vote round. The download button on the tally panel saves the tally in the desired format with the full results. This is the primary way to keep a record.
-
-The encrypted backup on the server can be decrypted later using the meeting password if needed. See [Tally Architecture](#tally-architecture) for the decryption procedure.
-
-### Ending a Vote Round
-
-After recording the results, the host presses **End Round**. This resets the voting state so that a new round can be started. The meeting is unlocked and voters may be added again.
-
-### Closing the Meeting
-
-When the meeting is finished, the host presses **Close meeting**. All in-memory state for the meeting is discarded. Encrypted tally files that were saved to disk remain on the server.
-
-### Downloading All Tallies at Close
-
-The close-meeting confirmation panel includes a **Download tallies** section. Before (or after) confirming the close, the host can enter the meeting password and click **Download** to fetch and decrypt every tally file that was saved during the meeting, receiving them as a single `tallies.json` file.
-
-This is different from the per-round download described in [Downloading the Tally](#downloading-the-tally): that button saves the results of the _current_ round only, in whichever format the host selects. The close-panel download retrieves _all_ rounds at once, decrypting them entirely in the browser using the same key derivation as at meeting creation. Nothing sensitive is ever sent back to the server.
-
-> **Tip:** Even if every round's tally was already downloaded individually, this button gives the host a convenient single-file archive of the entire meeting's voting history.
+What it does **not** protect against is written down too: see [Known limits](docs/PROTOCOL.md#9-guarantees-and-known-limits).
 
 ---
 
-## Architecture
+## Running a meeting
 
-This section describes the technical structure of Rustsystem. For cryptographic details, see [Cryptography](#cryptography).
+This section is for hosts. Voters only ever need to scan a QR code and press one button.
 
-### Overall Structure
+### 1. Create the meeting
 
-Rustsystem is split into two backend services and one frontend:
+Go to the Rustsystem home page and choose **Create Meeting**. Enter a title, your name, and a **password**.
 
-| Component                | Role                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------- |
-| **rustsystem-server**    | Manages meetings, voters, vote rounds, and tallies. Serves the frontend SPA.                       |
-| **rustsystem-trustauth** | Acts as the blind-signing authority. Registers voters for vote rounds and issues blind signatures. |
-| **Frontend**             | React SPA served by the server. Performs all client-side cryptographic operations.                 |
+The password protects the results stored on the server: each round's results are saved in a file that only this password can decrypt. Your browser turns the password into a key pair and sends only the public half; the password itself never leaves your browser. Keep it: without it, the stored files can't be read ([details](#results)).
 
-The two backend services communicate with each other over a **mutual TLS (mTLS)** channel on internal ports (1444 and 2444). Neither service trusts the other without a valid certificate. The public-facing APIs use standard HTTPS, JWT and auth cookies.
+You're now the host and land on the **Admin** page.
 
+### 2. Invite voters
+
+In **Add voter**, type a name and press **Add**. A QR code and a link appear; give one of them to that person. When they open it they are logged in, and the dashboard says _"Anna has logged in."_ Tick **Grant host privileges** to invite a co-host.
+
+- Each link works **once**. If someone needs to log in again on another device, remove them and invite them again.
+- Voters who never opened their link are removed automatically when a round starts.
+- Hosts can remove anyone except themselves.
+
+### 3. Follow the agenda
+
+In **Agenda**, press **Add agenda** and upload a Markdown file (or type it in). Every heading becomes an agenda point; the text under a heading is shown with that point:
+
+```markdown
+# Opening
+
+Welcome, and election of a secretary.
+
+# Election of chair
+
+## Nominations
+
+## Vote
+
+# Closing
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                           Browser                                │
-│                     (React + @noble/curves)                      │
-└──────────┬───────────────────────────────────────────┬───────────┘
-           │ HTTPS :1443                   HTTPS :2443 │
-           ▼                                           ▼
-┌──────────────────────┐                    ┌──────────────────────┐
-│  rustsystem-server   │                    │ rustsystem-trustauth │
-│  (Axum, port 1443)   │◄──────────────────►│  (Axum, port 2443)   │
-│  internal: 1444      │mTLS                │  internal: 2444      │
-└──────────────────────┘                    └──────────────────────┘
-       (in-memory)                                (in-memory)
+
+Everyone, voters included, sees the agenda with the current point highlighted. Hosts move through it with **Next** and **Previous**, or click any point to jump there. **Edit** changes the agenda mid-meeting; the meeting stays on the same point as long as its heading still exists.
+
+At any point, press **Take attendance** to record everyone who is logged in right now (whether or not their page is open). Each record notes which agenda point it was taken at. The full log is downloaded when you [close the meeting](#6-close-the-meeting). The exact rules are in [PROTOCOL.md §4.5](docs/PROTOCOL.md#45-agenda-and-attendance).
+
+### 4. Run a vote round
+
+In **Vote round**, enter what's being voted on, the options, how many options each voter may pick, and whether to shuffle their order. A **Blank vote** button is always available, so don't add a blank option. Press **Start vote round**.
+
+While a round is open the voter list is frozen: nobody can be added, removed or re-invited until it ends.
+
+Voters see the options on their phones, choose, and press **Submit vote** (or **Blank vote**). That's all they do. They can refresh or close the page afterwards and it will still say they have voted. Hosts vote from the Admin page in the same way.
+
+The dashboard shows **Votes cast** (ballots received, out of eligible voters) and **Ballots signed**.
+
+### 5. Tally
+
+Press **Tally votes**. The results appear on the dashboard, and an encrypted copy is saved on the server. Use the download button next to the results to save them as JSON, YAML, TOML, RON or binary JSON.
+
+If more ballots were **signed** than **received**, a warning appears: someone closed their page in the split second between their ballot being signed and it reaching the server. Their vote was lost, and you may want to run the round again.
+
+Press **End round** to clear the result and start the next round.
+
+### 6. Close the meeting
+
+**Close meeting** opens a confirmation panel. Before confirming, you can enter the meeting password and press **Download** to decrypt every round's results in your browser and save them as one `tallies.json`, and press **Download attendance** to save every attendance record as `attendance.json`. (You can open this panel and press **Cancel** at any time just to download.) Closing logs everyone out and discards the attendance records; the encrypted files stay on the server and can still be decrypted later with [`decrypt-tally`](#decrypting-results-offline).
+
+> **Never restart or redeploy the servers during a meeting.** All meeting state lives in memory by design ([why](#design-decisions)), so a restart ends every meeting.
+
+---
+
+## How it works
+
+### The two services
+
+```mermaid
+flowchart LR
+    B([Voter's browser])
+    T["<b>Trustauth</b><br/>knows <i>who</i> you are"]
+    S["<b>Server</b><br/>knows <i>what</i> was voted"]
+    B -- "logged in: 'sign this sealed ballot'" --> T
+    T -- "blind signature" --> B
+    B -- "no login: ballot + signature" --> S
+    S -. "mTLS: open round, login tickets" .-> T
 ```
 
-All meeting state is **in-memory**, there is no database. The only data written to disk is encrypted tally files.
+- **Trustauth** knows who you are. Once per round it signs one ballot for you, _blind_, so it never sees what you voted.
+- **The server** runs the meeting and counts ballots. A ballot is valid if trustauth signed it; ballots arrive without any login, so the server can't tell whose they are.
 
-### Logging In
+Neither can link a ballot to a voter on its own. The table of exactly who knows what is in [PROTOCOL.md §2](docs/PROTOCOL.md#2-who-knows-what).
 
-There are two login flows: one for meeting creation and one for voter invitation. In both cases the user ends up with **two JWT cookies** — one for the server and one for trustauth. Both are required because:
+### Logging in
 
-- The **server cookie** identifies the user for meeting management operations.
-- The **trustauth cookie** identifies the user for blind-signature operations.
-- Trustauth must verify that the user actually exists in the server's voter list before issuing any signatures.
-
-#### Meeting Creation
+An invite link carries the meeting ID and a one-time secret. Opening it logs you in to the server, which hands your browser a short-lived ticket to log in to trustauth too:
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant S as Server
     participant T as Trustauth
-
-    B->>S: POST /api/create-meeting (title, pubkey)
-    S-->>B: Host JWT cookie (server)
-    B->>T: POST /api/login
-    T->>S: GET /is-voter
-    S-->>T: OK
-    T-->>B: Host JWT cookie (trustauth)
+    B->>S: POST /api/login {meeting, invite}
+    S->>T: ticket for this voter (mTLS)
+    S-->>B: session cookie + ticket
+    B->>T: POST /api/login {ticket}
+    T-->>B: session cookie
 ```
 
-#### Voter Invitation
+Both sessions are `HttpOnly` cookies lasting 12 hours, so refreshing or reopening the browser keeps you logged in, and page scripts can't read them. Details: [PROTOCOL.md §4](docs/PROTOCOL.md#4-meeting-lifecycle).
 
-```mermaid
-sequenceDiagram
-    participant H as Host Browser
-    participant S as Server
-    participant V as Voter Browser
-    participant T as Trustauth
+### How voting works
 
-    H->>S: POST /api/host/start-invite (name)
-    S-->>H: QR code + login link (contains Ed25519 signature)
-    H->>S: SSE /api/host/invite-watch
-    H-->>V: Share QR / link
-    V->>S: POST /api/login (link token)
-    S->>S: Verify UUID, issue server JWT
-    S-->>V: Voter JWT cookie (server)
-    V->>T: POST /api/login
-    T->>S: GET /is-voter
-    S-->>T: OK
-    T-->>V: Voter JWT cookie (trustauth)
-    S-->>H: Login complete notification
-```
-
-The login link contains the meeting UUID and the new voter UUID. The server will check this against its record and accept the voter (which claims the UUID) if the UUID is valid and has not already been claimed.
-
-### Voting Architecture
-
-The voting flow is the core of Rustsystem's security model. The key insight is:
-
-> **Trustauth knows _who_ is eligible but never learns _what_ they voted for. The server knows _what_ was voted but never learns _who_ voted. Neither can (even in principle) piece together the full picture.**
-
-This is achieved through BBS blind signatures. See [Cryptography — BBS Blind Signatures](#bbs-blind-signatures-bls12-381) for how they work.
-
-#### Registration
+Pressing **Submit vote** does everything in one go:
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant T as Trustauth
     participant S as Server
-
-    B->>B: Generate commitment, token, blind_factor, context
-    B->>T: POST /api/voter/register (commitment, context)
-    T->>S: mTLS — is vote active? is voter eligible?
-    S-->>T: OK
-    T->>T: Check voter not already registered
-    T->>T: Create blind signature
-    T-->>B: Blind signature
-    B->>B: Store blind signature locally
+    B->>B: ballot = {round, choice, random nonce}<br/>check it, then seal (blind) it
+    B->>T: sealed ballot (with login)
+    T->>T: eligible? not voted yet? → record, sign
+    T-->>B: blind signature
+    B->>B: unseal → signature on the real ballot
+    B->>S: ballot + signature (no cookies)
+    S->>S: valid signature? not seen before? → count
 ```
 
-#### Submitting a Vote
+1. **Seal.** The browser writes the ballot and blinds it with a random factor. Sealed, it's indistinguishable from random noise.
+2. **Sign.** Trustauth checks you're eligible and haven't voted this round, records that you now have, and signs the sealed ballot.
+3. **Unseal.** Removing the factor leaves a normal signature on your real ballot. The browser checks it against the round key it got from the _server_, so trustauth can't use a special key to recognise you later.
+4. **Submit.** The ballot goes to the server with no cookies. The server checks the signature and counts each distinct ballot once.
 
-```mermaid
-sequenceDiagram
-    participant T as Trustauth
-    participant B as Browser
-    participant S as Server
+Nothing is stored in the browser at any point. After a refresh, the page asks trustauth whether you've voted this round. Every rule a ballot must pass is listed in [PROTOCOL.md §5–6](docs/PROTOCOL.md#5-voting-round).
 
-    B->>B: Choose vote option
-    B->>T: GET /api/vote-data
-    T-->>B: OK
-    B->>S: POST /api/voter/submit (vote, proof, token, signature)
-    S->>S: Verify proof against trustauth public key
-    S->>S: Mark signature as spent (prevent double voting)
-    S->>S: Record vote
-    S-->>B: OK
-```
+### Results
 
-Notice that the submission goes **directly to the server**, not through trustauth. The server only holds the trustauth **public key**. It can verify the proof without ever contacting trustauth or knowing which voter submitted it.
-
-#### Integrity and Anonymity Guarantees
-
-| Property               | How it is enforced                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **One vote per voter** | Trustauth issues exactly one blind signature per voter per round. The server marks each signature as spent on use.   |
-| **Anonymity**          | The server never sees the voter's identity during submission. The proof is unlinkable to the registration request.   |
-| **Eligibility**        | Trustauth checks with the server that the voter is a member of the meeting and that voting is active before signing. |
-
-### Tally Architecture
-
-When the host calls **Get Tally**, the server finalizes the vote count and saves the result as an encrypted file.
-
-#### Encryption
-
-The tally is encrypted using the **X25519 public key** that the host provided at meeting creation time (derived from their password — see [X25519 Tally Encryption](#x25519-tally-encryption)). The private key **never reaches the server**. This means:
-
-- The server cannot read the tally file itself.
-- Anyone with access to the server filesystem cannot read past tallies without the meeting password.
-
-The file is written to `meetings/{meeting-id}/tally-{timestamp}.enc` on the server.
-
-#### Recovering Tallies via the UI
-
-While the meeting is still open, the host can download every tally file at once from the **close-meeting panel** (see [Downloading All Tallies at Close](#downloading-all-tallies-at-close)). The browser calls `GET /api/host/get-all-tally`, which returns all `tally-*.enc` files as base64-encoded payloads. The browser then:
-
-1. Derives the X25519 private key from the meeting password using PBKDF2-HMAC-SHA256 (same derivation as at meeting creation).
-2. Performs X25519 ECDH with each file's ephemeral public key.
-3. Derives the decryption key with HKDF-SHA256.
-4. Decrypts with ChaCha20-Poly1305.
-5. Delivers a single `tallies.json` containing all decrypted records.
-
-The private key is derived and used entirely inside the browser; it is never transmitted.
-
-#### Manual Decryption (offline)
-
-If the meeting has already been closed and the tallies were not downloaded in time, individual `.enc` files can still be decrypted offline using the `decrypt-tally` CLI:
-
-1. Retrieve the `.enc` file(s) from `meetings/{meeting-id}/` on the server.
-2. Derive the private key from the meeting password:
-   ```bash
-   SALT_HEX="<prod-salt>" KEYGEN_ITERATIONS=200000 ./scripts/derive-keys.sh <password>
-   # Outputs: private_x25519.pem, public_x25519.pem
-   ```
-3. Decrypt using the `decrypt-tally` crate:
-   ```bash
-   cargo run --package decrypt-tally /path/to/tally-<timestamp>.enc /path/to/private_x25519.pem
-   # Outputs JSON tally to stdout
-   ```
-
-The `SALT_HEX` and `KEYGEN_ITERATIONS` values must match those used when the meeting was created. They are available in this repository.
-
-### RwLocks
-
-Rustsystem uses a two-level locking strategy throughout to allow maximum concurrency while preventing data races.
-
-#### RwLock structure — rustsystem-server
-
-##### Overview
-
-All meeting state lives in `ActiveMeetings`:
+When a round closes, the server encrypts the result for the meeting's **tally key** and writes it to `meetings/<meeting id>/tally-<time>-<round>.enc`. The tally key was derived from the meeting password in the host's browser:
 
 ```
-Arc<AsyncRwLock<HashMap<MUuid, Arc<Meeting>>>>
+password ──Argon2id(salt unique to the meeting)──▶ X25519 private key ──▶ public key (sent to the server)
 ```
 
-The outer `AsyncRwLock` wraps the map of all meetings. Inside each entry is an `Arc<Meeting>` whose fields carry their own individual locks.
-
-##### Outer map lock
-
-The outer map is held in **write mode** only when the map itself changes:
-
-| Operation       | Outer lock                                          |
-| --------------- | --------------------------------------------------- |
-| Create meeting  | Write                                               |
-| Close meeting   | Write                                               |
-| Everything else | Read (just long enough to clone the `Arc<Meeting>`) |
-
-The `AppState::get_meeting()` helper encapsulates the common case: it acquires a read lock, clones the `Arc<Meeting>`, and releases the lock before returning. Callers then work with the `Arc` without holding the outer lock at all.
-
-##### Per-field locks inside `Meeting`
-
-```rust
-pub struct Meeting {
-    pub title: String,           // immutable after construction — no lock
-    pub start_time: SystemTime,  // immutable after construction — no lock
-    pub locked: AtomicBool,      // simple flag — atomic, no lock
-    pub voters:     AsyncRwLock<HashMap<Uuid, Voter>>,
-    pub vote_auth:  AsyncRwLock<VoteAuthority>,
-    pub invite_auth: AsyncRwLock<InviteAuthority>,
-    pub admin_auth:  AsyncRwLock<AdminAuthority>,
-}
-```
-
-Each authority is locked independently. Operations that only need `vote_auth` do not block operations that only need `voters`, and vice versa.
-
-##### Lock ordering
-
-When an operation must acquire more than one field lock, it always does so in this order to prevent deadlock:
-
-1. `vote_auth`
-2. `voters`
-3. `admin_auth`
-4. `invite_auth`
-
-`invite_auth` is never held simultaneously with any other lock, so its position in the ordering has no current deadlock implications; it is listed last to reflect this.
-
-Operations that currently acquire multiple locks simultaneously:
-
-| Endpoint      | Locks acquired (in order)           |
-| ------------- | ----------------------------------- |
-| `start-vote`  | `vote_auth.write` → `voters.write`  |
-| `new-voter`   | `voters.write` → `admin_auth.write` |
-| `reset-login` | `voters.write` → `admin_auth.write` |
-
-`login` acquires `voters.write`, `invite_auth.write`, and `admin_auth.write` in that order, but releases each guard before acquiring the next — they are never held simultaneously and impose no ordering constraint.
-
-#### RwLock structure — rustsystem-trustauth
-
-##### Overview
-
-All round state lives in `ActiveRounds`:
-
-```
-Arc<AsyncRwLock<HashMap<Uuid, Arc<RoundState>>>>
-```
-
-Same two-level pattern as the server: the outer `AsyncRwLock` wraps the map of all rounds; inside each entry is an `Arc<RoundState>` whose mutable field carries its own lock.
-
-##### Outer map lock
-
-| Operation       | Outer lock                                             |
-| --------------- | ------------------------------------------------------ |
-| Start round     | Write                                                  |
-| Everything else | Read (just long enough to clone the `Arc<RoundState>`) |
-
-`AppState::get_round()` acquires a read lock, clones the `Arc<RoundState>`, and releases the lock before returning.
-
-##### Per-field locks inside `RoundState`
-
-```rust
-pub struct RoundState {
-    pub keys: AuthenticationKeys,  // immutable after construction — no lock
-    pub header: Vec<u8>,           // immutable after construction — no lock
-    pub registered_voters: AsyncRwLock<HashMap<Uuid, VoterRegistration>>,
-}
-```
-
-`keys` and `header` are set once by `start-round` and never modified. Only `registered_voters` needs a lock.
-
-| Endpoint        | `registered_voters` lock |
-| --------------- | ------------------------ |
-| `register`      | Write                    |
-| `is-registered` | Read                     |
-| `vote-data`     | Read                     |
+The server only has the public key, so it can write these files but never read them. Each file records its salt and Argon2id settings, so the password alone decrypts it, in the browser at close or offline with [`decrypt-tally`](#decrypting-results-offline). The file also records how many voters were eligible, signed and received. Format: [PROTOCOL.md §8](docs/PROTOCOL.md#8-tally-files).
 
 ---
 
-## Cryptography
+## Project layout
 
-### BBS Blind Signatures (BLS12-381)
+| Path                                                      | What it is                                                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`docs/PROTOCOL.md`](docs/PROTOCOL.md)                    | The protocol specification. Code follows this document.                                                                                    |
+| [`rustsystem-core`](rustsystem-core/src/lib.rs)           | Shared by both services: the error type, the server ↔ trustauth API types, the blind-signature wrapper, request limits, sessions, mTLS.   |
+| [`rustsystem-server`](rustsystem-server/src/lib.rs)       | The server. `state.rs` holds every meeting rule; `ballot.rs` every ballot rule; `lib.rs` has the full route table.                         |
+| [`rustsystem-trustauth`](rustsystem-trustauth/src/lib.rs) | Trustauth. `state.rs` holds what it knows and the one-signature-per-voter rule.                                                            |
+| [`decrypt-tally`](decrypt-tally/src/main.rs)              | CLI that decrypts a tally file with the meeting password.                                                                                  |
+| [`frontend`](frontend)                                    | React 19 + TanStack Router. `src/api/` talks to the backends, `src/voting/ballot.ts` casts votes, `src/utils/` holds the tally-key crypto. |
+| [`mtls`](mtls/mkcerts.sh)                                 | Generates the certificates the two services use to talk to each other.                                                                     |
 
-The core of Rustsystem's anonymity guarantee is **BBS blind signing** ([draft-irtf-cfrg-bbs-blind-signatures-02](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bbs-blind-signatures-02)).
-
-BBS signatures are pairing-based signatures defined over the BLS12-381 elliptic curve. The "blind" variant lets a client ask for a signature over a message that is hidden from the signer. The signer cannot see what they are signing, yet the resulting signature is fully verifiable by anyone with the public key.
-
-In Rustsystem this works as follows:
-
-1. The **voter's browser** generates a secret token and a Pedersen commitment (a hiding, binding commitment to the token). The commitment is sent to trustauth; the token stays in the browser.
-2. **Trustauth** verifies eligibility and signs the commitment — without ever seeing the token.
-3. The **browser** uses the blind factor and the blind signature to produce a standard BBS proof of knowledge that can be verified against trustauth's public key.
-4. The **server** verifies the proof using only the public key. It cannot tell which voter produced the proof.
-
-The ciphersuite used is `BbsBls12381Sha256` from the [`zkryptium`](https://crates.io/crates/zkryptium) crate (Rust backend) and [`@noble/curves`](https://github.com/paulmillr/noble-curves) (TypeScript frontend).
-
-### X25519 Tally Encryption
-
-Tally files are encrypted using **ECIES with X25519**:
-
-1. The host's **password** is stretched into a 32-byte seed via PBKDF2-HMAC-SHA256 (using a server-side salt and configurable iterations).
-2. The seed is interpreted directly as an **X25519 static private key**; the corresponding public key is stored in the meeting.
-3. At tally time the server generates an **ephemeral X25519 keypair**, performs ECDH with the meeting's public key, derives an encryption key via **HKDF-SHA256**, and encrypts the tally JSON with **ChaCha20-Poly1305**.
-4. The output file is: `ephemeral_pk (32 B) ‖ nonce (12 B) ‖ ciphertext+tag`.
-
-Because the private key is derived entirely from the password and the salt (never transmitted), the server can encrypt but never decrypt. Libraries used: [`x25519-dalek`](https://crates.io/crates/x25519-dalek), [`chacha20poly1305`](https://crates.io/crates/chacha20poly1305), [`hkdf`](https://crates.io/crates/hkdf).
+Within the server, each meeting's state sits behind **one** lock, and every state change is a plain synchronous method on `MeetingState` that either fully succeeds or changes nothing. There is no lock ordering to get wrong. See the module docs in [`state.rs`](rustsystem-server/src/state.rs) and [`app.rs`](rustsystem-server/src/app.rs).
 
 ---
 
-## Running Rustsystem
+## Development
 
-Rustsystem is the official voting system for F-sektionen at TLTH and is available at [rosta.fsektionen.se](https://rosta.fsektionen.se).
+### Prerequisites
 
-### Development
+Rust (stable), Node 22+, pnpm, and OpenSSL for the certificates.
 
-This section covers how to run all parts of the system locally for development. You will find instructions for setting up the server and trustauth backends as well as building and running the frontend dev server.
-TODO!
+```bash
+cd mtls && bash mkcerts.sh dev && cd ..     # once: certificates for server ↔ trustauth
+cd frontend && pnpm install && pnpm build && cd ..
+./run_dev.sh                                 # trustauth on :2443/:2444, server on :1443
+```
 
-### Deployment
+Open <http://localhost:1443> (use `localhost`, not `127.0.0.1`: trustauth's cookie only works when both services share a host name). For frontend work with hot reload, also run `cd frontend && pnpm dev` and use <http://localhost:3000>.
 
-#### Deploy for the F-guild
+[`run_dev.sh`](run_dev.sh) loads [`.env`](.env), which holds every development setting ([reference](#configuration)).
 
-Contact the person responsible for Rustsystem for instructions on how to deploy on the F-guild server.
+### Testing
 
-#### Deploy for yourself!
+| Suite                                                                  | Command                        | Needs                    |
+| ---------------------------------------------------------------------- | ------------------------------ | ------------------------ |
+| Backend: unit tests and end-to-end tests with both services in-process | `cargo test --workspace`       | nothing                  |
+| Frontend: unit tests, including the cross-checks against the Rust code | `cd frontend && pnpm test`     | nothing                  |
+| Browsers: whole meetings in Chromium, Firefox and WebKit               | `cd frontend && pnpm test:e2e` | running services (below) |
 
-Anyone can set up Rustsystem on their own server. This section covers how to configure the environment, build the Docker images, and run Rustsystem on a server you control.
-TODO!
+For the browser tests, build the frontend and start the services with rate limiting off (the suite creates many meetings quickly):
+
+```bash
+cd frontend && pnpm build && cd ..
+RUSTSYSTEM_DISABLE_RATE_LIMIT=1 ./run_dev.sh &
+cd frontend && pnpm test:e2e
+```
+
+WebKit doesn't run natively on every Linux distribution (e.g. Arch). Run it in Playwright's official image instead and point the tests at it:
+
+```bash
+docker run -d --rm --network host --name pw-webkit mcr.microsoft.com/playwright:v1.58.2-noble \
+  npx -y playwright@1.58.2 run-server --port 3123 --host 127.0.0.1
+PW_WEBKIT_WS=ws://127.0.0.1:3123/ pnpm test:e2e
+```
+
+### Decrypting results offline
+
+```bash
+cargo run --bin decrypt-tally -- meetings/<meeting id>/tally-20270314T190211Z-3f2c1a9b.enc
+Meeting password: ********
+{ "meeting": "Vårmöte", "round": "Chair", "candidates": ["Anna", "Bo"], "score": [12, 9], ... }
+```
+
+Set `RUSTSYSTEM_TALLY_PASSWORD` to skip the prompt in scripts.
+
+---
+
+## Configuration
+
+Both services read their settings from environment variables **at runtime**, so one binary serves development, tests and production. A missing or malformed setting stops the service with a message naming it.
+
+**Server** ([`config.rs`](rustsystem-server/src/config.rs))
+
+| Variable                                | Example                                 | Meaning                                                                                   |
+| --------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `SERVER_PUBLIC_URL`                     | `https://rosta.fsektionen.se`           | Where browsers reach the server; used in invite links. `https://` makes cookies `Secure`. |
+| `TRUSTAUTH_PUBLIC_URL`                  | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. The server tells the frontend (`GET /api/config`).        |
+| `TRUSTAUTH_INTERNAL_URL`                | `https://rustsystem-trustauth:2444`     | Trustauth's internal mTLS API.                                                            |
+| `SERVER_PUBLIC_ADDR`                    | `0.0.0.0:1443`                          | Listen address (plain HTTP behind the TLS proxy).                                         |
+| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY` | `mtls/ca/ca.crt`, …                     | PEM files for calling trustauth.                                                          |
+| `MEETINGS_DIR`                          | `meetings`                              | Where encrypted tally files and per-meeting logs go.                                      |
+| `FRONTEND_DIR`                          | `frontend/dist`                         | The built frontend.                                                                       |
+
+**Trustauth** ([`config.rs`](rustsystem-trustauth/src/config.rs))
+
+| Variable                                           | Example                                 | Meaning                                                            |
+| -------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `TRUSTAUTH_PUBLIC_URL`                             | `https://rosta.trustauth.fsektionen.se` | Where browsers reach trustauth. `https://` makes cookies `Secure`. |
+| `SERVER_PUBLIC_URLS`                               | `https://rosta.fsektionen.se`           | Comma-separated origins the voter page is served from (CORS).      |
+| `TRUSTAUTH_PUBLIC_ADDR`, `TRUSTAUTH_INTERNAL_ADDR` | `0.0.0.0:2443`, `0.0.0.0:2444`          | Public listener, and the internal mTLS listener.                   |
+| `MTLS_CA_CERT`, `MTLS_CERT`, `MTLS_KEY`            | `mtls/ca/ca.crt`, …                     | PEM files for the internal listener.                               |
+
+**Both**
+
+| Variable                        | Meaning                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RUSTSYSTEM_TRUSTED_PROXIES`    | Comma-separated IPs of reverse proxies. Only requests from these may set the client address via `X-Forwarded-For`; see [Deployment](#deployment). |
+| `RUSTSYSTEM_DISABLE_RATE_LIMIT` | Turns rate limiting off, with a warning in the log. For the browser test suite only; **never in production**.                                     |
+
+**Frontend**: the only build-time setting is `DEV=true`, which enables the `/dev` pages. The frontend learns where trustauth is from the server at runtime (`GET /api/config`), so one build works in every environment.
+
+---
+
+## Deployment
+
+```bash
+./deploy.sh
+```
+
+[`deploy.sh`](deploy.sh) generates production mTLS certificates, builds both images ([`Dockerfile.server`](Dockerfile.server), [`Dockerfile.trustauth`](Dockerfile.trustauth)) and loads them on the production host. The images' default environment holds the production settings.
+
+Things that must be true in production:
+
+- **Both services sit behind a TLS-terminating reverse proxy**, and their public URLs are `https://`.
+- **Set `RUSTSYSTEM_TRUSTED_PROXIES` to the proxy's address.** Rate limits are per client IP. Behind a proxy every request appears to come from the proxy, so without this setting the whole meeting shares one limit.
+- **Trustauth is on the same registrable domain as the server** (e.g. both under `fsektionen.se`). Otherwise Safari treats trustauth's cookie as a third-party cookie and drops it.
+- **Only the server can reach trustauth's internal port** (2444). It requires a client certificate anyway, but it should not be public.
+- **Don't redeploy during a meeting.**
+
+---
+
+## Design decisions
+
+**Why two services?** So that the party who knows _who_ voted (trustauth) is not the party who knows _what_ was voted (the server). With blind signatures, even trustauth's own records can't link a ballot to its signing request; the separation additionally keeps login data and ballots in different processes and logs.
+
+**Why store nothing in the browser?** Anything kept in `localStorage` is lost when a voter clears their browser, and is readable by page scripts. Instead the ballot is signed and submitted in one click and never stored; after a refresh, trustauth tells the page whether the voter has voted.
+
+**Why RSA blind signatures?** They are standardised (RFC 9474), widely deployed (Privacy Pass, Apple's Private Access Tokens), simple to explain, and have maintained libraries on both sides, so no cryptography in this project is hand-written. The unblinded signature is mathematically independent of what the signer saw.
+
+**Why keep everything in memory?** There is no database to breach or migrate, and nothing about voters outlives the meeting. The cost is that a restart ends running meetings.
+
+**What changed from v2.0?** v2.0 used BBS signatures, but the signature the signer issued was submitted unchanged, ballots were sent with the voter's session cookie, and trustauth stored each voter's secret token, so ballots could be linked to voters. v2.1 rewrote the backend around the protocol above. See [docs/PROTOCOL.md §11](docs/PROTOCOL.md#11-alternatives-we-rejected).

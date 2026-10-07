@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { AgendaPanel } from "@/components/AgendaPanel/AgendaPanel";
 import { Alert } from "@/components/Alert/Alert";
 import { Badge } from "@/components/Badge/Badge";
 import { Button } from "@/components/Button/Button";
@@ -11,6 +12,7 @@ import { VoteOption } from "@/components/VoteOption/VoteOption";
 import { VoteSection } from "@/components/VoteSection/VoteSection";
 import type { VoteSectionHandle } from "@/components/VoteSection/VoteSection";
 import type { ButtonColor, Color, Size, TextColor } from "@/components/types";
+import type { AgendaView } from "@/api/meeting";
 
 const DEV = import.meta.env.DEV as boolean;
 
@@ -241,7 +243,7 @@ const VOTE_WIDTHS: Record<Size, string> = {
 
 function ButtonsFilled() {
   return (
-    <Section title="Buttons — Filled">
+    <Section title="Buttons: Filled">
       {BUTTON_ROWS.map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
@@ -259,7 +261,7 @@ function ButtonsFilled() {
 
 function ButtonsOutline() {
   return (
-    <Section title="Buttons — Outline">
+    <Section title="Buttons: Outline">
       {BUTTON_ROWS.slice(0, 2).map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
@@ -501,6 +503,79 @@ function VoteSections() {
   );
 }
 
+const SAMPLE_AGENDA: AgendaView = {
+  points: [
+    { level: 1, title: "Opening", body: "" },
+    { level: 1, title: "Election of chair", body: "" },
+    { level: 2, title: "Nominations", body: "- Alice\n- Bob" },
+    { level: 1, title: "Budget 2027", body: "Presented by the treasurer." },
+    { level: 1, title: "Closing", body: "" },
+  ],
+  current: 2,
+};
+
+/** The host view, with the actions working on local state instead of the server. */
+function AgendaPanelHostDemo() {
+  const [agenda, setAgenda] = useState<AgendaView | null>(SAMPLE_AGENDA);
+  const titles = (agenda ?? SAMPLE_AGENDA).points
+    .map((p) => `${"#".repeat(p.level)} ${p.title}`)
+    .join("\n");
+  return (
+    <AgendaPanel
+      agenda={agenda}
+      host={{
+        goTo: async (index) =>
+          setAgenda((a) => (a ? { ...a, current: index } : a)),
+        takeAttendance: async () => ({
+          takenAt: new Date().toISOString(),
+          point: agenda
+            ? {
+                index: agenda.current,
+                title: agenda.points[agenda.current].title,
+              }
+            : null,
+          present: [{ id: "1", name: "Alice", isHost: true }],
+        }),
+        loadSource: async () => titles,
+        save: async (markdown) =>
+          setAgenda({
+            current: 0,
+            points: markdown
+              .split("\n")
+              .filter((l) => /^#+ /.test(l))
+              .map((l) => ({
+                level: l.indexOf(" "),
+                title: l.slice(l.indexOf(" ") + 1),
+                body: "",
+              })),
+          }),
+        clear: async () => setAgenda(null),
+      }}
+    />
+  );
+}
+
+function AgendaPanels() {
+  return (
+    <Section title="Agenda Panel">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs" style={{ color: "var(--textSecondary)" }}>
+            Voter
+          </span>
+          <AgendaPanel agenda={SAMPLE_AGENDA} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-xs" style={{ color: "var(--textSecondary)" }}>
+            Host (interactive)
+          </span>
+          <AgendaPanelHostDemo />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 function Preview() {
@@ -516,7 +591,7 @@ function Preview() {
         Component Preview
       </h1>
       <p className="mb-14 text-sm" style={{ color: "var(--textSecondary)" }}>
-        FSEK · Design system — 6 sizes × 3 colors × 2 text weights
+        FSEK · Design system: 6 sizes × 3 colors × 2 text weights
       </p>
 
       <ColorPalette />
@@ -529,6 +604,7 @@ function Preview() {
       <Cards />
       <VoteOptions />
       <VoteSections />
+      <AgendaPanels />
     </div>
   );
 }

@@ -254,7 +254,7 @@ function EncryptionPage() {
             className="text-lg leading-relaxed"
             style={{ color: "var(--textSecondary)" }}
           >
-            Rustsystem uses two cryptographic systems: BBS blind signatures for
+            Rustsystem uses two cryptographic systems: RSA blind signatures for
             anonymous voting, and X25519 ECIES for encrypting tally files.
           </p>
         </div>
@@ -262,33 +262,33 @@ function EncryptionPage() {
 
       <Divider />
 
-      {/* BBS Blind Signatures */}
+      {/* RSA Blind Signatures */}
       <section className="max-w-3xl mx-auto px-6 py-16">
         <SectionHeading
           badge="Voting anonymity"
-          title="BBS Blind Signatures over BLS12-381"
-          subtitle="The core of Rustsystem's anonymity guarantee. A voter can prove they are authorised to vote without the server ever learning which vote is theirs."
+          title="RSA Blind Signatures (RFC 9474)"
+          subtitle="The core of Rustsystem's anonymity guarantee. A ballot proves it was cast by an eligible voter, without anyone being able to tell which voter."
         />
 
         <div className="mb-8">
           <Reveal>
             <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--textSecondary)" }}>
-              BBS signatures are pairing-based signatures defined over the BLS12-381 elliptic curve. The "blind" variant lets a client ask for a signature over a message that is hidden from the signer. The signer cannot see what they are signing, yet the resulting signature is fully verifiable by anyone with the public key.
+              Rustsystem runs as two services. Trustauth knows who you are; the server counts the votes. A blind signature lets trustauth sign your ballot inside a sealed envelope: it never sees what you voted, yet the signature it produces is valid on the ballot itself, and mathematically impossible for trustauth to recognise later.
             </p>
           </Reveal>
 
           <div className="flex flex-col gap-1">
-            <Step number={1} title="Browser generates a secret token and a commitment">
-              The voter's browser creates a random secret token and a Pedersen commitment — a hiding, binding commitment to the token. The commitment is sent to the signing authority (trustauth). The token and blind factor remain in the browser and are never transmitted.
+            <Step number={1} title="Browser writes the ballot and seals it">
+              When you press Vote, your browser writes your ballot (the round, your choice and a random nonce) and blinds it with a random factor using the round's public key, which it takes from the server. The blinded ballot looks like random noise.
             </Step>
-            <Step number={2} title="Trustauth verifies eligibility and issues a blind signature">
-              Trustauth checks with the server that the voter exists and that voting is active, then confirms the voter has not already registered. It signs the commitment without ever seeing the underlying token, issuing a blind signature.
+            <Step number={2} title="Trustauth signs the sealed ballot, once">
+              Your browser sends the blinded ballot to trustauth with your login. Trustauth checks that you are eligible for this round and haven't voted yet, records that you have, and signs. It stores nothing about the ballot or the signature.
             </Step>
-            <Step number={3} title="Browser derives a proof from the blind signature">
-              Using the blind factor, the browser lifts the blind signature into a standard BBS proof of knowledge. This proof can be verified against the trustauth public key by anyone, but it is unlinkable to the original registration request.
+            <Step number={3} title="Browser unseals the signature">
+              Removing the blinding factor turns trustauth's signature into an ordinary signature on your real ballot. Your browser also checks it against the server's public key, so trustauth can't sign with a special key to recognise you later.
             </Step>
-            <Step number={4} title="Server verifies the proof without knowing the voter">
-              The voter submits their ballot directly to the server along with the proof. The server verifies it against the trustauth public key and marks the underlying signature as spent. It records the vote without any information about who cast it.
+            <Step number={4} title="Server counts the ballot without knowing whose it is">
+              Your browser sends the ballot and signature to the server without any cookies or login. The server checks the signature and that this exact ballot hasn't been counted, then counts it. Nothing is stored in your browser at any point.
             </Step>
           </div>
         </div>
@@ -298,26 +298,26 @@ function EncryptionPage() {
             <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--textSecondary)" }}>
               Properties
             </p>
-            <PropertyRow label="Curve" value="BLS12-381" />
-            <PropertyRow label="Ciphersuite" value="BbsBls12381Sha256" />
-            <PropertyRow label="Rust library" value="zkryptium" />
-            <PropertyRow label="TS library" value="@noble/curves" />
-            <PropertyRow label="Spec" value="draft-irtf-cfrg-bbs-blind-signatures-02" />
+            <PropertyRow label="Scheme" value="RSABSSA-SHA384-PSS-Randomized" />
+            <PropertyRow label="Key" value="RSA-2048, new for every round" />
+            <PropertyRow label="Rust library" value="blind-rsa-signatures" />
+            <PropertyRow label="TS library" value="@cloudflare/blindrsa-ts (WebCrypto)" />
+            <PropertyRow label="Spec" value="RFC 9474" />
           </div>
         </Reveal>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <GuaranteeCard
             title="One vote per voter"
-            body="Trustauth issues exactly one blind signature per voter per round. The server marks each signature as spent on first use, making double voting impossible."
+            body="Trustauth signs at most one ballot per voter per round, and the server counts each ballot once. The host sees how many ballots were signed and how many arrived."
           />
           <GuaranteeCard
             title="Ballot anonymity"
-            body="The server never sees the voter's identity during submission. The proof is unlinkable to the registration request, even with full server logs."
+            body="Ballots reach the server without any login. Trustauth can't link a ballot to the signing request either, even if it logged everything it saw."
           />
           <GuaranteeCard
             title="Eligibility enforced"
-            body="Trustauth checks with the server that the voter is in the meeting and that voting is active before issuing any signature."
+            body="When a round opens the server hands trustauth the list of eligible voters, and the voter list is frozen until the round ends."
           />
         </div>
       </section>
@@ -336,21 +336,21 @@ function EncryptionPage() {
           <SectionHeading
             badge="Tally encryption"
             title="X25519 ECIES with ChaCha20-Poly1305"
-            subtitle="Tally files are written to disk encrypted with the host's public key. The server can encrypt but never decrypt — only someone with the meeting password can read the results."
+            subtitle="Tally files are written to disk encrypted with the host's public key. The server can encrypt but never decrypt; only someone with the meeting password can read the results."
           />
 
           <div className="flex flex-col gap-1 mb-8">
             <Step number={1} title="Password is stretched into an X25519 private key">
-              At meeting creation the host's password is run through PBKDF2-HMAC-SHA256 with a server-side salt to produce a 32-byte seed. This seed is used directly as an X25519 private key. The corresponding public key is stored in the meeting. The private key never reaches the server.
+              At meeting creation the host's browser runs the password through Argon2id with a fresh random salt to produce a 32-byte seed, used as an X25519 private key. Only the public key, the salt and the cost settings are sent to the server. The password and private key never leave the browser.
             </Step>
             <Step number={2} title="Server generates an ephemeral keypair and performs ECDH">
               At tally time the server generates a fresh X25519 ephemeral keypair, performs ECDH between the ephemeral private key and the meeting's stored public key, then derives an encryption key with HKDF-SHA256.
             </Step>
             <Step number={3} title="Tally is encrypted with ChaCha20-Poly1305">
-              The tally JSON is encrypted using ChaCha20-Poly1305. The output file layout is: ephemeral public key (32 bytes) ‖ nonce (12 bytes) ‖ ciphertext + authentication tag.
+              The tally JSON is encrypted using ChaCha20-Poly1305. The file starts with a 32-byte authenticated header holding the salt and cost settings, followed by the ephemeral public key, the nonce, and the ciphertext with its authentication tag.
             </Step>
             <Step number={4} title="Browser decrypts using the password">
-              To recover tallies, the browser re-derives the X25519 private key from the meeting password (same PBKDF2 derivation), downloads the encrypted files, and decrypts them locally. Nothing sensitive is ever sent back to the server.
+              To recover tallies, the browser reads the salt and settings from each file, re-derives the private key from the meeting password, and decrypts locally. The offline decrypt-tally tool does the same. Nothing sensitive is ever sent back to the server.
             </Step>
           </div>
 
@@ -360,7 +360,7 @@ function EncryptionPage() {
                 Properties
               </p>
               <PropertyRow label="Key exchange" value="X25519 (ECDH)" />
-              <PropertyRow label="KDF" value="PBKDF2-HMAC-SHA256 (key derivation from password)" />
+              <PropertyRow label="KDF" value="Argon2id (t=3, 64 MiB), salt unique per meeting" />
               <PropertyRow label="KDF (ECDH)" value="HKDF-SHA256" />
               <PropertyRow label="Cipher" value="ChaCha20-Poly1305 (authenticated encryption)" />
               <PropertyRow label="Rust libraries" value="x25519-dalek, chacha20poly1305, hkdf" />

@@ -344,8 +344,8 @@ function Hero() {
             className="text-xl max-w-2xl mx-auto leading-relaxed"
             style={{ color: "var(--textSecondary)" }}
           >
-            Cryptographically verified, fully anonymous ballots using BLS12-381
-            blind signatures. No database. No identity linking.
+            Cryptographically verified, fully anonymous ballots using RSA blind
+            signatures. No database. No identity linking.
           </p>
         </div>
 
@@ -453,21 +453,21 @@ function HowItWorks() {
     },
     {
       icon: <IconKey />,
-      title: "Voter generates a blind token",
+      title: "Voter seals their ballot",
       description:
-        "Each voter's browser generates a secret token and a cryptographic commitment. Only the commitment is sent to the signing authority — the token never leaves the browser.",
+        "When a voter presses Vote, their browser writes the ballot and seals it with a random blinding factor. Sealed, it looks like random noise.",
     },
     {
       icon: <IconShield />,
       title: "Signing authority signs without seeing",
       description:
-        "The signing authority (trustauth) confirms the voter is eligible and issues a blind signature — without ever seeing the token. The link between voter and ballot is broken.",
+        "The signing authority (trustauth) confirms the voter is eligible and hasn't voted, then signs the sealed ballot without ever seeing what's inside. The link between voter and ballot is broken.",
     },
     {
       icon: <IconCheckCircle />,
       title: "Vote is cast anonymously",
       description:
-        "The voter submits their ballot directly to the server with a proof derived from the blind signature. The server verifies the proof and marks it as spent — without knowing who voted.",
+        "The browser unseals the signature and sends the ballot to the server without any login. The server checks the signature and counts the ballot once, without knowing who voted.",
     },
   ];
 
@@ -509,12 +509,12 @@ function Guarantees() {
     {
       icon: <IconLock />,
       title: "Ballot anonymity",
-      body: "A separate signing authority issues blind signatures without seeing the token. The server verifies proofs without knowing who submitted them. Neither service alone can correlate a ballot with a voter.",
+      body: "A separate signing authority signs ballots without seeing them. The server counts ballots that arrive without any login. Neither service alone can correlate a ballot with a voter.",
     },
     {
       icon: <IconShield />,
       title: "Double-vote prevention",
-      body: "Each blind signature is one-time-use. The server marks tokens as spent after submission, making it impossible to vote twice.",
+      body: "The signing authority signs one ballot per voter per round, and the server counts each ballot once, making it impossible to vote twice.",
     },
     {
       icon: <IconEye />,
@@ -523,8 +523,8 @@ function Guarantees() {
     },
     {
       icon: <IconKey />,
-      title: "Voter-held secrets",
-      body: "The random token and blind factor never reach the server. ",
+      title: "Nothing to lose",
+      body: "Your browser stores no secrets: your login is a cookie scripts can't read, and your ballot exists only while it's being sent. Refreshing the page can't lose a vote.",
     },
   ];
 
@@ -549,7 +549,7 @@ function Guarantees() {
               className="text-lg max-w-xl mx-auto"
               style={{ color: "var(--textSecondary)" }}
             >
-              Every layer of the system is built to guarantee anonymity — not as
+              Every layer of the system is built to guarantee anonymity, not as
               a feature, but as a mathematical property.
             </p>
           </div>
