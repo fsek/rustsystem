@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Panel } from "@/components/Panel/Panel";
 import { Button } from "@/components/Button/Button";
 import { Spinner } from "@/components/Spinner/Spinner";
@@ -22,6 +22,9 @@ export interface AgendaPanelProps {
   host?: AgendaHostActions;
 }
 
+/** Longer agendas scroll inside the panel, so the controls below stay in view. */
+const LIST_MAX_HEIGHT = "24rem";
+
 type Busy = "move" | "attendance" | "edit" | "save" | "clear" | null;
 
 /**
@@ -35,6 +38,22 @@ export function AgendaPanel({ agenda, host }: AgendaPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [recorded, setRecorded] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const scrolledOnce = useRef(false);
+
+  // Keeps the current point in view within the list. Only the list scrolls, never the page, so
+  // a voter's page doesn't jump when the host moves on.
+  const currentIndex = agenda?.current;
+  useEffect(() => {
+    const ol = list.current;
+    const li = ol?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!ol || !li || typeof ol.scrollTo !== "function") return;
+    ol.scrollTo({
+      top: li.offsetTop - (ol.clientHeight - li.offsetHeight) / 2,
+      behavior: scrolledOnce.current ? "smooth" : "auto",
+    });
+    scrolledOnce.current = true;
+  }, [currentIndex, editing]);
 
   if (!agenda && !host) return null;
 
@@ -271,7 +290,12 @@ export function AgendaPanel({ agenda, host }: AgendaPanelProps) {
         )
       }
     >
-      <ol aria-label="Agenda points">
+      <ol
+        ref={list}
+        aria-label="Agenda points"
+        className="relative overflow-y-auto"
+        style={{ maxHeight: LIST_MAX_HEIGHT }}
+      >
         {points.map((p, i) => {
           const isCurrent = i === current;
           const content = (
