@@ -1,259 +1,116 @@
-use axum::Router;
-use invite_auth::InviteAuthority;
-use reqwest::Client;
-use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_client};
-use serde::Deserialize;
-use std::{
-    collections::HashMap,
-    sync::{
-        Arc, RwLock, RwLockReadGuard,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::{Duration, SystemTime},
+//! The Rustsystem server: knows *what* was voted, never *who* voted it.
+//! The protocol is specified in `docs/PROTOCOL.md`.
+//!
+//! - [`state`] — one meeting's state and every rule that governs it.
+//! - [`ballot`] — what makes a ballot valid.
+//! - [`tally`] — encrypted tally files.
+//! - [`app`] — meetings, sessions and live-update plumbing; [`auth`] — who is asking.
+//! - [`api`] — the HTTP handlers; [`trustauth`] — the client for trustauth.
+//!
+//! # API
+//!
+//! Every error is `{"code": "...", "message": "..."}` (`rustsystem_core::error`).
+//!
+//! | Method | Path | Auth | Handler |
+//! |---|---|---|---|
+//! | GET | `/api/config` | – | [`api::meeting::config`] |
+//! | POST | `/api/meetings` | – (strict rate limit) | [`api::meeting::create`] |
+//! | POST | `/api/login` | invite | [`api::meeting::login`] |
+//! | POST | `/api/logout` | member | [`api::meeting::logout`] |
+//! | POST | `/api/trustauth-ticket` | member | [`api::meeting::trustauth_ticket`] |
+//! | GET | `/api/session` | member | [`api::meeting::session`] |
+//! | GET | `/api/meeting` | member | [`api::meeting::get`] |
+//! | GET | `/api/meeting/events` | member | [`api::events::stream`] (SSE) |
+//! | POST | `/api/ballot` | **none, by design** | [`api::ballot::submit`] |
+//! | GET | `/api/host/voters` | host | [`api::voters::list`] |
+//! | POST | `/api/host/voters` | host | [`api::voters::add`] |
+//! | DELETE | `/api/host/voters` | host | [`api::voters::remove_all`] |
+//! | POST | `/api/host/voters/{id}/reset-invite` | host | [`api::voters::reset_invite`] |
+//! | DELETE | `/api/host/voters/{id}` | host | [`api::voters::remove`] |
+//! | GET | `/api/host/round` | host | [`api::round::status`] |
+//! | POST | `/api/host/round` | host | [`api::round::start`] |
+//! | DELETE | `/api/host/round` | host | [`api::round::reset`] |
+//! | POST | `/api/host/round/close` | host | [`api::round::close`] |
+//! | GET | `/api/host/tally-files` | host | [`api::round::tally_files`] |
+//! | DELETE | `/api/host/meeting` | host | [`api::meeting::close`] |
+//!
+//! Everything outside `/api` serves the frontend.
+
+use std::path::Path;
+
+use axum::{
+    Router,
+    extract::DefaultBodyLimit,
+    routing::{delete, get, post},
 };
-use tokens::AuthUser;
-use tokio::sync::RwLock as AsyncRwLock;
-use tower_governor::{GovernorLayer, governor::GovernorConfigBuilder};
 use tower_http::services::{ServeDir, ServeFile};
-use tracing::info;
-use zkryptium::bbsplus::keys::BBSplusPublicKey;
 
-mod admin_auth;
+use rustsystem_core::{
+    ApiError, ErrorCode,
+    limits::{MAX_BODY_BYTES, RateLimitLayer},
+};
+
 pub mod api;
-use api::api_routes;
-pub mod vote_auth;
-use vote_auth::VoteAuthority;
-mod invite_auth;
-pub mod tokens;
+pub mod app;
+pub mod auth;
+pub mod ballot;
+pub mod config;
+pub mod invite;
+pub mod state;
+pub mod tally;
+pub mod trustauth;
 
-pub mod api_trustauth;
-use api_trustauth::api_trustauth_routes;
+pub use app::{AppState, Settings};
 
-pub mod logging;
-pub mod proof;
-pub mod tally_encrypt;
-
-use uuid::Uuid;
-
-use crate::admin_auth::AdminAuthority;
-
-type MUuid = Uuid;
-type UUuid = Uuid;
-
-/// NOTE: The API_ENDPOINT environmental variable must be set at compile time!
-const API_ENDPOINT_SERVER: &str = env!("API_ENDPOINT_SERVER");
-const API_ENDPOINT_SERVER_TO_TRUSTAUTH: &str = env!("API_ENDPOINT_SERVER_TO_TRUSTAUTH");
-
-#[derive(Debug)]
-pub struct Voter {
-    name: String,
-    logged_in: bool,
-    is_host: bool,
-    registered_at: SystemTime,
+#[derive(Default)]
+pub struct RateLimits {
+    /// Every `/api` route.
+    pub general: Option<RateLimitLayer>,
+    /// `POST /api/meetings`, on top of `general`.
+    pub create_meeting: Option<RateLimitLayer>,
 }
 
-/// Each authority is wrapped in its own `AsyncRwLock` so concurrent requests can hold
-/// independent field locks rather than serialising on a single map-level lock.
-/// `title` and `start_time` are immutable after construction and need no lock.
-/// `locked` is a simple boolean that only needs atomic access.
-pub struct Meeting {
-    pub title: String,
-    pub start_time: SystemTime,
-    pub locked: AtomicBool,
-    pub voters: AsyncRwLock<HashMap<Uuid, Voter>>,
-    pub vote_auth: AsyncRwLock<VoteAuthority>,
-    pub invite_auth: AsyncRwLock<InviteAuthority>,
-    pub admin_auth: AsyncRwLock<AdminAuthority>,
-}
+pub fn api_router(limits: RateLimits) -> Router<AppState> {
+    use api::{ballot, events, meeting, round, voters};
 
-impl Meeting {
-    pub fn new(title: String, start_time: SystemTime, voters: HashMap<Uuid, Voter>) -> Self {
-        Self {
-            title,
-            start_time,
-            locked: AtomicBool::new(false),
-            voters: AsyncRwLock::new(voters),
-            vote_auth: AsyncRwLock::new(VoteAuthority::new()),
-            invite_auth: AsyncRwLock::new(InviteAuthority::new()),
-            admin_auth: AsyncRwLock::new(AdminAuthority::new()),
-        }
+    let mut create = post(meeting::create);
+    if let Some(layer) = limits.create_meeting {
+        create = create.layer(layer);
     }
 
-    pub fn unlock(&self) {
-        self.locked.store(false, Ordering::Relaxed);
+    let host = Router::new()
+        .route("/voters", get(voters::list).post(voters::add).delete(voters::remove_all))
+        .route("/voters/{id}", delete(voters::remove))
+        .route("/voters/{id}/reset-invite", post(voters::reset_invite))
+        .route("/round", get(round::status).post(round::start).delete(round::reset))
+        .route("/round/close", post(round::close))
+        .route("/tally-files", get(round::tally_files))
+        .route("/meeting", delete(meeting::close));
+
+    let mut api = Router::new()
+        .route("/config", get(meeting::config))
+        .route("/meetings", create)
+        .route("/login", post(meeting::login))
+        .route("/logout", post(meeting::logout))
+        .route("/trustauth-ticket", post(meeting::trustauth_ticket))
+        .route("/session", get(meeting::session))
+        .route("/meeting", get(meeting::get))
+        .route("/meeting/events", get(events::stream))
+        .route("/ballot", post(ballot::submit))
+        .nest("/host", host)
+        .fallback(|| async { ApiError::new(ErrorCode::NotFound) });
+    if let Some(layer) = limits.general {
+        api = api.layer(layer);
     }
+    api.layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
 }
 
-/// The outer `AsyncRwLock` is held in *read* mode for almost all operations — just long enough to
-/// clone the `Arc<Meeting>` — and in *write* mode only when creating or closing a meeting.
-pub type ActiveMeetings = Arc<AsyncRwLock<HashMap<MUuid, Arc<Meeting>>>>;
-
-#[derive(Clone)]
-pub struct AppStateInternal {
-    secret: [u8; 32],
-    meetings: ActiveMeetings,
-    // decides whether cookies should be sent as secure (i.e. require https). This should be true
-    // for prod and false for dev
-    is_secure: bool,
-    trustauth_client: Client,
-    trustauth_url: String,
-}
-
-#[derive(Deserialize)]
-struct StartRoundResponse {
-    pub_key_bytes: Vec<u8>,
-}
-
-#[derive(Clone)]
-pub struct AppState(Arc<RwLock<AppStateInternal>>);
-impl AppState {
-    pub fn read(&self) -> Result<RwLockReadGuard<'_, AppStateInternal>, APIError> {
-        self.0
-            .read()
-            .map_err(|_e| APIError::from_error_code(APIErrorCode::StateCurrupt))
-    }
-
-    pub fn is_secure(&self) -> bool {
-        self.read().map(|g| g.is_secure).unwrap_or(false)
-    }
-
-    /// Use when you need to look up or read from an existing meeting.
-    /// Callers should call `.read().await` on the returned Arc.
-    pub fn meetings_read(&self) -> Result<ActiveMeetings, APIError> {
-        let guard = self.read()?;
-        Ok(guard.meetings.clone())
-    }
-
-    /// Use when you need to insert or remove a meeting from the map.
-    /// Callers should call `.write().await` on the returned Arc.
-    pub fn meetings_write(&self) -> Result<ActiveMeetings, APIError> {
-        let guard = self.read()?;
-        Ok(guard.meetings.clone())
-    }
-
-    /// Look up a meeting by MUUID, returning a cloned `Arc<Meeting>` that can be used
-    /// after the outer map lock has been released.
-    pub async fn get_meeting(&self, muuid: MUuid) -> Result<Arc<Meeting>, APIError> {
-        self.meetings_read()?
-            .read()
-            .await
-            .get(&muuid)
-            .cloned()
-            .ok_or_else(|| APIError::from_error_code(APIErrorCode::MUuidNotFound))
-    }
-
-    pub async fn start_round_on_trustauth(
-        &self,
-        muuid: MUuid,
-        name: &str,
-    ) -> Result<BBSplusPublicKey, APIError> {
-        #[derive(serde::Serialize)]
-        struct StartRoundRequest<'a> {
-            muuid: MUuid,
-            name: &'a str,
-        }
-
-        let (client, trustauth_url) = {
-            let guard = self.read()?;
-            (guard.trustauth_client.clone(), guard.trustauth_url.clone())
-        };
-
-        let resp = client
-            .post(format!("{trustauth_url}/server/api/start-round"))
-            .json(&StartRoundRequest { muuid, name })
-            .send()
-            .await
-            .and_then(|r| r.error_for_status())
-            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))?
-            .json::<StartRoundResponse>()
-            .await
-            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))?;
-
-        BBSplusPublicKey::from_bytes(&resp.pub_key_bytes)
-            .map_err(|_| APIError::from_error_code(APIErrorCode::TrustAuthFetch))
-    }
-}
-
-pub fn init_state() -> Result<AppState, APIError> {
-    let is_secure = API_ENDPOINT_SERVER.starts_with("https://");
-    info!("Running rustsystem server with secure setting: {is_secure}");
-
-    Ok(AppState(Arc::new(RwLock::new(AppStateInternal {
-        secret: rustsystem_core::secret::generate_secret(),
-        meetings: Arc::new(AsyncRwLock::new(HashMap::new())),
-        is_secure,
-        trustauth_client: build_mtls_client(
-            include_bytes!("../../mtls/ca/ca.crt"),
-            include_bytes!("../../mtls/server/server.crt"),
-            include_bytes!("../../mtls/server/server.key"),
-        )?,
-        trustauth_url: API_ENDPOINT_SERVER_TO_TRUSTAUTH.to_string(),
-    }))))
-}
-
-/// Creates an `AppState` suitable for integration tests: uses a plain HTTP client
-/// (no mTLS) and accepts trustauth's base URL at runtime so tests can bind both
-/// services to random ports.
-pub fn new_test_state(trustauth_url: impl Into<String>) -> AppState {
-    AppState(Arc::new(RwLock::new(AppStateInternal {
-        secret: [0u8; 32],
-        meetings: Arc::new(AsyncRwLock::new(HashMap::new())),
-        is_secure: false,
-        trustauth_client: reqwest::Client::new(),
-        trustauth_url: trustauth_url.into(),
-    })))
-}
-
-/// Combines public and internal routers on a single `Router`. Used by
-/// integration tests that run both services in the same process on a single port.
-/// Rate limiting is intentionally omitted here — tests don't provide `ConnectInfo`.
-pub fn app_combined(state: AppState) -> Router {
-    let serve_dir = ServeDir::new("frontend/dist")
-        .not_found_service(ServeFile::new("frontend/dist/index.html"));
-    let public = Router::new()
-        .fallback_service(serve_dir)
-        .nest("/api", api_routes())
-        .with_state(state.clone());
-    public.merge(app_internal(state))
-}
-
-pub fn app_public(state: AppState) -> Router {
-    let serve_dir = ServeDir::new("frontend/dist")
-        .not_found_service(ServeFile::new("frontend/dist/index.html"));
-
-    // Rate limiting is only active in HTTPS (production) mode.
-    // In HTTP mode (local dev and E2E tests) it is skipped so tests can send requests freely.
-    let api = if state.is_secure() {
-        let governor_conf = Arc::new(
-            GovernorConfigBuilder::default()
-                .per_second(10)
-                .burst_size(30)
-                .finish()
-                .unwrap(),
-        );
-        // Periodically remove stale entries to prevent unbounded memory growth.
-        let limiter = governor_conf.limiter().clone();
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-            loop {
-                interval.tick().await;
-                limiter.retain_recent();
-            }
-        });
-        api_routes().layer(GovernorLayer::new(governor_conf))
-    } else {
-        info!("Rate limiting disabled (non-HTTPS endpoint)");
-        api_routes()
-    };
-
+/// The whole public service: the API under `/api`, and the frontend from `frontend_dir`
+/// (any unknown path gets `index.html`, so client-side routes work on reload).
+pub fn router(app: AppState, frontend_dir: &Path, limits: RateLimits) -> Router {
+    let frontend = ServeDir::new(frontend_dir).fallback(ServeFile::new(frontend_dir.join("index.html")));
     Router::new()
-        .fallback_service(serve_dir)
-        .nest("/api", api)
-        .with_state(state)
-}
-
-pub fn app_internal(state: AppState) -> Router {
-    Router::new()
-        .nest("/trustauth", api_trustauth_routes())
-        .with_state(state)
+        .nest("/api", api_router(limits))
+        .fallback_service(frontend)
+        .with_state(app)
 }

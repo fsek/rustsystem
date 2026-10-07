@@ -6,14 +6,9 @@ import { Input } from "@/components/Input/Input";
 import { Button } from "@/components/Button/Button";
 import { Alert } from "@/components/Alert/Alert";
 import { Spinner } from "@/components/Spinner/Spinner";
-import { createMeeting } from "@/signatures/voteSession";
-import {
-  deriveEd25519PublicKeyFromPassword,
-  x25519PublicKeyToPem,
-} from "@/utils/cryptoGen";
-
-const SALT_HEX = import.meta.env.SALT_HEX as string;
-const ITERATIONS = import.meta.env.KEYGEN_ITERATIONS as number;
+import { errorMessage } from "@/api/error";
+import { createMeeting } from "@/api/meeting";
+import { newTallyKey } from "@/utils/cryptoGen";
 
 export const Route = createFileRoute("/create-meeting")({
   component: CreateMeetingPage,
@@ -124,18 +119,12 @@ function CreateMeetingPage() {
     setLoading(true);
     setError(null);
     try {
-      const publicKey = await deriveEd25519PublicKeyFromPassword({
-        password,
-        saltHex: SALT_HEX,
-        iterations: ITERATIONS,
-      });
-      console.log(SALT_HEX);
-      console.log(ITERATIONS);
-      console.log(password);
-      await createMeeting(trimTitle, trimHost, x25519PublicKeyToPem(publicKey));
+      // The password never leaves this page: only the public key and the salt are sent.
+      const tallyKey = await newTallyKey(password);
+      await createMeeting(trimTitle, trimHost, tallyKey);
       navigate({ to: "/admin" });
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
       setLoading(false);
     }
   }
@@ -240,7 +229,12 @@ function CreateMeetingPage() {
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <Spinner size="s" color="primary" />
+                    {/* --primary is the button's own color: draw it in the text color. */}
+                    <Spinner
+                      size="s"
+                      color="primary"
+                      className="[&_circle]:stroke-(--buttonPrimaryText)"
+                    />
                     Creating…
                   </span>
                 ) : (

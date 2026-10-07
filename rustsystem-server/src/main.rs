@@ -1,39 +1,44 @@
-use rustsystem_core::{APIError, mtls::build_mtls_server_config};
-use axum_server::tls_rustls::RustlsConfig;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, process::ExitCode};
 
-use rustsystem_server::{app_internal, app_public, init_state, logging::init_logging};
+use tracing::{error, info};
+
+use rustsystem_core::{
+    limits::{CREATE_MEETING, GENERAL, rate_limit},
+    logging::init_logging,
+};
+use rustsystem_server::{AppState, RateLimits, config::Config, router};
 
 #[tokio::main]
-async fn main() -> Result<(), APIError> {
-    // `_guard` must live until the end of main so the background log-writer is
-    // flushed before the process exits.
-    let _guard = init_logging();
+async fn main() -> ExitCode {
+    // Held until exit so buffered log lines are flushed.
+    let _guard = init_logging("server.log");
 
-    let state = init_state()?;
+    let config = match Config::from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            error!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
 
-    let app_public = app_public(state.clone());
-    let app_internal = app_internal(state);
+    let app = AppState::new(config.settings, config.trustauth);
+    app.spawn_pruning();
 
-    let tls_config = build_mtls_server_config(
-        include_bytes!("../../mtls/server/server.crt"),
-        include_bytes!("../../mtls/server/server.key"),
-        include_bytes!("../../mtls/ca/ca.crt"),
-    )?;
+    let limits = RateLimits {
+        general: rate_limit(GENERAL, config.client_ips.clone()),
+        create_meeting: rate_limit(CREATE_MEETING, config.client_ips),
+    };
+    let service = router(app, &config.frontend_dir, limits);
 
-    let addr_public = SocketAddr::from(([0, 0, 0, 0], 1443));
-    let addr_internal = SocketAddr::from(([0, 0, 0, 0], 1444));
-
-    let internal_serve = axum_server::bind_rustls(
-        addr_internal,
-        RustlsConfig::from_config(std::sync::Arc::new(tls_config)),
-    )
-    .serve(app_internal.into_make_service());
-
-    let public_serve = axum_server::bind(addr_public)
-        .serve(app_public.into_make_service_with_connect_info::<SocketAddr>());
-
-    tokio::try_join!(internal_serve, public_serve)
-        .map_err(|_| APIError::from_error_code(rustsystem_core::APIErrorCode::InitError))?;
-    Ok(())
+    info!(addr = %config.addr, "Server listening");
+    let result = axum_server::bind(config.addr)
+        .serve(service.into_make_service_with_connect_info::<SocketAddr>())
+        .await;
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("listener failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }

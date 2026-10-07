@@ -1,41 +1,57 @@
-use rustsystem_core::{APIError, APIErrorCode, mtls::build_mtls_server_config};
-use axum_server::tls_rustls::RustlsConfig;
-use std::{net::SocketAddr, sync::Arc};
-use tracing::info;
+use std::{net::SocketAddr, process::ExitCode, sync::Arc};
 
-use rustsystem_trustauth::{app_internal, app_public, init_state};
+use axum_server::tls_rustls::RustlsConfig;
+use tracing::{error, info};
+
+use rustsystem_core::{
+    limits::{GENERAL, rate_limit},
+    logging::init_logging,
+    mtls::build_mtls_server_config,
+};
+use rustsystem_trustauth::{AppState, config::Config, internal_router, public_router};
 
 #[tokio::main]
-async fn main() -> Result<(), APIError> {
-    // `_guard` must live until the end of main so the background log-writer is
-    // flushed before the process exits.
-    let _guard = rustsystem_core::logging::init_logging("trustauth.log");
+async fn main() -> ExitCode {
+    // Held until exit so buffered log lines are flushed.
+    let _guard = init_logging("trustauth.log");
 
-    let state = init_state()?;
+    let config = match Config::from_env() {
+        Ok(config) => config,
+        Err(e) => {
+            error!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let tls = match build_mtls_server_config(&config.cert, &config.key, &config.ca_cert) {
+        Ok(tls) => tls,
+        Err(e) => {
+            error!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
 
-    let app_public = app_public(state.clone())?;
-    let app_internal = app_internal(state);
+    let app = AppState::new(config.secure_cookies);
+    app.spawn_pruning();
 
-    let addr_public = SocketAddr::from(([0, 0, 0, 0], 2443));
-    let addr_internal = SocketAddr::from(([0, 0, 0, 0], 2444));
+    let public = public_router(
+        app.clone(),
+        config.allowed_origins,
+        rate_limit(GENERAL, config.client_ips),
+    );
+    let internal = internal_router(app);
 
-    let tls_config = build_mtls_server_config(
-        include_bytes!("../../mtls/trustauth/trustauth.crt"),
-        include_bytes!("../../mtls/trustauth/trustauth.key"),
-        include_bytes!("../../mtls/ca/ca.crt"),
-    )?;
+    info!(public = %config.public_addr, internal = %config.internal_addr, "Trustauth listening");
 
-    info!("Running trustauth on public={addr_public} internal={addr_internal}");
+    let public_serve = axum_server::bind(config.public_addr)
+        .serve(public.into_make_service_with_connect_info::<SocketAddr>());
+    let internal_serve = axum_server::bind_rustls(config.internal_addr, RustlsConfig::from_config(Arc::new(tls)))
+        .serve(internal.into_make_service());
 
-    let public_serve = axum_server::bind(addr_public)
-        .serve(app_public.into_make_service_with_connect_info::<SocketAddr>());
-    let internal_serve = axum_server::bind_rustls(
-        addr_internal,
-        RustlsConfig::from_config(Arc::new(tls_config)),
-    )
-    .serve(app_internal.into_make_service());
-
-    tokio::try_join!(internal_serve, public_serve)
-        .map_err(|_| APIError::from_error_code(APIErrorCode::InitError))?;
-    Ok(())
+    match tokio::try_join!(public_serve, internal_serve) {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("listener failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }

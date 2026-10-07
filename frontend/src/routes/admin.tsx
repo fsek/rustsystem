@@ -8,31 +8,36 @@ import { Alert } from "@/components/Alert/Alert";
 import { Spinner } from "@/components/Spinner/Spinner";
 import { Badge } from "@/components/Badge/Badge";
 import { Panel } from "@/components/Panel/Panel";
-import { VotePanel, type VoteState } from "@/components/VotePanel/VotePanel";
 import {
-  apiFetch,
-  apiUrl,
-  startVoteRound,
-  tally as tallyVote,
-  getTally,
-  endVoteRound,
-  getSessionIds,
-  type TallyResult,
-} from "@/signatures/voteSession";
+  VotePanel,
+  phaseToVoteState,
+  type VoteState,
+} from "@/components/VotePanel/VotePanel";
+import { fromBase64 } from "@/api/encoding";
+import { errorMessage, isApiError, isLoggedOut } from "@/api/error";
 import {
-  fetchVoterList,
   addVoter,
-  removeVoter,
-  removeAllVoters,
   closeMeeting,
-  getAllTallyFiles,
-  fetchVoteProgress,
+  closeRound,
+  getRound,
+  getTallyFiles,
+  listVoters,
+  removeAllVoters,
+  removeVoter,
+  resetRound,
+  startRound,
+  toTallyResult,
+  type HostRoundView,
+  type Invite,
+  type TallyResult,
   type VoterInfo,
-  type NewVoterResponse,
-  type VoteProgress,
 } from "@/api/host";
-import { deriveX25519PrivateKeyFromPassword } from "@/utils/cryptoGen";
-import { decryptTallyFile } from "@/utils/tallyDecrypt";
+import {
+  ensureTrustauthSession,
+  getSession,
+  watchMeeting,
+} from "@/api/meeting";
+import { decryptTallyFiles } from "@/utils/tallyDecrypt";
 import {
   tallyToJson,
   tallyToYaml,
@@ -45,16 +50,9 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-const SALT_HEX = import.meta.env.SALT_HEX as string;
-const ITERATIONS = import.meta.env.KEYGEN_ITERATIONS as number;
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-function deriveVoteState(p: VoteProgress): VoteState {
-  if (p.isTally) return "Tally";
-  if (p.isActive) return "Voting";
-  return "Creation";
-}
+type NewInvite = Invite & { voterName: string };
 
 // ─── Label helper ─────────────────────────────────────────────────────────────
 
@@ -75,7 +73,7 @@ function AddVoterPanel({
   onAdded,
   voteState,
 }: {
-  onAdded: (r: NewVoterResponse & { voterName: string }) => void;
+  onAdded: (r: NewInvite) => void;
   voteState: VoteState;
 }) {
   const [name, setName] = useState("");
@@ -94,7 +92,7 @@ function AddVoterPanel({
       setName("");
       setIsHost(false);
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -155,7 +153,7 @@ function QRPanel({
   result,
   onDismiss,
 }: {
-  result: NewVoterResponse & { voterName: string };
+  result: NewInvite;
   onDismiss: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -226,20 +224,21 @@ function QRPanel({
 function VoterListPanel({
   voters,
   loading,
-  selfUuuid,
+  selfId,
   onRemove,
   onRemoveAll,
   onReload,
 }: {
   voters: VoterInfo[];
   loading: boolean;
-  selfUuuid: string | null;
-  onRemove: (uuid: string) => Promise<void>;
+  selfId: string | null;
+  onRemove: (id: string) => Promise<void>;
   onRemoveAll: () => Promise<void>;
   onReload: () => void;
 }) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [removingAll, setRemovingAll] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchPredicate, setSearchPredicate] = useState<string>("");
   const sortedVoters = useMemo(() => {
     return voters
@@ -252,11 +251,14 @@ function VoterListPanel({
       .map((item) => item.voter);
   }, [searchPredicate, voters]);
 
-  async function handleRemove(uuid: string) {
-    setRemoving(uuid);
+  async function handleRemove(id: string) {
+    setRemoving(id);
+    setError(null);
     try {
-      await onRemove(uuid);
+      await onRemove(id);
       onReload();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setRemoving(null);
     }
@@ -264,15 +266,18 @@ function VoterListPanel({
 
   async function handleRemoveAll() {
     setRemovingAll(true);
+    setError(null);
     try {
       await onRemoveAll();
       onReload();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setRemovingAll(false);
     }
   }
 
-  const nonHostCount = voters.filter((v) => !v.is_host).length;
+  const nonHostCount = voters.filter((v) => !v.isHost).length;
 
   return (
     <Panel
@@ -340,7 +345,7 @@ function VoterListPanel({
           </div>
           {sortedVoters.map((v, _) => (
             <div
-              key={v.uuid}
+              key={v.id}
               className="flex items-center gap-3 px-5 py-3"
               style={{
                 borderTop: "1px solid var(--border)",
@@ -350,7 +355,7 @@ function VoterListPanel({
               <span
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{
-                  background: v.logged_in
+                  background: v.loggedIn
                     ? "var(--primary)"
                     : "color-mix(in srgb, var(--border) 200%, transparent)",
                 }}
@@ -363,21 +368,21 @@ function VoterListPanel({
                 {v.name}
               </span>
 
-              {v.is_host && (
+              {v.isHost && (
                 <Badge size="s" color="primary" textColor="textPrimary">
                   host
                 </Badge>
               )}
 
-              {v.uuid !== selfUuuid && (
+              {v.id !== selfId && (
                 <button
                   type="button"
-                  onClick={() => handleRemove(v.uuid)}
-                  disabled={removing === v.uuid}
+                  onClick={() => handleRemove(v.id)}
+                  disabled={removing === v.id}
                   className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-base leading-none cursor-pointer transition-opacity opacity-30 hover:opacity-80 disabled:opacity-20"
                   style={{ color: "var(--textSecondary)" }}
                 >
-                  {removing === v.uuid ? (
+                  {removing === v.id ? (
                     <Spinner size="s" color="secondary" />
                   ) : (
                     "×"
@@ -386,6 +391,13 @@ function VoterListPanel({
               )}
             </div>
           ))}
+        </div>
+      )}
+      {error && (
+        <div className="px-5 py-3">
+          <Alert size="sm" color="accent">
+            {error}
+          </Alert>
         </div>
       )}
     </Panel>
@@ -622,7 +634,7 @@ function HostVoteRoundPanel({
   onEndRound,
 }: {
   voteState: VoteState;
-  progress: VoteProgress | null;
+  progress: HostRoundView | null;
   tallyResult: TallyResult | null;
   participants: string[];
   onStart: (
@@ -659,7 +671,7 @@ function HostVoteRoundPanel({
         shuffle,
       );
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
     } finally {
       setStarting(false);
     }
@@ -671,7 +683,7 @@ function HostVoteRoundPanel({
     try {
       await onTally();
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
     } finally {
       setTallying(false);
     }
@@ -683,7 +695,7 @@ function HostVoteRoundPanel({
     try {
       await onEndRound();
     } catch (err) {
-      setError(String(err));
+      setError(errorMessage(err));
     } finally {
       setEnding(false);
     }
@@ -697,9 +709,14 @@ function HostVoteRoundPanel({
     Tally: "Tally",
   };
 
-  const totalVotes = progress?.totalParticipants ?? 0;
-  const castVotes = progress?.totalVotesCast ?? 0;
+  const roundName = progress?.round?.name ?? null;
+  const counts = progress?.counts ?? null;
+  const totalVotes = counts?.eligible ?? 0;
+  const castVotes = counts?.received ?? 0;
   const progressPct = totalVotes > 0 ? (castVotes / totalVotes) * 100 : 0;
+  // Trustauth signed more ballots than the server received: a vote was lost in transit.
+  const lostVotes =
+    counts && counts.signed !== null ? counts.signed - counts.received : 0;
 
   const sortedScores = tallyResult
     ? Object.entries(tallyResult.score).sort(([, a], [, b]) => b - a)
@@ -795,12 +812,12 @@ function HostVoteRoundPanel({
         {/* ── Voting ── */}
         {voteState === "Voting" && (
           <div className="flex flex-col gap-5">
-            {progress?.voteName && (
+            {roundName && (
               <p
                 className="font-semibold text-base"
                 style={{ color: "var(--textPrimary)" }}
               >
-                {progress.voteName}
+                {roundName}
               </p>
             )}
 
@@ -825,6 +842,13 @@ function HostVoteRoundPanel({
                     background: "var(--linearGrad)",
                   }}
                 />
+              </div>
+              <div
+                className="flex justify-between text-xs"
+                style={{ color: "var(--textSecondary)" }}
+              >
+                <span>Ballots signed</span>
+                <span className="tabular-nums">{counts?.signed ?? "—"}</span>
               </div>
             </div>
 
@@ -879,6 +903,15 @@ function HostVoteRoundPanel({
                     Blank votes: {tallyResult.blank}
                   </p>
                 )}
+                {lostVotes > 0 && (
+                  <Alert size="sm" color="accent">
+                    {lostVotes === 1
+                      ? "One ballot was"
+                      : `${lostVotes} ballots were`}{" "}
+                    signed but never arrived — a voter likely closed their page
+                    mid-vote. Consider running this round again.
+                  </Alert>
+                )}
               </div>
             ) : (
               <div className="flex justify-center py-4">
@@ -906,7 +939,7 @@ function HostVoteRoundPanel({
               {tallyResult && (
                 <TallyDownloadButton
                   tally={tallyResult}
-                  voteName={progress?.voteName ?? "tally"}
+                  voteName={roundName ?? "tally"}
                   participants={participants}
                 />
               )}
@@ -926,18 +959,17 @@ function HostVoteRoundPanel({
 
 // ─── Admin page ───────────────────────────────────────────────────────────────
 
+/** A safety net in case an event is missed; the event stream does the real work. */
 const SESSION_POLL_MS = 10_000;
+/** Many ballots can arrive in a second; refetch at most this often. */
+const REFRESH_THROTTLE_MS = 500;
 
 function Admin() {
   const navigate = useNavigate();
   const [voters, setVoters] = useState<VoterInfo[]>([]);
   const [votersLoading, setVotersLoading] = useState(true);
-  const [voteState, setVoteState] = useState<VoteState>("Creation");
-  const [voteProgress, setVoteProgress] = useState<VoteProgress | null>(null);
-  const [tallyResult, setTallyResult] = useState<TallyResult | null>(null);
-  const [qrInfo, setQrInfo] = useState<
-    (NewVoterResponse & { voterName: string }) | null
-  >(null);
+  const [round, setRound] = useState<HostRoundView | null>(null);
+  const [qrInfo, setQrInfo] = useState<NewInvite | null>(null);
   const [joinedVoterName, setJoinedVoterName] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -948,143 +980,90 @@ function Admin() {
     null,
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selfUuuid, setSelfUuuid] = useState<string | null>(null);
-  // null = still checking, true = in meeting, false = removed/not logged in
+  const [selfId, setSelfId] = useState<string | null>(null);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  // null = still checking, true = host in a meeting, false = removed/not logged in/not a host
   const [sessionValid, setSessionValid] = useState<boolean | null>(null);
 
-  const reloadVoters = useCallback(async () => {
+  const voteState: VoteState = phaseToVoteState(round?.phase ?? "idle");
+  const tallyResult: TallyResult | null =
+    round?.round && round.tally
+      ? toTallyResult(round.round.candidates, round.tally)
+      : null;
+
+  // Who was logged in at the last refresh, to announce new logins.
+  const loggedIn = useRef<Map<string, boolean> | null>(null);
+
+  const refresh = useCallback(async () => {
     try {
-      const list = await fetchVoterList();
+      const [list, r] = await Promise.all([listVoters(), getRound()]);
+      const before = loggedIn.current;
+      if (before) {
+        const joined = list.find(
+          (v) => v.loggedIn && before.get(v.id) === false,
+        );
+        if (joined) setJoinedVoterName(joined.name);
+      }
+      loggedIn.current = new Map(list.map((v) => [v.id, v.loggedIn]));
       setVoters(list);
+      setRound(r);
+      setSessionValid(true);
     } catch (err) {
-      console.error("Failed to reload voters:", err);
+      if (isLoggedOut(err) || isApiError(err, "NotHost"))
+        setSessionValid(false);
+      // Other errors keep the current state; the next event or poll retries.
     }
   }, []);
 
-  const refreshSession = useCallback(async () => {
-    let res: Response;
-    try {
-      res = await apiFetch("/api/common/vote-progress");
-    } catch {
-      return; // network error — don't invalidate session
-    }
-    if (res.status === 401) {
-      setSessionValid(false);
-      return;
-    }
-    if (!res.ok) return; // other server error — keep current session state
-    setSessionValid(true);
-  }, []);
+  // Coalesces bursts of events (e.g. many ballots at once) into one refetch.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current) return;
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      refresh();
+    }, REFRESH_THROTTLE_MS);
+  }, [refresh]);
 
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       try {
-        const [voterList, progress, sessionIds] = await Promise.all([
-          fetchVoterList(),
-          fetchVoteProgress(),
-          getSessionIds(),
-        ]);
-        setVoters(voterList);
-        setSelfUuuid(sessionIds.uuuid);
-        setVoteProgress(progress);
-        const state = deriveVoteState(progress);
-        setVoteState(state);
-        setSessionValid(true);
-        if (state === "Tally") {
-          getTally().then(setTallyResult).catch(console.error);
+        const session = await getSession();
+        if (!session.isHost) {
+          setSessionValid(false);
+          return;
         }
+        setSelfId(session.voter);
+        setMeetingId(session.meeting);
+        // Repairs a trustauth login interrupted by a closed tab or lost connection.
+        ensureTrustauthSession().catch(console.warn);
+        await refresh();
       } catch (err) {
-        if (err instanceof Error && err.message.includes("401")) {
+        if (isLoggedOut(err)) {
           setSessionValid(false);
         } else {
           setSessionValid(true);
-          setLoadError(String(err));
+          setLoadError(errorMessage(err));
         }
       } finally {
         setVotersLoading(false);
       }
     }
     init();
-  }, []);
+  }, [refresh]);
 
-  // ── SSE: vote state ─────────────────────────────────────────────────────────
+  // ── Live updates ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const es = new EventSource(apiUrl("/api/common/vote-state-watch"), {
-      withCredentials: true,
-    });
-    es.onmessage = (e) => {
-      const raw = (e.data as string).replace(/^"|"$/g, "");
-      if (raw === "Creation" || raw === "Voting" || raw === "Tally") {
-        setVoteState(raw);
-        if (raw === "Tally") {
-          getTally().then(setTallyResult).catch(console.error);
-        }
-        if (raw === "Creation") {
-          setTallyResult(null);
-        }
-      }
-    };
-    es.onerror = () => console.warn("vote-state-watch SSE disconnected");
-    return () => es.close();
-  }, []);
+    if (sessionValid !== true) return;
+    return watchMeeting(scheduleRefresh);
+  }, [sessionValid, scheduleRefresh]);
 
-  // ── SSE: vote progress ──────────────────────────────────────────────────────
+  // ── Periodic check ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const es = new EventSource(apiUrl("/api/common/vote-progress-watch"), {
-      withCredentials: true,
-    });
-    es.onmessage = () => {
-      fetchVoteProgress()
-        .then((p) => {
-          setVoteProgress(p);
-          setVoteState(deriveVoteState(p));
-        })
-        .catch(console.error);
-    };
-    es.onerror = () => console.warn("vote-progress-watch SSE disconnected");
-    return () => es.close();
-  }, []);
-
-  // ── Polling: keep progress accurate while voting is active ──────────────────
-  // SSE delivers instant updates; this poll is a safety net that guarantees
-  // the numbers stay correct even if an SSE event is missed or the connection
-  // briefly drops.
-  useEffect(() => {
-    if (voteState !== "Voting") return;
-
-    const id = setInterval(() => {
-      fetchVoteProgress()
-        .then((p) => {
-          setVoteProgress(p);
-          // Catch any state transition the SSE may have missed.
-          setVoteState(deriveVoteState(p));
-        })
-        .catch(console.error);
-    }, 2000);
-
-    return () => clearInterval(id);
-  }, [voteState]);
-
-  // ── SSE: invite watch ───────────────────────────────────────────────────────
-  useEffect(() => {
-    const es = new EventSource(apiUrl("/api/host/invite-watch"), {
-      withCredentials: true,
-    });
-    es.onmessage = (e) => {
-      const name = e.data as string;
-      setJoinedVoterName(name);
-      reloadVoters();
-    };
-    es.onerror = () => console.warn("invite-watch SSE disconnected");
-    return () => es.close();
-  }, [reloadVoters]);
-
-  // ── Periodic session check ───────────────────────────────────────────────────
-  useEffect(() => {
-    const timer = setInterval(refreshSession, SESSION_POLL_MS);
+    const timer = setInterval(refresh, SESSION_POLL_MS);
     return () => clearInterval(timer);
-  }, [refreshSession]);
+  }, [refresh]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -1094,21 +1073,16 @@ function Admin() {
     maxChoices: number,
     shuffle: boolean,
   ) {
-    await startVoteRound(name, shuffle, {
-      candidates: opts,
-      max_choices: maxChoices,
-      protocol_version: 1,
-    });
+    setRound(await startRound(name, opts, maxChoices, shuffle));
   }
 
   async function handleTally() {
-    const result = await tallyVote();
-    setTallyResult(result);
+    setRound(await closeRound());
   }
 
   async function handleEndRound() {
-    await endVoteRound();
-    setTallyResult(null);
+    await resetRound();
+    await refresh();
   }
 
   async function handleCloseMeeting() {
@@ -1118,7 +1092,7 @@ function Admin() {
       await closeMeeting();
       navigate({ to: "/create-meeting" });
     } catch (err) {
-      setCloseError(String(err));
+      setCloseError(errorMessage(err));
       setClosing(false);
     }
   }
@@ -1128,14 +1102,11 @@ function Admin() {
     setDownloadingTallies(true);
     setTallyDownloadError(null);
     try {
-      const privateKey = await deriveX25519PrivateKeyFromPassword({
-        password: tallyPassword,
-        saltHex: SALT_HEX,
-        iterations: ITERATIONS,
-      });
-      const files = await getAllTallyFiles();
-      const decrypted = await Promise.all(
-        files.map((f) => decryptTallyFile(f.data, privateKey)),
+      const files = await getTallyFiles();
+      // Decrypted here in the browser; the password never leaves this page.
+      const decrypted = await decryptTallyFiles(
+        files.map((f) => fromBase64(f.data)),
+        tallyPassword,
       );
       const json = JSON.stringify(decrypted, null, 2);
       const blob = new Blob([json], { type: "application/json" });
@@ -1155,10 +1126,10 @@ function Admin() {
     }
   }
 
-  function handleVoterAdded(r: NewVoterResponse & { voterName: string }) {
+  function handleVoterAdded(r: NewInvite) {
     setQrInfo(r);
     setJoinedVoterName(null);
-    reloadVoters();
+    refresh();
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -1347,10 +1318,10 @@ function Admin() {
           <VoterListPanel
             voters={voters}
             loading={votersLoading}
-            selfUuuid={selfUuuid}
+            selfId={selfId}
             onRemove={removeVoter}
             onRemoveAll={removeAllVoters}
-            onReload={reloadVoters}
+            onReload={refresh}
           />
         </div>
 
@@ -1358,7 +1329,7 @@ function Admin() {
         <div className="flex flex-col gap-6">
           <HostVoteRoundPanel
             voteState={voteState}
-            progress={voteProgress}
+            progress={round}
             tallyResult={tallyResult}
             participants={voters.map((v) => v.name)}
             onStart={handleStartVote}
@@ -1367,10 +1338,11 @@ function Admin() {
           />
           {voteState === "Voting" && (
             <VotePanel
-              key={voteProgress?.voteName ?? "vote"}
+              key={round?.round?.id ?? "vote"}
               voteState={voteState}
-              voteName={voteProgress?.voteName}
-              metadata={voteProgress?.metadata}
+              voteName={round?.round?.name ?? null}
+              round={round?.round ?? null}
+              meetingId={meetingId}
             />
           )}
         </div>

@@ -1,164 +1,102 @@
-// derivePublicKey.ts
-//
-// Browser/Vite-friendly TypeScript: password + saltHex -> deterministic public key.
-// Uses WebCrypto (PBKDF2-HMAC-SHA256) + libsodium (Ed25519 keypair from seed).
-//
-// Install:
-//   npm i libsodium-wrappers
-//
-// Notes:
-// - This matches the OpenSSL-style PBKDF2-HMAC-SHA256 derivation:
-//   seed = PBKDF2(password_utf8, salt_bytes, iterations, 32, SHA-256)
-// - Then:
-//   (pk, sk) = Ed25519_keypair_from_seed(seed)
-// - Public key output is 32 bytes.
-//
-// If your goal is "server encrypts with public key", you probably want X25519 instead;
-// see the commented alternative at the bottom.
-
-import sodium from "libsodium-wrappers";
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-function wrapPem(b64: string, label: string): string {
-  const lines = b64.match(/.{1,64}/g) ?? [];
-  return `-----BEGIN ${label}-----\n${lines.join("\n")}\n-----END ${label}-----\n`;
-}
-
-function concat(...parts: Uint8Array[]): Uint8Array {
-  const len = parts.reduce((a, p) => a + p.length, 0);
-  const out = new Uint8Array(len);
-  let off = 0;
-  for (const p of parts) {
-    out.set(p, off);
-    off += p.length;
-  }
-  return out;
-}
-
-export function x25519PublicKeyToPem(rawPub: Uint8Array): string {
-  if (rawPub.length !== 32)
-    throw new Error("X25519 public key must be 32 bytes");
-
-  const spkiPrefix = new Uint8Array([
-    0x30, 0x2a, 0x30, 0x05,
-    // OID 1.3.101.110 (X25519) = 2B 65 6E
-    0x06, 0x03, 0x2b, 0x65, 0x6e, 0x03, 0x21, 0x00,
-  ]);
-
-  const der = concat(spkiPrefix, rawPub);
-  const b64 = bytesToBase64(der);
-  return wrapPem(b64, "PUBLIC KEY");
-}
-
-/** Convert even-length hex string to bytes. */
-function hexToBytes(hex: string): Uint8Array {
-  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0) {
-    throw new Error("saltHex must be even-length hex");
-  }
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  }
-  return out;
-}
-
-/** Convert bytes to hex (useful for logging/comparison). */
-export function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 /**
- * Derive a 32-byte seed using PBKDF2-HMAC-SHA256 in the browser.
+ * The meeting's tally key, derived from the meeting password (`docs/PROTOCOL.md` §4.1, §8).
+ *
+ *   salt  = 16 random bytes, new for every meeting
+ *   seed  = Argon2id(password, salt, t=3, m=64 MiB, p=1)   — 32 bytes
+ *   key   = X25519 key pair with `seed` as the private key
+ *
+ * At meeting creation only the public key, salt and costs go to the server. The salt and costs
+ * are written into every tally file, so later the password alone re-derives the private key —
+ * here in the browser, or in the `decrypt-tally` CLI, which must produce identical bytes
+ * (see the shared test vectors in `cryptoGen.test.ts` and `decrypt-tally/src/main.rs`).
  */
-async function deriveSeedPBKDF2_SHA256(
-  password: string,
-  saltBytes: Uint8Array,
-  iterations: number,
-): Promise<Uint8Array> {
-  if (iterations <= 0) throw new Error("iterations must be > 0");
 
-  const passwordBytes = new TextEncoder().encode(password);
+import { x25519 } from "@noble/curves/ed25519.js";
+import { argon2idAsync } from "@noble/hashes/argon2.js";
 
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    passwordBytes,
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits"],
-  );
+import { bytesToHex, hexToBytes, toBase64Url } from "@/api/encoding";
+import type { TallyKeyBody } from "@/api/meeting";
+import type { Argon2Request, Argon2Response } from "./argon2.worker";
 
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: saltBytes,
-      iterations,
-    },
-    keyMaterial,
-    32 * 8, // 32 bytes
-  );
+export { bytesToHex, hexToBytes };
 
-  return new Uint8Array(bits);
+export const SALT_LEN = 16;
+
+/** About a second in a desktop browser, a few on a phone. Only paid at creation and decryption. */
+export const KDF_DEFAULTS = {
+  t_cost: 3,
+  m_cost_kib: 64 * 1024,
+  p_cost: 1,
+} as const;
+
+export interface KdfParams {
+  salt_hex: string;
+  t_cost: number;
+  m_cost_kib: number;
+  p_cost: number;
 }
 
-/**
- * Returns the raw 32-byte X25519 private key (= PBKDF2 seed) derived from a
- * password. This is the same scalar that crypto_scalarmult_base maps to the
- * public key stored on the server, so it can be used to ECDH-decrypt tally
- * files encrypted for that public key.
- */
+/** Fresh parameters for a new meeting: the default costs and a new random salt. */
+export function newKdfParams(): KdfParams {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+  return { salt_hex: bytesToHex(salt), ...KDF_DEFAULTS };
+}
+
+/** The X25519 private key for `password` under `kdf`. Yields to the UI while it works. */
 export async function deriveX25519PrivateKeyFromPassword(params: {
   password: string;
-  saltHex: string;
-  iterations: number;
+  kdf: KdfParams;
 }): Promise<Uint8Array> {
-  const saltBytes = hexToBytes(params.saltHex);
-  return deriveSeedPBKDF2_SHA256(params.password, saltBytes, params.iterations);
+  const salt = hexToBytes(params.kdf.salt_hex);
+  if (salt.length !== SALT_LEN)
+    throw new Error(`The salt must be ${SALT_LEN} bytes.`);
+  const opts = {
+    t: params.kdf.t_cost,
+    m: params.kdf.m_cost_kib,
+    p: params.kdf.p_cost,
+    dkLen: 32,
+  };
+  // No workers outside the browser (unit tests): run it here instead.
+  if (typeof Worker === "undefined")
+    return argon2idAsync(params.password, salt, { ...opts, asyncTick: 20 });
+  return argon2idInWorker({ password: params.password, salt, ...opts });
 }
 
-/**
- * FULL PIPELINE:
- * password + saltHex -> PBKDF2 seed -> deterministic Ed25519 public key
- */
-export async function deriveEd25519PublicKeyFromPassword(params: {
+/** One worker per call: this runs a few times per meeting, and it frees the 64 MiB after. */
+function argon2idInWorker(req: Argon2Request): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL("./argon2.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (e: MessageEvent<Argon2Response>) => {
+      worker.terminate();
+      if (e.data.ok) resolve(e.data.key);
+      else reject(new Error(`Argon2id: ${e.data.error}`));
+    };
+    worker.onerror = (e) => {
+      worker.terminate();
+      reject(new Error(`Argon2id worker: ${e.message}`));
+    };
+    worker.postMessage(req);
+  });
+}
+
+export async function deriveX25519PublicKeyFromPassword(params: {
   password: string;
-  saltHex: string;
-  iterations: number;
+  kdf: KdfParams;
 }): Promise<Uint8Array> {
-  await sodium.ready;
-
-  const saltBytes = hexToBytes(params.saltHex);
-  const seed = await deriveSeedPBKDF2_SHA256(
-    params.password,
-    saltBytes,
-    params.iterations,
-  );
-
-  // Derive X25519 public key directly from seed as private scalar.
-  // crypto_scalarmult_base uses the seed directly (with internal clamping),
-  // matching OpenSSL's behaviour when the raw bytes are written into the DER.
-  return sodium.crypto_scalarmult_base(seed); // 32 bytes
+  return x25519.getPublicKey(await deriveX25519PrivateKeyFromPassword(params));
 }
 
-/*
-========================================
-If you actually need an ENCRYPTION public key (server encrypts, client decrypts):
-Use X25519 (crypto_box) instead of Ed25519 (crypto_sign).
-
-Replace:
-  sodium.crypto_sign_seed_keypair(seed)
-with:
-  sodium.crypto_box_seed_keypair(seed)
-
-Then:
-  return kp.publicKey
-
-Example:
-  const kp = sodium.crypto_box_seed_keypair(seed);
-========================================
-*/
+/** What `POST /api/meetings` needs to know about the tally key for a new meeting. */
+export async function newTallyKey(password: string): Promise<TallyKeyBody> {
+  const kdf = newKdfParams();
+  const publicKey = await deriveX25519PublicKeyFromPassword({ password, kdf });
+  return {
+    publicKey: toBase64Url(publicKey),
+    salt: toBase64Url(hexToBytes(kdf.salt_hex)),
+    tCost: kdf.t_cost,
+    mCostKib: kdf.m_cost_kib,
+    pCost: kdf.p_cost,
+  };
+}

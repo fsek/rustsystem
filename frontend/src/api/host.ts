@@ -1,91 +1,103 @@
 /**
- * Host-specific API helpers for the admin panel.
+ * Host-only API: the voter list, vote rounds, tally files, closing the meeting.
  */
 
-import { apiFetch } from "@/signatures/voteSession";
-import type { BallotMetaData } from "@/signatures/signatures";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { server } from "./client";
+import type { RoundView } from "./meeting";
 
 export interface VoterInfo {
+  id: string;
   name: string;
-  uuid: string;
-  registered_at: number;
-  logged_in: boolean;
-  is_host: boolean;
+  isHost: boolean;
+  loggedIn: boolean;
+  /** Unix seconds. */
+  addedAt: number;
 }
 
-export interface NewVoterResponse {
-  qrSvg: string;
+export interface Invite {
+  voter: string;
   inviteLink: string;
+  /** An SVG `data:` URI. */
+  qrSvg: string;
 }
 
-export interface VoteProgress {
-  isActive: boolean;
-  isTally: boolean;
-  totalVotesCast: number;
-  totalParticipants: number;
-  voteName: string | null;
-  metadata: BallotMetaData | null;
+export interface Counts {
+  eligible: number;
+  /** How many voters trustauth has signed; `null` if it couldn't be reached. */
+  signed: number | null;
+  received: number;
 }
 
-// ─── Voter management ─────────────────────────────────────────────────────────
-
-export async function fetchVoterList(): Promise<VoterInfo[]> {
-  const res = await apiFetch("/api/host/voter-list");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+/** Results as the server sends them: `score[i]` belongs to `round.candidates[i]`. */
+export interface ServerTally {
+  score: number[];
+  blank: number;
 }
 
-export async function addVoter(
-  name: string,
-  isHost: boolean,
-): Promise<NewVoterResponse> {
-  const res = await apiFetch("/api/host/new-voter", {
-    method: "POST",
-    body: JSON.stringify({ voterName: name, isHost: isHost }),
+export interface HostRoundView {
+  phase: "idle" | "voting" | "tallied";
+  round: RoundView | null;
+  counts: Counts | null;
+  tally: ServerTally | null;
+}
+
+/** Results keyed by candidate name, the shape the result views and exports use. */
+export interface TallyResult {
+  score: Record<string, number>;
+  blank: number;
+}
+
+export function toTallyResult(
+  candidates: string[],
+  tally: ServerTally,
+): TallyResult {
+  const score: Record<string, number> = {};
+  candidates.forEach((c, i) => {
+    score[c] = tally.score[i] ?? 0;
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return { score, blank: tally.blank };
 }
-
-export async function removeVoter(voterUuuid: string): Promise<void> {
-  const res = await apiFetch("/api/host/remove-voter", {
-    method: "DELETE",
-    body: JSON.stringify({ voter_uuuid: voterUuuid }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
-
-export async function removeAllVoters(): Promise<void> {
-  const res = await apiFetch("/api/host/remove-all", { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
-
-// ─── Tally files ──────────────────────────────────────────────────────────────
 
 export interface TallyFileEntry {
   filename: string;
-  data: string; // base64-encoded encrypted bytes
+  /** The encrypted file, standard base64. */
+  data: string;
 }
 
-export async function getAllTallyFiles(): Promise<TallyFileEntry[]> {
-  const res = await apiFetch("/api/host/get-all-tally");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+// ── Voters ───────────────────────────────────────────────────────────────────
 
-// ─── Meeting lifecycle ────────────────────────────────────────────────────────
+export const listVoters = () => server.get<VoterInfo[]>("/api/host/voters");
+export const addVoter = (name: string, isHost: boolean) =>
+  server.post<Invite>("/api/host/voters", { name, isHost });
+export const resetInvite = (voter: string) =>
+  server.post<Invite>(`/api/host/voters/${voter}/reset-invite`);
+export const removeVoter = (voter: string) =>
+  server.delete<void>(`/api/host/voters/${voter}`);
+/** Removes every voter who isn't a host. */
+export const removeAllVoters = () => server.delete<void>("/api/host/voters");
 
-export async function closeMeeting(): Promise<void> {
-  const res = await apiFetch("/api/host/close-meeting", { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
+// ── Rounds ───────────────────────────────────────────────────────────────────
 
-// ─── Vote progress ────────────────────────────────────────────────────────────
+export const getRound = () => server.get<HostRoundView>("/api/host/round");
+export const startRound = (
+  name: string,
+  candidates: string[],
+  maxChoices: number,
+  shuffle: boolean,
+) =>
+  server.post<HostRoundView>("/api/host/round", {
+    name,
+    candidates,
+    maxChoices,
+    shuffle,
+  });
+export const closeRound = () =>
+  server.post<HostRoundView>("/api/host/round/close");
+/** Cancels an open round or clears a closed one's result. */
+export const resetRound = () => server.delete<void>("/api/host/round");
 
-export async function fetchVoteProgress(): Promise<VoteProgress> {
-  const res = await apiFetch("/api/common/vote-progress");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+// ── Meeting ──────────────────────────────────────────────────────────────────
+
+export const getTallyFiles = () =>
+  server.get<TallyFileEntry[]>("/api/host/tally-files");
+export const closeMeeting = () => server.delete<void>("/api/host/meeting");

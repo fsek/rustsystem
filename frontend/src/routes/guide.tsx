@@ -249,20 +249,20 @@ function GuidePage() {
           </Note>
         </StepSection>
 
-        <StepSection number={4} title="Voters register and cast ballots">
+        <StepSection number={4} title="Voters cast ballots">
           <p>
-            Each voter's browser performs two steps before a ballot is recorded:
+            Each voter selects their option(s) and presses <em>Submit vote</em> (or <em>Blank vote</em>). Behind that one click, their browser:
           </p>
           <ol className="mt-3 flex flex-col gap-2 list-decimal list-inside">
             <li>
-              <strong style={{ color: "var(--textPrimary)" }}>Register</strong> — the voter presses <em>Register to vote</em>. Their browser creates a cryptographic commitment and sends it to the signing authority, which issues a blind signature confirming eligibility without learning the voter's choice.
+              <strong style={{ color: "var(--textPrimary)" }}>Seals the ballot</strong> and has the signing authority sign it. The signing authority checks the voter hasn't voted yet, but never sees the choice.
             </li>
             <li>
-              <strong style={{ color: "var(--textPrimary)" }}>Submit</strong> — the voter selects their option(s) and presses <em>Submit</em>. The browser produces a proof from the blind signature and sends it with the vote to the server. The server verifies the proof and marks the signature as spent.
+              <strong style={{ color: "var(--textPrimary)" }}>Submits it anonymously</strong> — the signed ballot goes to the server without any login, so the server counts it without knowing whose it is.
             </li>
           </ol>
           <p className="mt-3">
-            The host dashboard shows vote progress in real time.
+            Voters can refresh or close the page afterwards: it remembers they have voted. The host dashboard shows progress in real time, including how many ballots were signed. If more ballots were signed than arrived, someone closed their page in the split second between the two steps, and you may want to run the round again.
           </p>
         </StepSection>
 
