@@ -273,13 +273,13 @@ function EncryptionPage() {
         <div className="mb-8">
           <Reveal>
             <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--textSecondary)" }}>
-              Rustsystem runs as two services. Trustauth knows who you are; the server counts the votes. A blind signature lets trustauth sign your ballot inside a sealed envelope: it never sees what you voted, yet the signature it produces is valid on the ballot itself — and mathematically impossible for trustauth to recognise later.
+              Rustsystem runs as two services. Trustauth knows who you are; the server counts the votes. A blind signature lets trustauth sign your ballot inside a sealed envelope: it never sees what you voted, yet the signature it produces is valid on the ballot itself, and mathematically impossible for trustauth to recognise later.
             </p>
           </Reveal>
 
           <div className="flex flex-col gap-1">
             <Step number={1} title="Browser writes the ballot and seals it">
-              When you press Vote, your browser writes your ballot — the round, your choice and a random nonce — and blinds it with a random factor using the round's public key, which it takes from the server. The blinded ballot looks like random noise.
+              When you press Vote, your browser writes your ballot (the round, your choice and a random nonce) and blinds it with a random factor using the round's public key, which it takes from the server. The blinded ballot looks like random noise.
             </Step>
             <Step number={2} title="Trustauth signs the sealed ballot, once">
               Your browser sends the blinded ballot to trustauth with your login. Trustauth checks that you are eligible for this round and haven't voted yet, records that you have, and signs. It stores nothing about the ballot or the signature.
@@ -336,7 +336,7 @@ function EncryptionPage() {
           <SectionHeading
             badge="Tally encryption"
             title="X25519 ECIES with ChaCha20-Poly1305"
-            subtitle="Tally files are written to disk encrypted with the host's public key. The server can encrypt but never decrypt — only someone with the meeting password can read the results."
+            subtitle="Tally files are written to disk encrypted with the host's public key. The server can encrypt but never decrypt; only someone with the meeting password can read the results."
           />
 
           <div className="flex flex-col gap-1 mb-8">

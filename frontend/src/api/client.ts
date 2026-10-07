@@ -3,7 +3,7 @@
  *
  * - The **server** is same-origin; its session cookie (`rs_session`) is sent with every request.
  * - **Trustauth** is a different origin, which the server announces at runtime in
- *   `GET /api/config` — so one build works in development and production alike. Its cookie
+ *   `GET /api/config`, so one build works in development and production alike. Its cookie
  *   (`ta_session`) is sent cross-origin (`credentials: "include"`), which its CORS policy allows
  *   for the server's origins only.
  *

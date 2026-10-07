@@ -12,9 +12,9 @@ plain words; everything after that is detail you can jump to.
 1. [The idea in one minute](#1-the-idea-in-one-minute)
 2. [Who knows what](#2-who-knows-what)
 3. [Identifiers and secrets](#3-identifiers-and-secrets)
-4. [Meeting lifecycle](#4-meeting-lifecycle) — creating a meeting, inviting, logging in,
+4. [Meeting lifecycle](#4-meeting-lifecycle): creating a meeting, inviting, logging in,
    [agenda and attendance](#45-agenda-and-attendance)
-5. [Voting round](#5-voting-round) — starting, signing, submitting, closing
+5. [Voting round](#5-voting-round): starting, signing, submitting, closing
 6. [Ballot format and validation](#6-ballot-format-and-validation)
 7. [Refreshing, closing the browser, and lost votes](#7-refreshing-closing-the-browser-and-lost-votes)
 8. [Tally files](#8-tally-files)
@@ -29,7 +29,7 @@ plain words; everything after that is detail you can jump to.
 Rustsystem runs as two services:
 
 - **Trustauth** knows _who_ you are. Once per voting round it will put its signature on
-  one ballot for you — but it signs the ballot _blind_, inside a sealed envelope, so it never
+  one ballot for you, but it signs the ballot _blind_, inside a sealed envelope, so it never
   sees what you voted.
 - **The server** knows _what_ was voted. It accepts any ballot that carries a valid trustauth
   signature, but ballots arrive without any login, so it never learns whose ballot it is.
@@ -67,7 +67,7 @@ ballot only exists in memory for the second it takes to sign and submit it. See
 
 **Trust model.** Anonymity holds as long as trustauth and the server do not pool what they
 know (see [§9](#9-guarantees-and-known-limits) for exactly what pooling would reveal). Hosts
-run the meeting — they manage the voter list and open and close rounds — but they cannot see
+run the meeting (they manage the voter list and open and close rounds), but they cannot see
 how anyone voted, and they cannot read tally files without the meeting password.
 
 ## 3. Identifiers and secrets
@@ -85,7 +85,7 @@ padding.
 | Trustauth session | 32 random bytes, cookie `ta_session`              | 12 h                | trustauth stores SHA-256 → (meeting, voter)            | Authenticates the browser to trustauth.                                        |
 | Round ID          | UUID v4                                           | round               | server, trustauth                                      | Binds ballots to one round. Not secret.                                        |
 | Round key pair    | RSA-2048, RSABSSA-SHA384-PSS-Randomized           | round               | private: trustauth; public: everyone                   | Signs ballots. Regenerated every round.                                        |
-| Ballot nonce      | 32 random bytes                                   | —                   | inside the ballot                                      | Makes every ballot unique.                                                     |
+| Ballot nonce      | 32 random bytes                                   | n/a                 | inside the ballot                                      | Makes every ballot unique.                                                     |
 | Tally key         | X25519 key pair derived from the meeting password | meeting             | public key + KDF params on server; private key nowhere | Encrypts tally files at rest.                                                  |
 
 **Cookies** on both services are `HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`, plus
@@ -123,7 +123,7 @@ code of it):
 https://<server>/login?meeting=<meeting id>&invite=<invite secret>
 ```
 
-The link contains nothing about host status — that lives only on the voter record. Hosts
+The link contains nothing about host status; that lives only on the voter record. Hosts
 learn that the voter has logged in through the meeting event stream ([§5.6](#56-live-updates)).
 
 **Resetting an invite** (`POST /api/host/voters/{id}/reset-invite`) replaces the invite
@@ -198,14 +198,14 @@ This is five points: _Opening_, _Election of chair_, _Nominations_, _Vote_, _Clo
 Every member sees the same agenda in `GET /api/meeting` (`agenda: {points: [{level, title,
 body}], current}`, or `null`). Browsers show bodies as plain text, never as HTML.
 
-- **Moving** — `PUT /api/host/agenda/current` `{"index": n}` makes point `n` (0-based) the
+- **Moving**: `PUT /api/host/agenda/current` `{"index": n}` makes point `n` (0-based) the
   current one, forward or back. The index is absolute rather than "next", so two hosts
   clicking at the same moment can't skip a point. It fails with `NoAgenda` without an agenda
   and `InvalidInput` for an index that doesn't exist.
-- **Editing** — uploading again replaces the agenda. The meeting stays on the same point if
+- **Editing**: uploading again replaces the agenda. The meeting stays on the same point if
   a point with that title still exists (the first at or after the old position, else the
   nearest before it); otherwise it keeps the same position, clamped to the new length.
-- **Removing** — `DELETE /api/host/agenda`. `GET /api/host/agenda` returns the Markdown for
+- **Removing**: `DELETE /api/host/agenda`. `GET /api/host/agenda` returns the Markdown for
   editing.
 
 None of this is blocked while a round is open.
@@ -255,8 +255,8 @@ stateDiagram-v2
 4. Remove voters who never claimed their invite, and enter `Voting` with
    `{round id, name, candidates, max_choices, public key, eligible count}`.
 
-The meeting stays locked throughout. If step 3 fails, nothing changes — not even the unclaimed
-invites — and the host gets an error.
+The meeting stays locked throughout. If step 3 fails, nothing changes (not even the unclaimed
+invites are removed) and the host gets an error.
 
 ### 5.2 Getting a signature
 
@@ -285,7 +285,7 @@ ballot later (a "key tagging" attack).
 ### 5.3 Submitting the ballot
 
 ```
-POST /api/ballot        (sent with credentials: "omit" — no cookies)
+POST /api/ballot        (sent with credentials: "omit", so no cookies)
 { "meeting": "<id>", "prepared": "<b64url>", "sig": "<b64url>" }
 ```
 
@@ -299,7 +299,7 @@ The server processes it in this order, rejecting at the first failure:
 | 4   | `msg` (= `prepared[32..]`) parses and passes every rule in [§6](#6-ballot-format-and-validation), including `round` = current round | `InvalidBallot`                    |
 | 5   | `SHA-256(prepared)` not already received                                                                                            | `AlreadyReceived`                  |
 | 6   | received count < eligible count                                                                                                     | `BallotLimitReached`               |
-| 7   | Record hash, count the choice, notify watchers                                                                                      | —                                  |
+| 7   | Record hash, count the choice, notify watchers                                                                                      | none                               |
 
 `AlreadyReceived` means _this exact ballot_ is already counted, so the browser treats it as
 success. That makes submission safe to retry.
@@ -314,7 +314,7 @@ server would not read it. Nothing on this path logs anything that identifies a v
 1. Compute the tally from the counted ballots.
 2. Ask trustauth for the signed count (`GET /internal/rounds/{meeting}`). If trustauth is
    unreachable, record it as unknown rather than failing.
-3. Encrypt and write the tally file **atomically** (write to a temp file, then rename) —
+3. Encrypt and write the tally file **atomically** (write to a temp file, then rename);
    see [§8](#8-tally-files).
 4. Only if step 3 succeeded: enter `Tallied` and tell trustauth to drop the round
    (`DELETE /internal/rounds/{meeting}`, best effort).
@@ -383,8 +383,8 @@ login, not from anything stored in the browser.
 there is a window of roughly 100 ms where the signed ballot exists only in the page's memory.
 During it the page asks for confirmation before it can be closed. Submission is retried with
 backoff for about two minutes, and if it still fails the signed ballot is kept in memory and
-the voter can press Submit again — retries are safe ([§5.3](#53-submitting-the-ballot)). If the
-page dies inside that window anyway, the vote is lost — and since trustauth already counted
+the voter can press Submit again; retries are safe ([§5.3](#53-submitting-the-ballot)). If the
+page dies inside that window anyway, the vote is lost, and since trustauth already counted
 the voter as signed, they can't vote again.
 
 To catch this, the host's view shows three numbers for the round:
@@ -449,7 +449,7 @@ Argon2id and decrypt locally.
   under the round key, only trustauth holds it, and trustauth signs once per eligible voter ID.
   Voter IDs never change, and the voter list is frozen while a round is open.
 - **No ballot is counted twice.** The server remembers the hash of every ballot it counts.
-- **Ballots can't be altered** after signing — any change breaks the signature.
+- **Ballots can't be altered** after signing: any change breaks the signature.
 - **Trustauth can't link a ballot to a voter**, even if it logs everything it sees. The RSA
   blind signature it returns is statistically independent of the final signature on the
   ballot.
@@ -477,7 +477,7 @@ Argon2id and decrypt locally.
 | Purpose                         | Choice                                                                                              | Library (Rust / browser)                                                                                                                                                          |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Ballot signatures               | RSA blind signatures, RFC 9474 `RSABSSA-SHA384-PSS-Randomized`, 2048-bit, new key per round         | [`blind-rsa-signatures`](https://crates.io/crates/blind-rsa-signatures) 0.18 / [`@cloudflare/blindrsa-ts`](https://www.npmjs.com/package/@cloudflare/blindrsa-ts) 0.4 (WebCrypto) |
-| Public key encoding             | SPKI DER, `rsaEncryption` OID (`PublicKey::to_der`), imported in the browser as `RSA-PSS`/`SHA-384` | —                                                                                                                                                                                 |
+| Public key encoding             | SPKI DER, `rsaEncryption` OID (`PublicKey::to_der`), imported in the browser as `RSA-PSS`/`SHA-384` | n/a                                                                                                                                                                               |
 | Password → tally key            | Argon2id v1.3, t=3, m=64 MiB, p=1, 16-byte salt per meeting                                         | [`argon2`](https://crates.io/crates/argon2) / [`@noble/hashes`](https://www.npmjs.com/package/@noble/hashes)                                                                      |
 | Tally encryption                | X25519 + HKDF-SHA256 + ChaCha20-Poly1305                                                            | `x25519-dalek`, `hkdf`, `chacha20poly1305` / `@noble/curves` + WebCrypto                                                                                                          |
 | Session, invite, ticket secrets | 32 random bytes, stored as SHA-256                                                                  | `rand`                                                                                                                                                                            |

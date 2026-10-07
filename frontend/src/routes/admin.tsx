@@ -178,7 +178,7 @@ function QRPanel({
 
   return (
     <Panel
-      title={`Invite — ${result.voterName}`}
+      title={`Invite for ${result.voterName}`}
       actions={
         <button
           type="button"
@@ -191,7 +191,7 @@ function QRPanel({
       }
     >
       <div className="flex flex-col gap-4">
-        {/* QR code — white background ensures readability regardless of theme */}
+        {/* QR code: white background ensures readability regardless of theme */}
         <div className="flex justify-center">
           <div
             className="rounded-xl p-3 inline-block"
@@ -860,7 +860,7 @@ function HostVoteRoundPanel({
                 style={{ color: "var(--textSecondary)" }}
               >
                 <span>Ballots signed</span>
-                <span className="tabular-nums">{counts?.signed ?? "—"}</span>
+                <span className="tabular-nums">{counts?.signed ?? "?"}</span>
               </div>
             </div>
 
@@ -920,7 +920,7 @@ function HostVoteRoundPanel({
                     {lostVotes === 1
                       ? "One ballot was"
                       : `${lostVotes} ballots were`}{" "}
-                    signed but never arrived — a voter likely closed their page
+                    signed but never arrived. A voter likely closed their page
                     mid-vote. Consider running this round again.
                   </Alert>
                 )}
@@ -1170,7 +1170,7 @@ function Admin() {
       URL.revokeObjectURL(url);
     } catch (err) {
       setTallyDownloadError(
-        "Failed to decrypt — check that you entered the correct password.",
+        "Failed to decrypt. Check that you entered the correct password.",
       );
       console.error(err);
     } finally {
