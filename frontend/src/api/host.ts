@@ -1,9 +1,10 @@
 /**
- * Host-only API: the voter list, vote rounds, tally files, closing the meeting.
+ * Host-only API: the voter list, vote rounds, the agenda and attendance, tally files, closing
+ * the meeting.
  */
 
 import { server } from "./client";
-import type { RoundView } from "./meeting";
+import type { AgendaView, RoundView } from "./meeting";
 
 export interface VoterInfo {
   id: string;
@@ -95,6 +96,38 @@ export const closeRound = () =>
   server.post<HostRoundView>("/api/host/round/close");
 /** Cancels an open round or clears a closed one's result. */
 export const resetRound = () => server.delete<void>("/api/host/round");
+
+// ── Agenda and attendance ────────────────────────────────────────────────────
+
+/** One attendance check: everyone logged in at the time. */
+export interface Attendance {
+  /** RFC 3339. */
+  takenAt: string;
+  /** The agenda point as it was then; `null` if there was no agenda. */
+  point: { index: number; title: string } | null;
+  present: { id: string; name: string; isHost: boolean }[];
+}
+
+export interface AttendanceLog {
+  meeting: string;
+  /** RFC 3339. */
+  exportedAt: string;
+  /** Oldest first. */
+  records: Attendance[];
+}
+
+/** The agenda's Markdown, for editing. Fails with `NoAgenda` if there is none. */
+export const getAgendaSource = () =>
+  server.get<{ source: string }>("/api/host/agenda");
+export const setAgenda = (markdown: string) =>
+  server.put<AgendaView>("/api/host/agenda", { markdown });
+export const clearAgenda = () => server.delete<void>("/api/host/agenda");
+export const goToAgendaPoint = (index: number) =>
+  server.put<AgendaView>("/api/host/agenda/current", { index });
+export const takeAttendance = () =>
+  server.post<Attendance>("/api/host/attendance");
+export const getAttendance = () =>
+  server.get<AttendanceLog>("/api/host/attendance");
 
 // ── Meeting ──────────────────────────────────────────────────────────────────
 

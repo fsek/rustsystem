@@ -74,6 +74,8 @@ export const server = {
       ...json("POST", body ?? {}),
       credentials: "include",
     }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(apiUrl(path), { ...json("PUT", body), credentials: "include" }),
   delete: <T>(path: string) =>
     request<T>(apiUrl(path), { method: "DELETE", credentials: "include" }),
   /** For `POST /api/ballot`: no cookies at all, so the ballot can't be tied to a session. */

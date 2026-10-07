@@ -487,3 +487,64 @@ async fn event_stream_sends_counters_and_ends_when_the_meeting_closes() {
     host.delete("/api/host/meeting").await;
     while next().await.is_some() {}
 }
+
+// ── Agenda and attendance (§4.5) ─────────────────────────────────────────────
+
+#[tokio::test]
+async fn agenda_and_attendance() {
+    let env = TestEnv::start().await;
+    let (host, voters, _) = meeting(&env, 2).await;
+    let voter = &voters[0];
+
+    let (_, view) = voter.get("/api/meeting").await;
+    assert_eq!(view["agenda"], Value::Null);
+    let (status, body) = host.put("/api/host/agenda/current", json!({ "index": 0 })).await;
+    assert_eq!((status, error_code(&body)), (StatusCode::CONFLICT, "NoAgenda"));
+
+    let agenda = "# Opening\nWelcome.\n## Election of chair\n# Closing\n";
+    let (status, body) = host.put("/api/host/agenda", json!({ "markdown": agenda })).await;
+    assert_eq!(status, StatusCode::OK, "set agenda: {body}");
+    let (_, source) = host.get("/api/host/agenda").await;
+    assert_eq!(source["source"], agenda);
+
+    // Voters see the same agenda and follow the host forward and back.
+    let (_, before) = voter.get("/api/meeting").await;
+    host.put("/api/host/agenda/current", json!({ "index": 2 })).await;
+    let (status, _) = host.put("/api/host/agenda/current", json!({ "index": 1 })).await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, view) = voter.get("/api/meeting").await;
+    assert_eq!(view["agenda"]["current"], 1);
+    assert_eq!(view["agenda"]["points"][0], json!({ "level": 1, "title": "Opening", "body": "Welcome." }));
+    assert!(view["agendaVersion"].as_u64() > before["agendaVersion"].as_u64(), "voter pages refetch on agenda changes");
+    let (status, body) = host.put("/api/host/agenda/current", json!({ "index": 3 })).await;
+    assert_eq!((status, error_code(&body)), (StatusCode::BAD_REQUEST, "InvalidInput"));
+
+    // Attendance: everyone logged in, then again after a removal.
+    let (status, first) = host.post("/api/host/attendance", json!({})).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(first["point"], json!({ "index": 1, "title": "Election of chair" }));
+    assert_eq!(first["present"].as_array().unwrap().len(), 3);
+    host.delete(&format!("/api/host/voters/{}", voters[1].voter.unwrap())).await;
+    host.post("/api/host/attendance", json!({})).await;
+
+    let (_, log) = host.get("/api/host/attendance").await;
+    assert_eq!(log["meeting"], "Vårmöte");
+    let counts: Vec<_> = log["records"].as_array().unwrap().iter().map(|r| r["present"].as_array().unwrap().len()).collect();
+    assert_eq!(counts, [3, 2]);
+
+    // Hosts only.
+    for (status, body) in [
+        voter.get("/api/host/agenda").await,
+        voter.put("/api/host/agenda", json!({ "markdown": "# X" })).await,
+        voter.put("/api/host/agenda/current", json!({ "index": 0 })).await,
+        voter.post("/api/host/attendance", json!({})).await,
+        voter.get("/api/host/attendance").await,
+        voter.delete("/api/host/agenda").await,
+    ] {
+        assert_eq!((status, error_code(&body)), (StatusCode::FORBIDDEN, "NotHost"));
+    }
+
+    let (status, _) = host.delete("/api/host/agenda").await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(voter.get("/api/meeting").await.1["agenda"], Value::Null);
+}

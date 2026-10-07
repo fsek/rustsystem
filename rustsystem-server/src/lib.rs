@@ -32,6 +32,12 @@
 //! | DELETE | `/api/host/round` | host | [`api::round::reset`] |
 //! | POST | `/api/host/round/close` | host | [`api::round::close`] |
 //! | GET | `/api/host/tally-files` | host | [`api::round::tally_files`] |
+//! | GET | `/api/host/agenda` | host | [`api::agenda::source`] |
+//! | PUT | `/api/host/agenda` | host | [`api::agenda::set`] |
+//! | DELETE | `/api/host/agenda` | host | [`api::agenda::clear`] |
+//! | PUT | `/api/host/agenda/current` | host | [`api::agenda::go_to`] |
+//! | GET | `/api/host/attendance` | host | [`api::agenda::attendance_log`] |
+//! | POST | `/api/host/attendance` | host | [`api::agenda::take_attendance`] |
 //! | DELETE | `/api/host/meeting` | host | [`api::meeting::close`] |
 //!
 //! Everything outside `/api` serves the frontend.
@@ -41,7 +47,7 @@ use std::path::Path;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use tower_http::services::{ServeDir, ServeFile};
 
@@ -50,6 +56,7 @@ use rustsystem_core::{
     limits::{MAX_BODY_BYTES, RateLimitLayer},
 };
 
+pub mod agenda;
 pub mod api;
 pub mod app;
 pub mod auth;
@@ -71,7 +78,7 @@ pub struct RateLimits {
 }
 
 pub fn api_router(limits: RateLimits) -> Router<AppState> {
-    use api::{ballot, events, meeting, round, voters};
+    use api::{agenda, ballot, events, meeting, round, voters};
 
     let mut create = post(meeting::create);
     if let Some(layer) = limits.create_meeting {
@@ -85,6 +92,9 @@ pub fn api_router(limits: RateLimits) -> Router<AppState> {
         .route("/round", get(round::status).post(round::start).delete(round::reset))
         .route("/round/close", post(round::close))
         .route("/tally-files", get(round::tally_files))
+        .route("/agenda", get(agenda::source).put(agenda::set).delete(agenda::clear))
+        .route("/agenda/current", put(agenda::go_to))
+        .route("/attendance", get(agenda::attendance_log).post(agenda::take_attendance))
         .route("/meeting", delete(meeting::close));
 
     let mut api = Router::new()
