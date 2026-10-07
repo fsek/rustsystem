@@ -107,6 +107,35 @@ describe("AgendaPanel", () => {
     expect(screen.getByText("Take attendance")).toBeTruthy();
   });
 
+  it("scrolls the list, not the page, to the current point", () => {
+    const listScroll = vi.fn();
+    const pageScroll = vi
+      .spyOn(window, "scrollTo")
+      .mockImplementation(() => {});
+    HTMLElement.prototype.scrollTo = listScroll;
+    try {
+      const { rerender } = render(<AgendaPanel agenda={AGENDA} />);
+      expect(listScroll).toHaveBeenCalledTimes(1);
+      expect(listScroll.mock.calls[0][0].behavior).toBe("auto");
+      rerender(<AgendaPanel agenda={{ ...AGENDA, current: 2 }} />);
+      expect(listScroll).toHaveBeenCalledTimes(2);
+      expect(listScroll.mock.calls[1][0].behavior).toBe("smooth");
+      expect(pageScroll).not.toHaveBeenCalled();
+    } finally {
+      // @ts-expect-error jsdom has no element scrolling; remove the stub again.
+      delete HTMLElement.prototype.scrollTo;
+      pageScroll.mockRestore();
+    }
+  });
+
+  it("keeps the controls outside the scrolling list", () => {
+    render(<AgendaPanel agenda={AGENDA} host={hostActions()} />);
+    const list = screen.getByRole("list", { name: "Agenda points" });
+    expect(list.style.maxHeight).toBe("24rem");
+    expect(list.contains(screen.getByText("Next →"))).toBe(false);
+    expect(list.contains(screen.getByText("Take attendance"))).toBe(false);
+  });
+
   it("shows server errors", async () => {
     const host = hostActions();
     host.goTo = vi.fn().mockRejectedValue(new Error("Nope"));
