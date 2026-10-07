@@ -344,8 +344,8 @@ function Hero() {
             className="text-xl max-w-2xl mx-auto leading-relaxed"
             style={{ color: "var(--textSecondary)" }}
           >
-            Cryptographically verified, fully anonymous ballots using BLS12-381
-            blind signatures. No database. No identity linking.
+            Cryptographically verified, fully anonymous ballots using RSA blind
+            signatures. No database. No identity linking.
           </p>
         </div>
 
