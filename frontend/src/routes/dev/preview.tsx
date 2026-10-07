@@ -243,7 +243,7 @@ const VOTE_WIDTHS: Record<Size, string> = {
 
 function ButtonsFilled() {
   return (
-    <Section title="Buttons — Filled">
+    <Section title="Buttons: Filled">
       {BUTTON_ROWS.map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
@@ -261,7 +261,7 @@ function ButtonsFilled() {
 
 function ButtonsOutline() {
   return (
-    <Section title="Buttons — Outline">
+    <Section title="Buttons: Outline">
       {BUTTON_ROWS.slice(0, 2).map((row) => (
         <ColorRow key={row.key} label={row.label}>
           {SIZES.map((s) => (
@@ -591,7 +591,7 @@ function Preview() {
         Component Preview
       </h1>
       <p className="mb-14 text-sm" style={{ color: "var(--textSecondary)" }}>
-        FSEK · Design system — 6 sizes × 3 colors × 2 text weights
+        FSEK · Design system: 6 sizes × 3 colors × 2 text weights
       </p>
 
       <ColorPalette />

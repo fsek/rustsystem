@@ -461,13 +461,13 @@ function HowItWorks() {
       icon: <IconShield />,
       title: "Signing authority signs without seeing",
       description:
-        "The signing authority (trustauth) confirms the voter is eligible and hasn't voted, then signs the sealed ballot — without ever seeing what's inside. The link between voter and ballot is broken.",
+        "The signing authority (trustauth) confirms the voter is eligible and hasn't voted, then signs the sealed ballot without ever seeing what's inside. The link between voter and ballot is broken.",
     },
     {
       icon: <IconCheckCircle />,
       title: "Vote is cast anonymously",
       description:
-        "The browser unseals the signature and sends the ballot to the server without any login. The server checks the signature and counts the ballot once — without knowing who voted.",
+        "The browser unseals the signature and sends the ballot to the server without any login. The server checks the signature and counts the ballot once, without knowing who voted.",
     },
   ];
 
@@ -549,7 +549,7 @@ function Guarantees() {
               className="text-lg max-w-xl mx-auto"
               style={{ color: "var(--textSecondary)" }}
             >
-              Every layer of the system is built to guarantee anonymity — not as
+              Every layer of the system is built to guarantee anonymity, not as
               a feature, but as a mathematical property.
             </p>
           </div>

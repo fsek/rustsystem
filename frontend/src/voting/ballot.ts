@@ -4,7 +4,7 @@
  * 1. Build the ballot `{"v":1,"round":…,"choice":…,"nonce":…}` and check it against the same
  *    rules the server uses (`rustsystem-server/src/ballot.rs`). A ballot trustauth has signed
  *    but the server rejects would cost the voter their vote, so this check must come first.
- * 2. Blind it with the round's public key — taken from the *server* — and have trustauth sign
+ * 2. Blind it with the round's public key (taken from the *server*) and have trustauth sign
  *    the blinded value. Trustauth sees who is voting, but not what.
  * 3. Unblind. This also verifies the signature against the server's key, so trustauth can't
  *    sign with a voter-specific key to recognise the ballot later.
@@ -126,7 +126,7 @@ function retryable(err: unknown): boolean {
 }
 
 /**
- * Step 4: submits anonymously. Safe to repeat — the server counts an identical ballot once and
+ * Step 4: submits anonymously. Safe to repeat: the server counts an identical ballot once and
  * answers `AlreadyReceived`, which means it was counted.
  */
 export async function submitBallot(
