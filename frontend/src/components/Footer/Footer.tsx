@@ -24,6 +24,14 @@ export function Footer() {
         >
           Cryptography
         </Link>
+        <span style={{ color: "var(--border)" }}>|</span>
+        <Link
+          to="/customize-theme"
+          style={{ color: "var(--primary)" }}
+          className="font-medium hover:underline"
+        >
+          Customize Theme
+        </Link>
       </div>
       <p className="text-sm" style={{ color: "var(--textSecondary)" }}>
         Built for{" "}

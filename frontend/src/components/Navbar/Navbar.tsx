@@ -4,6 +4,7 @@ import { ThemeButton } from "./ThemeButton/ThemeButton";
 const NAV_LINKS = [
   { to: "/guide", label: "Guide" },
   { to: "/encryption", label: "Cryptography" },
+  { to: "/customize-theme", label: "Customize Theme" },
 ] as const;
 
 export function Navbar() {

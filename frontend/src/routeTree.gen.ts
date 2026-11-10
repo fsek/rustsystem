@@ -15,6 +15,7 @@ import { Route as MeetingImport } from './routes/meeting'
 import { Route as LoginImport } from './routes/login'
 import { Route as GuideImport } from './routes/guide'
 import { Route as EncryptionImport } from './routes/encryption'
+import { Route as CustomizeThemeImport } from './routes/customize-theme'
 import { Route as CreateMeetingImport } from './routes/create-meeting'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
@@ -45,6 +46,12 @@ const GuideRoute = GuideImport.update({
 const EncryptionRoute = EncryptionImport.update({
   id: '/encryption',
   path: '/encryption',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CustomizeThemeRoute = CustomizeThemeImport.update({
+  id: '/customize-theme',
+  path: '/customize-theme',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -109,6 +116,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreateMeetingImport
       parentRoute: typeof rootRoute
     }
+    '/customize-theme': {
+      id: '/customize-theme'
+      path: '/customize-theme'
+      fullPath: '/customize-theme'
+      preLoaderRoute: typeof CustomizeThemeImport
+      parentRoute: typeof rootRoute
+    }
     '/encryption': {
       id: '/encryption'
       path: '/encryption'
@@ -167,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/customize-theme': typeof CustomizeThemeRoute
   '/encryption': typeof EncryptionRoute
   '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
@@ -180,6 +195,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/customize-theme': typeof CustomizeThemeRoute
   '/encryption': typeof EncryptionRoute
   '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
@@ -194,6 +210,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/create-meeting': typeof CreateMeetingRoute
+  '/customize-theme': typeof CustomizeThemeRoute
   '/encryption': typeof EncryptionRoute
   '/guide': typeof GuideRoute
   '/login': typeof LoginRoute
@@ -209,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/customize-theme'
     | '/encryption'
     | '/guide'
     | '/login'
@@ -221,6 +239,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/customize-theme'
     | '/encryption'
     | '/guide'
     | '/login'
@@ -233,6 +252,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/create-meeting'
+    | '/customize-theme'
     | '/encryption'
     | '/guide'
     | '/login'
@@ -247,6 +267,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CreateMeetingRoute: typeof CreateMeetingRoute
+  CustomizeThemeRoute: typeof CustomizeThemeRoute
   EncryptionRoute: typeof EncryptionRoute
   GuideRoute: typeof GuideRoute
   LoginRoute: typeof LoginRoute
@@ -260,6 +281,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CreateMeetingRoute: CreateMeetingRoute,
+  CustomizeThemeRoute: CustomizeThemeRoute,
   EncryptionRoute: EncryptionRoute,
   GuideRoute: GuideRoute,
   LoginRoute: LoginRoute,
@@ -282,6 +304,7 @@ export const routeTree = rootRoute
         "/",
         "/admin",
         "/create-meeting",
+        "/customize-theme",
         "/encryption",
         "/guide",
         "/login",
@@ -299,6 +322,9 @@ export const routeTree = rootRoute
     },
     "/create-meeting": {
       "filePath": "create-meeting.tsx"
+    },
+    "/customize-theme": {
+      "filePath": "customize-theme.tsx"
     },
     "/encryption": {
       "filePath": "encryption.tsx"
