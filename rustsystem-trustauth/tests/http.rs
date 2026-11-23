@@ -1,7 +1,7 @@
 //! Trustauth over HTTP: the full login → status → sign flow, the rules it must enforce, and
 //! the request limits as a cross-origin browser sees them.
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Duration};
 
 use axum::{
     Router,
@@ -17,16 +17,23 @@ use uuid::Uuid;
 use rustsystem_core::{
     blind::{RoundPublicKey, SIGNATURE_LEN, client},
     internal::{RoundStatus, StartRoundResponse},
-    limits::{ClientIp, GENERAL, rate_limit_forced},
+    limits::{ClientIp, Quota, rate_limit_forced},
     secret::{b64_decode, b64_encode, new_token},
 };
 use rustsystem_trustauth::{AppState, internal_router, public_router};
 
 const ORIGIN: &str = "http://localhost:1443";
 
+/// Refills too slowly to matter during a test. `GENERAL` refills every 5ms, so on a slow
+/// runner the bucket never empties and the 429 test races the clock.
+const TEST_QUOTA: Quota = Quota {
+    burst: 10,
+    replenish_every: Duration::from_secs(60),
+};
+
 fn routers(rate_limited: bool) -> (Router, Router) {
     let app = AppState::new(false);
-    let limit = rate_limited.then(|| rate_limit_forced(GENERAL, ClientIp::default()));
+    let limit = rate_limited.then(|| rate_limit_forced(TEST_QUOTA, ClientIp::default()));
     (
         public_router(app.clone(), vec![HeaderValue::from_static(ORIGIN)], limit),
         internal_router(app),
@@ -274,21 +281,18 @@ async fn oversized_body_is_413_and_readable_cross_origin() {
 async fn rate_limit_is_429_and_readable_cross_origin() {
     let (public, _) = routers(true);
     let login = || request(Method::POST, "/api/login", Some(json!({ "ticket": "x" })), None);
-    for _ in 0..GENERAL.burst + 50 {
-        let (code, body, res) = send(&public, login()).await;
-        if code == StatusCode::TOO_MANY_REQUESTS {
-            assert_eq!(body["code"], "RateLimited");
-            assert!(allows_origin(&res));
-            return;
-        }
+    for _ in 0..TEST_QUOTA.burst {
+        assert_ne!(send(&public, login()).await.0, StatusCode::TOO_MANY_REQUESTS);
     }
-    panic!("hammering one IP past the burst must produce a 429");
+    let (code, body, res) = send(&public, login()).await;
+    assert_eq!((code, body["code"].clone()), (StatusCode::TOO_MANY_REQUESTS, json!("RateLimited")));
+    assert!(allows_origin(&res));
 }
 
 #[tokio::test]
 async fn preflight_is_allowed_and_never_throttled() {
     let (public, _) = routers(true);
-    for _ in 0..GENERAL.burst + 50 {
+    for _ in 0..TEST_QUOTA.burst + 50 {
         let mut req = request(Method::OPTIONS, "/api/sign", None, None);
         req.headers_mut().insert(header::ACCESS_CONTROL_REQUEST_METHOD, HeaderValue::from_static("POST"));
         req.headers_mut().insert(header::ACCESS_CONTROL_REQUEST_HEADERS, HeaderValue::from_static("content-type"));
